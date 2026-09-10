@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Diagnóstico de red</title>
+  <meta name="robots" content="noindex" />
+  <style>
+    /* Página sin dependencias de ningún tipo: si esto no carga, no hay red. */
+    :root {
+      --fondo: #ece7dd; --papel: #fbf8f3; --tinta: #1d1a17; --tenue: #6d675e;
+      --linea: #d3cbbd; --bien: #1f7a4d; --mal: #8d3b2f; --espera: #9a6f0a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --fondo: #14120f; --papel: #1e1b17; --tinta: #f0eae0; --tenue: #a49b8d;
+        --linea: #342f28; --bien: #4ec38a; --mal: #d4685a; --espera: #e0a92e;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--fondo); color: var(--tinta); line-height: 1.5;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      padding-block: 26px 50px; padding-inline: 16px;
+    }
+    main { max-width: 460px; margin: 0 auto; }
+    h1 { font-size: 1.25rem; margin: 0 0 4px; }
+    .intro { color: var(--tenue); font-size: 0.9rem; margin: 0 0 20px; }
+    .prueba {
+      background: var(--papel); border: 1px solid var(--linea);
+      border-left: 4px solid var(--linea); border-radius: 10px;
+      padding: 13px 15px; margin-bottom: 10px;
+    }
+    .prueba.bien { border-left-color: var(--bien); }
+    .prueba.mal { border-left-color: var(--mal); }
+    .prueba.espera { border-left-color: var(--espera); }
+    .titulo { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .titulo strong { font-size: 0.95rem; }
+    .tiempo {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.85rem; color: var(--tenue); white-space: nowrap;
+    }
+    .detalle { margin: 4px 0 0; font-size: 0.85rem; color: var(--tenue); word-break: break-word; }
+    .veredicto {
+      margin-top: 18px; padding: 16px; border-radius: 10px;
+      background: var(--papel); border: 1px solid var(--linea);
+    }
+    .veredicto h2 { font-size: 1rem; margin: 0 0 6px; }
+    .veredicto p { margin: 0; font-size: 0.92rem; }
+    button {
+      width: 100%; margin-top: 14px; padding: 13px; font: inherit; font-weight: 600;
+      border: 0; border-radius: 10px; background: var(--espera); color: #fff;
+    }
+    .datos {
+      margin-top: 16px; font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.75rem; color: var(--tenue); white-space: pre-wrap; word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Diagnóstico de red</h1>
+    <p class="intro">Abre esta página en el teléfono, con la red que quieras probar. Dice exactamente qué alcanza y qué no.</p>
+
+    <div class="prueba espera" id="p-sitio">
+      <div class="titulo"><strong>1. Este sitio</strong><span class="tiempo" id="t-sitio">probando…</span></div>
+      <p class="detalle" id="d-sitio">De dónde salió esta misma página.</p>
+    </div>
+
+    <div class="prueba espera" id="p-base">
+      <div class="titulo"><strong>2. Base de datos de la rifa</strong><span class="tiempo" id="t-base">probando…</span></div>
+      <p class="detalle" id="d-base">Sin esto no hay estado del sorteo ni resultado.</p>
+    </div>
+
+    <div class="prueba espera" id="p-tiempo">
+      <div class="titulo"><strong>3. Reloj del teléfono</strong><span class="tiempo" id="t-tiempo">probando…</span></div>
+      <p class="detalle" id="d-tiempo">Si va desfasado, el cronómetro miente.</p>
+    </div>
+
+    <div class="veredicto">
+      <h2 id="veredicto">Midiendo…</h2>
+      <p id="explicacion">Espera unos segundos.</p>
+    </div>
+
+    <button id="copiar">Copiar resultado</button>
+    <div class="datos" id="datos"></div>
+  </main>
+
+  <script src="assets/config.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var CFG = window.RIFA_CONFIG || {};
+      var $ = function (id) { return document.getElementById(id); };
+      var resultados = {};
+
+      function marcar(clave, estado, tiempo, detalle) {
+        $('p-' + clave).className = 'prueba ' + estado;
+        $('t-' + clave).textContent = tiempo;
+        $('d-' + clave).textContent = detalle;
+        resultados[clave] = estado + ' · ' + tiempo + ' · ' + detalle;
+        volcar();
+      }
+
+      /** Una petición que se rinde a tiempo en vez de dejarnos esperando. */
+      function pedir(url, opciones, limite) {
+        var control = new AbortController();
+        var reloj = setTimeout(function () { control.abort(); }, limite);
+        var inicio = performance.now();
+        return fetch(url, Object.assign({ signal: control.signal, cache: 'no-store' }, opciones || {}))
+          .then(function (r) {
+            clearTimeout(reloj);
+            return { ok: r.ok, estado: r.status, ms: Math.round(performance.now() - inicio) };
+          })
+          .catch(function (e) {
+            clearTimeout(reloj);
+            return { ok: false, error: e.name === 'AbortError' ? 'no respondió a tiempo' : e.message,
+                     ms: Math.round(performance.now() - inicio) };
+          });
+      }
+
+      // --- 1. El propio sitio ---
+      pedir(location.pathname.replace(/[^/]*$/, '') + 'assets/config.js?t=' + Date.now(), {}, 10000)
+        .then(function (r) {
+          if (r.ok) { marcar('sitio', 'bien', r.ms + ' ms', location.host); }
+          else { marcar('sitio', 'mal', r.ms + ' ms', 'no respondió: ' + (r.error || 'error ' + r.estado)); }
+          probarBase();
+        });
+
+      // --- 2. La base de datos ---
+      function probarBase() {
+        if (!CFG.supabaseUrl || !CFG.supabaseKey) {
+          marcar('base', 'mal', '—', 'falta la configuración');
+          return concluir();
+        }
+        var url = CFG.supabaseUrl + '/rest/v1/rifas?select=id,estado&limit=1';
+        pedir(url, { headers: { apikey: CFG.supabaseKey, Authorization: 'Bearer ' + CFG.supabaseKey } }, 12000)
+          .then(function (r) {
+            if (r.ok) { marcar('base', 'bien', r.ms + ' ms', CFG.supabaseUrl.replace('https://', '')); }
+            else { marcar('base', 'mal', r.ms + ' ms', 'no respondió: ' + (r.error || 'error ' + r.estado)); }
+            probarReloj();
+          });
+      }
+
+      // --- 3. El reloj del teléfono ---
+      function probarReloj() {
+        var url = (CFG.supabaseUrl || location.origin) + '/rest/v1/';
+        var antes = Date.now();
+        fetch(url, { method: 'HEAD', cache: 'no-store', headers: CFG.supabaseKey ? { apikey: CFG.supabaseKey } : {} })
+          .then(function (r) {
+            var fecha = r.headers.get('date');
+            if (!fecha) { throw new Error('sin fecha'); }
+            var desfase = Math.round((new Date(fecha).getTime() - (antes + Date.now()) / 2) / 1000);
+            var bien = Math.abs(desfase) <= 90;
+            marcar('tiempo', bien ? 'bien' : 'mal',
+              (desfase >= 0 ? '+' : '') + desfase + ' s',
+              bien ? 'el reloj está en hora' : 'el teléfono va desfasado: el cronómetro no coincidirá');
+          })
+          .catch(function () {
+            marcar('tiempo', 'espera', '—', 'no se pudo comprobar (sin red)');
+          })
+          .then(concluir);
+      }
+
+      function concluir() {
+        var sitio = (resultados.sitio || '').indexOf('bien') === 0;
+        var base = (resultados.base || '').indexOf('bien') === 0;
+        if (sitio && base) {
+          $('veredicto').textContent = 'Todo en orden';
+          $('explicacion').textContent = 'Esta red alcanza tanto la página como la base de datos. La rifa funcionará aquí.';
+        } else if (sitio && !base) {
+          $('veredicto').textContent = 'Falta la base de datos';
+          $('explicacion').textContent = 'La página carga, pero no se alcanza el servidor de la rifa: se vería el boleto y el cronómetro, pero no el resultado en vivo.';
+        } else {
+          $('veredicto').textContent = 'Esta red no sirve para la rifa';
+          $('explicacion').textContent = 'Ni siquiera se alcanza el propio sitio. Manda esta pantalla para revisarlo.';
+        }
+        volcar();
+      }
+
+      function volcar() {
+        var con = navigator.connection || {};
+        $('datos').textContent = [
+          'sitio:  ' + (resultados.sitio || '—'),
+          'base:   ' + (resultados.base || '—'),
+          'reloj:  ' + (resultados.tiempo || '—'),
+          'red:    ' + (con.effectiveType || 'desconocida') + (con.downlink ? ' · ' + con.downlink + ' Mbps' : ''),
+          'host:   ' + location.host,
+          'hora:   ' + new Date().toISOString(),
+          'agente: ' + navigator.userAgent,
+        ].join('\n');
+      }
+
+      volcar();
+      $('copiar').addEventListener('click', function () {
+        var texto = $('datos').textContent;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(texto).then(function () {
+            $('copiar').textContent = 'Copiado';
+          }).catch(function () { $('copiar').textContent = 'Selecciona el texto de abajo'; });
+        } else {
+          $('copiar').textContent = 'Selecciona el texto de abajo';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

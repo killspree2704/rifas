@@ -134,6 +134,30 @@ de Realtime. Con 500 boletos eso no alcanza si todos abren la página a la vez,
 y por eso el sondeo es la red de seguridad y no un adorno. Los ritmos se
 ajustan en `assets/config.js` sin tocar código.
 
+## Diagnóstico desde el propio teléfono
+
+`…/diagnostico.html` — se abre con la red que se quiera probar (wifi de la
+sede, datos de cada compañía) y dice en segundos qué alcanza y qué no: el
+sitio, la base de datos de la rifa y si el reloj del teléfono está en hora.
+Trae un botón para copiar el resultado y mandarlo.
+
+Conviene correrlo en la sede el día del evento, antes de que llegue la gente.
+
+## Cambiar de hosting
+
+El sitio no depende de dónde esté publicado: todas sus rutas son relativas y
+no pide nada a terceros. Para moverlo basta con servir esta carpeta en otro
+lado y regenerar los QR con la URL nueva:
+
+```bash
+node herramientas/hoja-boletos.mjs lote.json "https://LA-NUEVA-URL/" hoja.html
+```
+
+En **Cloudflare Pages** son cuatro pasos, sin tocar el código: crear cuenta,
+*Workers & Pages → Create → Pages → Connect to Git*, elegir este repositorio,
+y dejar los ajustes de compilación vacíos (no hay compilación, es HTML). Cada
+`git push` se publica solo, igual que ahora.
+
 ## Ensayo sin tocar la rifa real
 
 `?ensayo=1` corre la pantalla del participante contra el reloj, sin servidor:
