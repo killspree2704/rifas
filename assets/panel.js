@@ -334,6 +334,59 @@
   // ------------------------------------------------------------------
   // Nueva rifa
   // ------------------------------------------------------------------
+  // Los atajos son solo eso: un atajo. El número lo pone quien crea la rifa,
+  // desde 1 hasta 5000, y por eso la casilla arranca vacía.
+  Array.prototype.forEach.call(
+    document.querySelectorAll('#atajosCantidad button'),
+    function (b) {
+      b.addEventListener('click', function () {
+        $('nvCantidad').value = b.dataset.cantidad;
+        resumenNueva();
+      });
+    }
+  );
+
+  /**
+   * Va diciendo en voz alta qué se va a generar, y avisa ANTES de apretar el
+   * botón si los folios no alcanzan: con pocos dígitos el lote se apretuja y
+   * los números se vuelven adivinables, así que el servidor lo rechaza. Más
+   * vale enterarse aquí que después de esperar la generación.
+   */
+  function resumenNueva() {
+    var cantidad = parseInt($('nvCantidad').value, 10);
+    var digitos = parseInt($('nvDigitos').value, 10) || 5;
+    var tope = Math.floor((Math.pow(10, digitos) - Math.pow(10, digitos - 1)) * 0.3);
+    var caja = $('cuentaNueva');
+
+    if (!(cantidad > 0)) {
+      caja.textContent = 'Con ' + digitos + ' dígitos caben hasta ' +
+        tope.toLocaleString('es-MX') + ' boletos.';
+      caja.className = 'nota';
+      return;
+    }
+    if (cantidad > tope) {
+      caja.textContent = cantidad.toLocaleString('es-MX') + ' boletos no caben en ' +
+        digitos + ' dígitos (el tope es ' + tope.toLocaleString('es-MX') +
+        '). Sube los dígitos del folio.';
+      caja.className = 'mensaje error';
+      return;
+    }
+    var precio = parseFloat($('nvPrecio').value);
+    var texto = 'Se van a generar ' + cantidad.toLocaleString('es-MX') +
+      ' boletos de ' + digitos + ' dígitos';
+    if (precio > 0) {
+      texto += ', que a $' + precio + ' suman $' +
+        (precio * cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    }
+    caja.textContent = texto + '.';
+    caja.className = 'nota';
+  }
+
+  ['nvCantidad', 'nvDigitos', 'nvPrecio'].forEach(function (id) {
+    $(id).addEventListener('input', resumenNueva);
+  });
+  resumenNueva();
+
   $('btnCrear').addEventListener('click', function () {
     var nombre = $('nvNombre').value.trim();
     var serie = $('nvSerie').value.trim().toUpperCase();
@@ -344,7 +397,9 @@
 
     if (!nombre) { return mensaje('Ponle nombre a la rifa.', 'error', 'mensajeNueva'); }
     if (!fechaLocal) { return mensaje('Falta el día y la hora del sorteo.', 'error', 'mensajeNueva'); }
-    if (!(cantidad > 0)) { return mensaje('¿Cuántos boletos?', 'error', 'mensajeNueva'); }
+    if (!(cantidad > 0)) {
+      return mensaje('Escribe cuántos boletos quieres, de 1 a 5000.', 'error', 'mensajeNueva');
+    }
 
     if (!confirmarNueva(cantidad + ' boletos nuevos para «' + nombre + '».')) { return; }
 

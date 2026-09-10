@@ -104,8 +104,13 @@ Todo desde el panel, sin tocar código ni volver a publicar el sitio:
 
 1. **Rifas → Nueva rifa**: nombre, serie, día y hora del sorteo, cuántos
    boletos, cuántos dígitos y —si se quiere llevar la cuenta— el precio.
-   La hora se guarda siempre como hora del lugar del evento, sin importar
-   desde qué huso se llene el formulario.
+   La cantidad **la elige quien crea la rifa**, de 1 a 5000: la casilla
+   arranca vacía y los atajos (10, 25, 50, 100, 250, 500) solo la llenan.
+   Debajo va diciendo qué se va a generar y avisa **antes** de apretar el
+   botón si los folios no alcanzan —con pocos dígitos el lote se apretuja y
+   los números se vuelven adivinables, así que hay un tope: 2.700 boletos
+   con 4 dígitos, 27.000 con 5—. La hora se guarda siempre como hora del
+   lugar del evento, sin importar desde qué huso se llene el formulario.
 2. El servidor inventa los folios, los firma y los guarda. Al terminar abre
    la **hoja de boletos** con folio, código y QR de cada uno: de ahí sale a
    la impresora o a un PDF (*Imprimir → Guardar como PDF*).
@@ -253,7 +258,7 @@ entra con la clave, crea una rifa, saca la hoja de boletos —y **lee el QR
 impreso** para comprobar que apunta al boleto correcto—, cambia de rifa,
 verifica un boleto de papel, guarda el enlace de la transmisión, y corre el
 sorteo entero mirando cómo la pantalla del participante pasa sola a «en vivo»
-—con su botón al directo— y luego al resultado. **58 comprobaciones**, ninguna
+—con su botón al directo— y luego al resultado. **64 comprobaciones**, ninguna
 contra la base real.
 
 ## Ensayo sin tocar la rifa real

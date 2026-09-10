@@ -249,3 +249,19 @@ input[type="url"] {
   color: var(--oro);
 }
 .boton.chico { font-size: 0.82rem; padding: 7px 12px; margin-top: 0; }
+
+/* Atajos para la cantidad de boletos. La casilla manda; esto solo la llena. */
+.atajos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.atajos button {
+  padding: 5px 12px;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--tinta-tenue);
+  background: transparent;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.atajos button:hover { color: var(--tinta); border-color: var(--oro); }
+#cuentaNueva { margin: 4px 0 14px; }

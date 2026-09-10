@@ -123,9 +123,18 @@
             <span>Día y hora del sorteo</span>
             <input type="datetime-local" id="nvFecha" />
           </label>
-          <label class="campo">
-            <span>Boletos</span>
-            <input type="number" id="nvCantidad" min="1" max="5000" value="500" />
+          <label class="campo ancho">
+            <span>¿Cuántos boletos?</span>
+            <input type="number" id="nvCantidad" min="1" max="5000"
+                   inputmode="numeric" placeholder="los que quieras, de 1 a 5000" />
+            <span class="atajos" id="atajosCantidad">
+              <button type="button" data-cantidad="10">10</button>
+              <button type="button" data-cantidad="25">25</button>
+              <button type="button" data-cantidad="50">50</button>
+              <button type="button" data-cantidad="100">100</button>
+              <button type="button" data-cantidad="250">250</button>
+              <button type="button" data-cantidad="500">500</button>
+            </span>
           </label>
           <label class="campo">
             <span>Dígitos del folio</span>
@@ -136,6 +145,7 @@
             <input type="number" id="nvPrecio" min="0" step="1" placeholder="—" />
           </label>
         </div>
+        <p class="nota" id="cuentaNueva" role="status" aria-live="polite"></p>
         <button class="boton primario" id="btnCrear">Generar rifa y boletos</button>
         <p class="mensaje" id="mensajeNueva" role="status" aria-live="polite"></p>
       </details>

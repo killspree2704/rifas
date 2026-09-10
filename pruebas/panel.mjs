@@ -112,11 +112,35 @@ await hoja.close();
 // --- crear una rifa nueva ---
 console.log('\n== Nueva rifa ==');
 await pagina.click('#cajaNueva > summary');
+ok('la casilla de boletos arranca vacía: el número lo elige quien crea la rifa',
+   (await pagina.inputValue('#nvCantidad')) === '',
+   JSON.stringify(await pagina.inputValue('#nvCantidad')));
+ok('y dice cuántos caben con los dígitos puestos',
+   (await pagina.textContent('#cuentaNueva')).includes('27,000'),
+   await pagina.textContent('#cuentaNueva'));
+
+await pagina.click('#atajosCantidad button[data-cantidad="25"]');
+ok('los atajos llenan la casilla', (await pagina.inputValue('#nvCantidad')) === '25');
+ok('y el resumen lo dice en voz alta',
+   (await pagina.textContent('#cuentaNueva')).includes('25 boletos de 5 dígitos'),
+   await pagina.textContent('#cuentaNueva'));
+
+// avisa antes de apretar el botón, no después
+await pagina.fill('#nvDigitos', '4');
+await pagina.fill('#nvCantidad', '4000');
+ok('avisa cuando los folios no alcanzan para tantos boletos',
+   (await pagina.textContent('#cuentaNueva')).includes('no caben en 4 dígitos'),
+   await pagina.textContent('#cuentaNueva'));
+await pagina.fill('#nvDigitos', '5');
+
 await pagina.fill('#nvNombre', 'Rifa de prueba');
 await pagina.fill('#nvSerie', 'B');
 await pagina.fill('#nvFecha', '2026-12-24T20:00');
 await pagina.fill('#nvCantidad', '4');
 await pagina.fill('#nvPrecio', '100');
+ok('el resumen calcula lo que suma el lote',
+   (await pagina.textContent('#cuentaNueva')).includes('$400.00'),
+   await pagina.textContent('#cuentaNueva'));
 await pagina.click('#btnCrear');
 await pagina.waitForFunction(() => document.getElementById('mensajeNueva').textContent.includes('confirmar'));
 ok('pide confirmar antes de generar folios', true);
