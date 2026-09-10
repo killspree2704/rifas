@@ -11,7 +11,7 @@ window.RIFA_CONFIG = {
 
   // Momento del sorteo. La página lo muestra siempre en esta zona horaria,
   // sin importar dónde esté el teléfono que la abre.
-  fechaSorteo: '2026-09-11T18:00:00-06:00',
+  fechaSorteo: '2026-09-13T18:00:00-06:00',
   zonaHoraria: 'America/Mexico_City',
 
   // Ritmo de las consultas de respaldo, en milisegundos. El canal en vivo es

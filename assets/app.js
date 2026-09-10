@@ -373,9 +373,16 @@
     }
     var consulta = cliente
       .rpc('validar_boleto', { p_rifa: CFG.rifaId, p_folio: folio, p_codigo: codigo })
-      .then(function (r) { return !r.error && r.data === true; });
-    // Si el servidor no contesta a tiempo, no se acusa a nadie de traer un
-    // boleto falso: se le da por bueno y el estado sigue su curso.
+      .then(function (r) {
+        // Hay que distinguir dos cosas muy distintas: que el servidor diga que
+        // el folio NO existe, y que no hayamos podido preguntarle. Sin red,
+        // `r.error` viene lleno; tratar eso como boleto falso sería acusar a
+        // alguien por tener mala señal.
+        if (r.error) { throw r.error; }
+        return r.data === true;
+      });
+    // Si no se pudo preguntar, se le da por bueno: el comprobante de verdad es
+    // el boleto de papel, y el estado de la rifa sigue su curso igual.
     return conLimite(consulta, CFG.limiteConsultaMs || 7000).catch(function () { return true; });
   }
 
@@ -442,11 +449,13 @@
   iniciar();
 
   // Deja la página utilizable aunque la red vaya y venga.
+  //
+  // Se registra AHORA, no al evento `load`. Ese evento espera a que termine de
+  // descargarse todo, incluida la librería de 215 KB: en la red mala donde más
+  // falta hace el trabajador de servicio, nunca llegaba a instalarse.
   if ('serviceWorker' in navigator && window.isSecureContext) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {
-        // Sin trabajador de servicio la página sigue funcionando igual.
-      });
+    navigator.serviceWorker.register('sw.js').catch(function () {
+      // Sin trabajador de servicio la página sigue funcionando igual.
     });
   }
 })();

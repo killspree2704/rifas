@@ -1,16 +1,17 @@
 /**
  * Trabajador de servicio: hace que la página aguante una red mala.
  *
- * En un evento con cientos de personas en el mismo lugar, la antena se satura
- * y las cargas se cortan. Con esto, quien ya abrió la página una vez la vuelve
- * a abrir aunque la red esté intermitente: lo único que necesita red es la
- * consulta del estado de la rifa, que son unos cuantos bytes.
+ * En un evento con cientos de personas en el mismo lugar la antena se satura
+ * y las cargas se cortan. La regla aquí es simple: **si la página ya se abrió
+ * una vez en este teléfono, se vuelve a abrir al instante, sin pedirle
+ * permiso a la red**. Lo único que necesita conexión es consultar el estado
+ * de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v3';
+const CACHE = 'rifa-v4';
+
 // Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
-// propósito: `addAll` falla entero si un archivo falla, y pedir 215 KB en una
-// red mala haría que la instalación se cayera y el teléfono se quedara sin
-// copia de nada. Esa librería se guarda sola cuando se descarga.
+// propósito: son 215 KB, y pedirlos en una red mala haría fallar la
+// instalación. Esa librería se guarda sola cuando se descarga.
 const BASICOS = [
   './',
   'index.html',
@@ -19,10 +20,23 @@ const BASICOS = [
   'assets/app.js',
 ];
 
+/** Página de cortesía para cuando no hay copia guardada ni red. */
+const SIN_RED = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Sin conexión</title>
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+padding:24px;background:#ece7dd;color:#1d1a17;font-family:system-ui,-apple-system,sans-serif;
+text-align:center;line-height:1.5}div{max-width:320px}h1{font-size:1.3rem;margin:0 0 8px}
+p{color:#6d675e;margin:0 0 20px}button{padding:12px 22px;font:inherit;font-weight:600;
+border:0;border-radius:9px;background:#9a6f0a;color:#fff}</style></head>
+<body><div><h1>Sin conexión</h1><p>No pudimos cargar tu boleto. Revisa tu señal e inténtalo de nuevo.</p>
+<button onclick="location.reload()">Reintentar</button></div></body></html>`;
+
 self.addEventListener('install', (evento) => {
   evento.waitUntil(
     caches.open(CACHE)
-      .then((cache) => cache.addAll(BASICOS))
+      // Uno por uno, no en bloque: si un archivo falla, los demás se guardan
+      // igual. Con `addAll` un solo fallo dejaba al teléfono sin nada.
+      .then((cache) => Promise.allSettled(BASICOS.map((ruta) => cache.add(ruta))))
       .then(() => self.skipWaiting())
   );
 });
@@ -45,26 +59,48 @@ function guardar(peticion, respuesta) {
   return respuesta;
 }
 
+/** Una petición a la red que se rinde a tiempo en vez de colgarse. */
+function conLimite(peticion, ms) {
+  return new Promise((resolver, rechazar) => {
+    const reloj = setTimeout(() => rechazar(new Error('tiempo agotado')), ms);
+    fetch(peticion).then(
+      (r) => { clearTimeout(reloj); resolver(r); },
+      (e) => { clearTimeout(reloj); rechazar(e); }
+    );
+  });
+}
+
 self.addEventListener('fetch', (evento) => {
   const peticion = evento.request;
 
-  // Solo se administra lo propio del sitio. Las consultas a Supabase y las
-  // tipografías van directo a la red: nunca se sirven de caché.
+  // Solo se administra lo propio del sitio. Las consultas a Supabase van
+  // directo a la red: nunca se sirven de caché.
   if (peticion.method !== 'GET') { return; }
   if (new URL(peticion.url).origin !== self.location.origin) { return; }
 
-  // La página: primero la red (para que un arreglo llegue enseguida), y si la
-  // red falla o tarda, la copia guardada.
+  // --- La página ---
+  // Copia primero. El folio viaja en la dirección (?f=...), no en el HTML, así
+  // que la misma copia sirve para todos los boletos. Se actualiza por detrás.
   if (peticion.mode === 'navigate') {
     evento.respondWith(
-      fetch(peticion)
-        .then((r) => guardar(peticion, r))
-        .catch(() => caches.match(peticion).then((r) => r || caches.match('index.html')))
+      caches.match('index.html').then((guardada) => {
+        const desdeRed = conLimite(peticion, 8000)
+          .then((r) => guardar(new Request('index.html'), r))
+          .catch(() => null);
+        if (guardada) {
+          evento.waitUntil(desdeRed);       // refresco silencioso
+          return guardada;
+        }
+        // Primera visita sin copia: no queda más que la red.
+        return desdeRed.then((r) => r || new Response(SIN_RED, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        }));
+      })
     );
     return;
   }
 
-  // Lo demás: se sirve la copia al instante y se actualiza por detrás.
+  // --- Lo demás: copia al instante, actualización por detrás ---
   evento.respondWith(
     caches.match(peticion).then((guardada) => {
       const desdeRed = fetch(peticion).then((r) => guardar(peticion, r)).catch(() => guardada);
