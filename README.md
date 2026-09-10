@@ -1,5 +1,9 @@
 # Rifas con folio y código QR
 
+> **¿Retomando el proyecto, o desde otro equipo?** Empieza por
+> [`CONTINUIDAD.md`](CONTINUIDAD.md): direcciones, llaves, cómo está armado,
+> qué hacer el día de la rifa y qué queda pendiente.
+
 Sitio del participante y panel de sorteo en vivo. Página estática servida por
 Cloudflare; el estado de la rifa vive en Supabase y llega a los teléfonos por
 Realtime.
