@@ -133,7 +133,26 @@
   }
 
   function hayServidor() {
-    return !ensayo && CFG.supabaseUrl && CFG.supabaseKey && CFG.rifaId && window.supabase;
+    return !ensayo && CFG.supabaseUrl && CFG.supabaseKey && CFG.rifaId && !!cliente;
+  }
+
+  /**
+   * La librería de Supabase pesa más que todo lo demás junto, y para pintar el
+   * folio y el cronómetro no hace ninguna falta. Se descarga después de que la
+   * pantalla ya está a la vista, así la primera carga es mínima: en una red
+   * saturada, eso es la diferencia entre ver tu boleto o ver un error del
+   * navegador. Si no llega, la página sigue funcionando con el reloj.
+   */
+  function cargarLibreria() {
+    return new Promise(function (resolver, rechazar) {
+      if (window.supabase) { return resolver(); }
+      var etiqueta = document.createElement('script');
+      etiqueta.src = 'vendor/supabase-js-2.116.0.js';
+      etiqueta.async = true;
+      etiqueta.onload = function () { resolver(); };
+      etiqueta.onerror = function () { rechazar(new Error('no se pudo cargar la librería')); };
+      document.head.appendChild(etiqueta);
+    });
   }
 
   /**
@@ -310,6 +329,18 @@
     }
 
     setTimeout(function () {
+      if (!cliente && !ensayo && CFG.supabaseUrl) {
+        // Quedó sin librería por un corte de red: segundo intento.
+        cargarLibreria().then(function () {
+          cliente = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
+            realtime: { params: { eventsPerSecond: 2 } },
+          });
+          avisar('');
+          intentar();
+          abrirCanal();
+        }).catch(function () { /* seguimos con el reloj */ });
+        return;
+      }
       intentar();
       if (hayServidor() && !canalSano) { abrirCanal(); }
     }, espera);
@@ -375,37 +406,36 @@
     $('folio').textContent = (CFG.serie ? CFG.serie + '-' : '') + folio;
     $('bloqueFolio').hidden = false;
 
-    if (hayServidor()) {
-      cliente = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
-        realtime: { params: { eventsPerSecond: 2 } },
-      });
-    } else if (!ensayo) {
-      avisar('Sin conexión al servidor: la pantalla se guía por el reloj.');
-    }
-
     escucharDispositivo();
 
-    // El cronómetro aparece de inmediato, sin esperar ninguna respuesta de red.
+    // Primero la pantalla, con lo que dice el reloj. Sin esperar nada de red.
     pintarEstado(estadoLocal());
 
-    validar()
+    if (ensayo || !CFG.supabaseUrl || !CFG.supabaseKey || !CFG.rifaId) { return; }
+
+    // Y ya con el boleto a la vista, se conecta al servidor.
+    cargarLibreria()
+      .then(function () {
+        cliente = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
+          realtime: { params: { eventsPerSecond: 2 } },
+        });
+        return validar();
+      })
       .then(function (valido) {
         if (!valido) {
           mostrar('vistaInvalido');
           $('bloqueFolio').hidden = true;
           return;
         }
-        if (!hayServidor()) { return; }
         return refrescar().then(function () {
           abrirCanal();
           programarSondeo();
         });
       })
       .catch(function () {
-        // Si el servidor no responde, el reloj manda: nadie se queda en blanco.
-        avisar('No pudimos consultar el servidor. La pantalla se guía por el reloj.');
-        pintarEstado(estadoLocal());
-        programarSondeo();
+        // Sin servidor manda el reloj: la pantalla ya está pintada y el
+        // cronómetro corre solo. Se reintentará al volver la red.
+        avisar('Sin conexión con el servidor. La pantalla se guía por el reloj.');
       });
   }
 

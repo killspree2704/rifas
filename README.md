@@ -79,9 +79,16 @@ En un evento con mucha gente en el mismo lugar la antena se satura y las
 cargas se cortan (`ERR_NETWORK_CHANGED` y compañía). Tres decisiones para que
 eso no arruine el sorteo:
 
-- **Nada externo para funcionar.** `supabase-js` se sirve desde el propio sitio,
-  no desde un CDN de terceros. Lo único externo son las tipografías, que si no
-  cargan solo cambian la letra.
+- **Un solo host y una sola conexión.** La página no pide nada fuera de
+  GitHub Pages: ni CDN, ni tipografías de Google. Cada host extra son más
+  apretones de manos DNS y TLS, y en una red saturada cada uno es otra
+  oportunidad de que la carga se corte.
+- **Nada bloquea el primer pintado.** La hoja de estilos de Google Fonts era
+  bloqueante: hasta que no respondía, la pantalla se quedaba en blanco. Medido
+  en 3G saturado (400 kbps, 400 ms de latencia): con ella, **el boleto no
+  aparecía ni en 12 segundos**; sin ella, 2.4 s; y moviendo además `supabase-js`
+  fuera del camino crítico, **1.4 s**. La librería (55 KB) se descarga después,
+  con el boleto ya en pantalla, y si no llega la página funciona con el reloj.
 - **`sw.js`**: quien ya abrió la página una vez la vuelve a abrir aunque no
   haya red. Lo único que necesita conexión es consultar el estado, que son
   unos cuantos bytes. Verificado: con la red apagada del todo, recargar sigue

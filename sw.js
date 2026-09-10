@@ -6,14 +6,17 @@
  * a abrir aunque la red esté intermitente: lo único que necesita red es la
  * consulta del estado de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v2';
+const CACHE = 'rifa-v3';
+// Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
+// propósito: `addAll` falla entero si un archivo falla, y pedir 215 KB en una
+// red mala haría que la instalación se cayera y el teléfono se quedara sin
+// copia de nada. Esa librería se guarda sola cuando se descarga.
 const BASICOS = [
   './',
   'index.html',
   'assets/estilos.css',
   'assets/config.js',
   'assets/app.js',
-  'vendor/supabase-js-2.116.0.js',
 ];
 
 self.addEventListener('install', (evento) => {
