@@ -1,0 +1,256 @@
+/* Rifa El Muerde Manos — talón de boleto: tinta, hueso y oro de tómbola. */
+
+:root {
+  --fondo: #ece7dd;
+  --papel: #fbf8f3;
+  --tinta: #1d1a17;
+  --tinta-tenue: #6d675e;
+  --linea: #d3cbbd;
+  --oro: #9a6f0a;
+  --sello: #8d3b2f;
+  --gana: #1f7a4d;
+  --display: 'Alfa Slab One', Rockwell, Georgia, serif;
+  --texto: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fondo: #14120f;
+    --papel: #1e1b17;
+    --tinta: #f0eae0;
+    --tinta-tenue: #a49b8d;
+    --linea: #342f28;
+    --oro: #e0a92e;
+    --sello: #d4685a;
+    --gana: #4ec38a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --fondo: #14120f;
+  --papel: #1e1b17;
+  --tinta: #f0eae0;
+  --tinta-tenue: #a49b8d;
+  --linea: #342f28;
+  --oro: #e0a92e;
+  --sello: #d4685a;
+  --gana: #4ec38a;
+}
+
+* { box-sizing: border-box; }
+
+/* Debe ganarle a cualquier display de abajo, o las vistas se encimarían. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--texto);
+  line-height: 1.55;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding-block: 32px;
+  padding-inline: 18px;
+}
+
+.boleto {
+  width: 100%;
+  max-width: 400px;
+  background: var(--papel);
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.14);
+}
+
+.cabecera {
+  position: relative;
+  padding: 26px 24px 22px;
+  border-bottom: 1px solid var(--linea);
+  text-align: center;
+}
+.cabecera::after {
+  content: '';
+  position: absolute;
+  top: -26px;
+  right: -18px;
+  width: 62px;
+  height: 62px;
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: 50%;
+}
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+}
+h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(1.6rem, 7vw, 2.05rem);
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.troquel { position: relative; height: 20px; background: var(--papel); }
+.troquel::before,
+.troquel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 20px;
+  height: 20px;
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: 50%;
+}
+.troquel::before { left: -11px; }
+.troquel::after { right: -11px; }
+.troquel span {
+  position: absolute;
+  left: 16px; right: 16px; top: 50%;
+  border-top: 2px dotted var(--linea);
+}
+
+.cuerpo { padding: 6px 24px 26px; text-align: center; }
+
+.rotulo {
+  margin: 0 0 4px;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+}
+.folio {
+  margin: 0 0 20px;
+  font-family: var(--mono);
+  font-size: clamp(2.1rem, 11vw, 2.9rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.frase { margin: 0 0 4px; font-size: 1.05rem; }
+.frase.destacada { font-weight: 600; }
+.nota { margin: 10px 0 0; font-size: 0.88rem; color: var(--tinta-tenue); }
+
+/* Cronómetro */
+.cronometro {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 18px;
+}
+.cronometro > div {
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  padding: 8px 2px 6px;
+}
+.cronometro span {
+  display: block;
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.cronometro small {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+}
+
+/* En vivo */
+.pulso {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sello);
+}
+.tambor {
+  width: 92px;
+  height: 92px;
+  margin: 18px auto 0;
+  border: 3px dashed var(--oro);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-size: 2.2rem;
+  color: var(--oro);
+}
+
+/* Resultado */
+.veredicto {
+  display: inline-block;
+  margin: 4px 0 0;
+  padding: 8px 18px 7px;
+  border: 2px solid var(--sello);
+  border-radius: 999px;
+  color: var(--sello);
+  font-family: var(--display);
+  font-size: 1rem;
+  transform: rotate(-3deg);
+}
+.veredicto.gana {
+  border-color: var(--gana);
+  color: var(--gana);
+  font-size: 1.5rem;
+  padding: 10px 22px 9px;
+}
+.veredicto.invalido { transform: none; }
+
+.pie {
+  margin-top: 24px;
+  padding-top: 15px;
+  border-top: 1px dashed var(--linea);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+}
+.pie span:last-child { font-family: var(--mono); letter-spacing: 0.06em; }
+
+.aviso {
+  max-width: 400px;
+  margin: 0;
+  font-size: 0.78rem;
+  text-align: center;
+  color: var(--tinta-tenue);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pulso { animation: latir 1.6s ease-in-out infinite; }
+  .tambor { animation: girar 3.2s linear infinite; }
+  .veredicto { animation: sello 620ms cubic-bezier(0.2, 1.5, 0.4, 1) 160ms both; }
+  @keyframes latir { 50% { opacity: 0.35; } }
+  @keyframes girar { to { transform: rotate(360deg); } }
+  @keyframes sello {
+    from { transform: rotate(-3deg) scale(1.5); opacity: 0; }
+    to   { transform: rotate(-3deg) scale(1); opacity: 1; }
+  }
+  .veredicto.gana { animation-name: selloGana; }
+  @keyframes selloGana {
+    from { transform: rotate(-3deg) scale(1.8); opacity: 0; }
+    to   { transform: rotate(-3deg) scale(1); opacity: 1; }
+  }
+}

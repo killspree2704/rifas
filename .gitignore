@@ -1,0 +1,13 @@
+# Los lotes llevan folio + código de cada boleto. Publicarlos permitiría
+# fabricar URLs válidas de cualquier folio: nunca se suben al repositorio.
+lote*.json
+lote*.csv
+hoja-boletos*.html
+*.png
+*.svg
+!vendor/*.svg
+
+# Llaves
+CLAVE-*.txt
+LLAVE-*.txt
+.env

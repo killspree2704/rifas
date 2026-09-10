@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rifa El Muerde Manos</title>
+  <meta name="description" content="Consulta tu boleto de la Rifa El Muerde Manos." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23b8860b'/%3E%3Ctext x='16' y='23' font-size='19' font-family='monospace' font-weight='bold' text-anchor='middle' fill='%23fff'%3E%23%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=DM+Mono:wght@400;500&family=Public+Sans:wght@400;600&display=swap" />
+  <link rel="stylesheet" href="assets/estilos.css" />
+</head>
+<body>
+  <main class="boleto" id="boleto">
+    <header class="cabecera">
+      <p class="eyebrow">Boleto</p>
+      <h1 id="tituloRifa">Rifa El Muerde Manos</h1>
+    </header>
+
+    <div class="troquel" aria-hidden="true"><span></span></div>
+
+    <div class="cuerpo">
+      <!-- Folio: visible en todos los estados que tienen boleto -->
+      <div id="bloqueFolio" hidden>
+        <p class="rotulo">Folio</p>
+        <p class="folio" id="folio">—</p>
+      </div>
+
+      <!-- Cargando -->
+      <section id="vistaCargando" class="vista">
+        <p class="nota">Consultando tu boleto…</p>
+      </section>
+
+      <!-- En espera: cronómetro -->
+      <section id="vistaEspera" class="vista" hidden>
+        <p class="frase">Pronto conoceremos al ganador<br />o la ganadora.</p>
+        <p class="frase destacada">Buena suerte.</p>
+        <div class="cronometro" id="cronometro" role="timer" aria-live="off">
+          <div><span id="cDias">00</span><small>días</small></div>
+          <div><span id="cHoras">00</span><small>hrs</small></div>
+          <div><span id="cMin">00</span><small>min</small></div>
+          <div><span id="cSeg">00</span><small>seg</small></div>
+        </div>
+        <p class="nota" id="fechaTexto"></p>
+      </section>
+
+      <!-- En vivo -->
+      <section id="vistaEnVivo" class="vista" hidden>
+        <p class="pulso">● En vivo</p>
+        <p class="frase destacada">El sorteo está en curso</p>
+        <div class="tambor" aria-hidden="true"><span>?</span></div>
+        <p class="nota">No cierres esta pantalla: el resultado aparece solo.</p>
+      </section>
+
+      <!-- Resultado -->
+      <section id="vistaResultado" class="vista" hidden>
+        <p class="veredicto" id="veredicto">—</p>
+        <p class="frase" id="fraseResultado"></p>
+        <p class="nota" id="notaResultado"></p>
+      </section>
+
+      <!-- Boleto no válido -->
+      <section id="vistaInvalido" class="vista" hidden>
+        <p class="veredicto invalido">Boleto no válido</p>
+        <p class="nota">Este folio no corresponde a un boleto emitido. Revisa el código impreso o escanea de nuevo el QR de tu boleto.</p>
+      </section>
+
+      <!-- Sin folio en la URL -->
+      <section id="vistaSinFolio" class="vista" hidden>
+        <p class="frase">Escanea el QR de tu boleto para ver tu folio.</p>
+        <div class="cronometro" id="cronometro2" aria-hidden="true">
+          <div><span id="c2Dias">00</span><small>días</small></div>
+          <div><span id="c2Horas">00</span><small>hrs</small></div>
+          <div><span id="c2Min">00</span><small>min</small></div>
+          <div><span id="c2Seg">00</span><small>seg</small></div>
+        </div>
+        <p class="nota" id="fechaTexto2"></p>
+      </section>
+
+      <div class="pie">
+        <span>Conserva tu boleto</span>
+        <span id="serieTexto">Serie A</span>
+      </div>
+    </div>
+  </main>
+
+  <p class="aviso" id="avisoConexion" hidden></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>

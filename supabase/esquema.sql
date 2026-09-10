@@ -1,0 +1,18 @@
+-- Esquema de la base de rifas (aplicado con las migraciones esquema_rifas,
+-- realtime_rifas y endurecer_trigger).
+--
+-- Regla del proyecto: aquí NO se guarda ningún dato personal. Solo folios,
+-- códigos de verificación y el estado de la rifa. Quién compró cada boleto
+-- vive en la libreta del organizador, fuera de todo sistema.
+--
+--   rifas       estado del sorteo, uno por rifa
+--   boletos     folio (único global e histórico) y su código impreso
+--   sorteo_log  bitácora de cada acción del panel
+--   panel_clave hash de la clave del panel; sin políticas, nadie lo lee
+--
+-- Garantías:
+--   * El público solo puede LEER `rifas`. No hay escritura pública en ninguna
+--     tabla, y `boletos` no tiene ninguna política: sus códigos no salen.
+--   * `validar_boleto` responde únicamente verdadero/falso.
+--   * El disparador `proteger_ganador` impide escribir el ganador antes de
+--     revelar y cambiarlo después. Ni con llave de servicio.

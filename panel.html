@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Panel de sorteo</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Public+Sans:wght@400;600&display=swap" />
+  <link rel="stylesheet" href="assets/estilos.css" />
+  <link rel="stylesheet" href="assets/panel.css" />
+</head>
+<body class="panel">
+  <main class="tablero">
+    <header>
+      <p class="eyebrow">Panel de sorteo</p>
+      <h1 id="tituloRifa">—</h1>
+      <p class="nota" id="subtitulo"></p>
+    </header>
+
+    <!-- Entrada -->
+    <section id="vistaClave" class="caja">
+      <label class="campo">
+        <span>Clave del panel</span>
+        <input type="password" id="clave" autocomplete="current-password" />
+      </label>
+      <button class="boton primario" id="btnEntrar">Entrar</button>
+      <p class="mensaje" id="mensajeClave" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- Tablero -->
+    <section id="vistaPanel" class="caja" hidden>
+      <div class="estado-actual">
+        <span class="etiqueta">Estado</span>
+        <strong id="estadoTexto">—</strong>
+      </div>
+
+      <ol class="pasos">
+        <li>
+          <div>
+            <strong>1. Abrir la transmisión</strong>
+            <p class="nota">Todos los teléfonos pasan a «El sorteo está en curso». También ocurre solo al llegar la hora.</p>
+          </div>
+          <button class="boton" id="btnEnVivo">Poner en vivo</button>
+        </li>
+        <li>
+          <div>
+            <strong>2. Revelar al ganador</strong>
+            <p class="nota">Esto es irreversible: una vez registrado, el folio ganador no se puede cambiar.</p>
+          </div>
+          <div class="revelar">
+            <div class="fila">
+              <input type="text" id="folioGanador" inputmode="numeric" placeholder="Folio ganador" />
+              <button class="boton peligro" id="btnRevelarFolio">Revelar</button>
+            </div>
+            <button class="boton" id="btnRevelarAzar">Sortear al azar</button>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>3. Cerrar</strong>
+            <p class="nota">Termina la transmisión. El resultado sigue visible para quien escanee.</p>
+          </div>
+          <button class="boton" id="btnCerrar">Cerrar rifa</button>
+        </li>
+      </ol>
+
+      <p class="mensaje" id="mensaje" role="status" aria-live="polite"></p>
+
+      <details class="folios">
+        <summary>Folios de esta rifa (<span id="conteoFolios">0</span>)</summary>
+        <p class="lista" id="listaFolios"></p>
+      </details>
+
+      <p class="nota pie-panel">
+        Antes de la hora puedes ir y venir entre espera y en vivo.
+        Después de revelar, el ganador queda grabado para siempre.
+      </p>
+      <button class="boton fantasma" id="btnEspera">Regresar a espera</button>
+    </section>
+  </main>
+
+  <script src="assets/config.js"></script>
+  <script src="assets/panel.js"></script>
+</body>
+</html>
