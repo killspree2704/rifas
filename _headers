@@ -1,0 +1,24 @@
+# Cabeceras para Cloudflare Pages. GitHub Pages ignora este archivo.
+
+# El trabajador de servicio nunca se guarda en caché del navegador: si se
+# guardara, un arreglo urgente tardaría horas en llegar a los teléfonos.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# La configuración cambia entre rifas (fecha, nombre, rifa activa).
+/assets/config.js
+  Cache-Control: no-cache
+
+# La página se revalida siempre; el trabajador de servicio ya sirve la copia
+# guardada al instante, así que esto no la hace lenta.
+/index.html
+  Cache-Control: no-cache
+/
+  Cache-Control: no-cache
+
+# La librería lleva su versión en el nombre: se puede guardar sin miedo.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*
+  Cache-Control: public, max-age=3600
