@@ -144,9 +144,13 @@
 
       // --- 3. El reloj del teléfono ---
       function probarReloj() {
-        var url = (CFG.supabaseUrl || location.origin) + '/rest/v1/';
+        // Contra el propio sitio, no contra Supabase: la cabecera `Date` de
+        // otro dominio no se puede leer desde JavaScript (el navegador solo
+        // deja ver unas pocas cabeceras en peticiones cruzadas), y por eso
+        // esta prueba decía «sin red» aunque la red estuviera perfecta.
+        var url = location.pathname.replace(/[^/]*$/, '') + 'assets/config.js?t=' + Date.now();
         var antes = Date.now();
-        fetch(url, { method: 'HEAD', cache: 'no-store', headers: CFG.supabaseKey ? { apikey: CFG.supabaseKey } : {} })
+        fetch(url, { method: 'HEAD', cache: 'no-store' })
           .then(function (r) {
             var fecha = r.headers.get('date');
             if (!fecha) { throw new Error('sin fecha'); }
@@ -157,7 +161,7 @@
               bien ? 'el reloj está en hora' : 'el teléfono va desfasado: el cronómetro no coincidirá');
           })
           .catch(function () {
-            marcar('tiempo', 'espera', '—', 'no se pudo comprobar (sin red)');
+            marcar('tiempo', 'espera', '—', 'no se pudo comprobar la hora del servidor');
           })
           .then(concluir);
       }
