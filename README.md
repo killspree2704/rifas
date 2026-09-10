@@ -1,7 +1,7 @@
 # Rifas con folio y código QR
 
-Sitio del participante y panel de sorteo en vivo. Página estática en GitHub
-Pages; el estado de la rifa vive en Supabase y llega a los teléfonos por
+Sitio del participante y panel de sorteo en vivo. Página estática servida por
+Cloudflare; el estado de la rifa vive en Supabase y llega a los teléfonos por
 Realtime.
 
 **Sin datos personales.** La base guarda folios, códigos y el estado del
@@ -22,9 +22,34 @@ se le vendió cada boleto lo lleva el organizador a mano, en papel.
 
 Un folio inventado, o con código equivocado, ve **Boleto no válido**.
 
-**El organizador** entra a `…/rifas/panel.html` con la clave del panel y tiene
-tres pasos: poner en vivo, revelar al ganador (capturando el folio de la
-tómbola o dejando que el sistema sortee) y cerrar.
+Cada boleto sabe a qué rifa pertenece: la pantalla no está atada a ninguna
+rifa fija, la manda el folio impreso. Un boleto de hace un año sigue abriendo
+su propio resultado, y uno recién impreso abre el sorteo que viene.
+
+**El organizador** entra a `…/panel.html` con la clave del panel. Tres
+pestañas:
+
+| Pestaña | Para qué |
+| --- | --- |
+| **Sorteo** | Poner en vivo, revelar al ganador (capturando el folio de la tómbola o dejando que el sistema sortee) y cerrar |
+| **Rifas** | Crear una rifa nueva con sus folios, ver el historial completo y sacar la hoja de boletos para imprimir |
+| **Verificar** | Teclear folio y código de un boleto de papel y saber si es original |
+
+### La doble confirmación del boleto
+
+Cada boleto lleva dos números: el **folio** (el número grande) y el **código**
+de cuatro caracteres. El código no es un número más: sale de firmar el folio
+con una llave que solo conoce el servidor —HMAC-SHA256, recortado a cuatro
+caracteres en base32 de Crockford, sin I, L, O ni U para que nadie confunda un
+1 con una I al teclearlo—. Sin esa llave no se puede calcular, así que un
+boleto fotocopiado con otro folio no pasa la comprobación.
+
+Los folios **no se repiten jamás entre rifas**: al crear una nueva, el servidor
+descarta cualquier número que ya se haya usado alguna vez. Un boleto viejo no
+puede colarse como nuevo.
+
+El registro de a quién se le vendió cada boleto sigue en la libreta del
+vendedor. Aquí solo viven números.
 
 ## Estructura
 
@@ -33,40 +58,48 @@ tómbola o dejando que el sistema sortee) y cerrar.
 | `index.html`, `assets/app.js` | Pantalla del participante |
 | `panel.html`, `assets/panel.js` | Panel de sorteo |
 | `assets/config.js` | Rifa activa, fecha del sorteo y llaves públicas |
-| `herramientas/generar-folios.mjs` | Lote de folios con su código de verificación |
-| `herramientas/hoja-boletos.mjs` | Hoja imprimible con folio, código y QR |
-| `herramientas/generar-qr.mjs` | Un QR suelto en SVG y PNG |
+| `assets/panel.css` | Estilos del panel |
+| `supabase/funciones/sorteo/index.ts` | Función de borde: todo lo que el panel puede hacer |
 | `supabase/esquema.sql` | Qué hay en la base y qué garantiza |
+| `herramientas/*.mjs` | Lo mismo desde la línea de comandos, de cuando no existía el panel |
 
 ## Preparar una rifa
 
-```bash
-# 1. Folios con código. La llave firma los códigos: sin ella no se pueden
-#    fabricar boletos válidos, y si se pierde hay que reimprimir todo.
-export LLAVE_RIFA=…
-node herramientas/generar-folios.mjs --cantidad 500 --digitos 5 --serie B --salida lote-b
+Todo desde el panel, sin tocar código ni volver a publicar el sitio:
 
-# 2. Hoja para la imprenta
-node herramientas/hoja-boletos.mjs lote-b.json "https://rifas.el-original.workers.dev/" hoja-b.html
+1. **Rifas → Nueva rifa**: nombre, serie, día y hora del sorteo, cuántos
+   boletos, cuántos dígitos y —si se quiere llevar la cuenta— el precio.
+   La hora se guarda siempre como hora del lugar del evento, sin importar
+   desde qué huso se llene el formulario.
+2. El servidor inventa los folios, los firma y los guarda. Al terminar abre
+   la **hoja de boletos** con folio, código y QR de cada uno: de ahí sale a
+   la impresora o a un PDF (*Imprimir → Guardar como PDF*).
+3. **Manejar esta** pone esa rifa al frente de la pestaña Sorteo.
 
-# 3. Cargar el lote en Supabase (insert en `boletos`) y crear la fila en `rifas`
-# 4. Apuntar assets/config.js a la nueva rifa
-```
+La hoja se puede volver a sacar cuando sea desde **Hoja de boletos** en
+cualquier rifa del historial. Nada se borra: cada rifa conserva sus folios y
+su ganador para siempre.
 
-Los archivos `lote*.json` y `lote*.csv` **no se suben al repositorio**: llevan
-el código de cada folio y publicarlos permitiría fabricar URLs válidas.
+Las herramientas de `herramientas/` hacen lo mismo desde la terminal y siguen
+sirviendo, pero ya no hacen falta. Los archivos `lote*.json` y `lote*.csv` que
+generan **no se suben al repositorio**: llevan el código de cada folio y
+publicarlos permitiría fabricar URLs válidas.
 
 ## Seguridad
 
 - El público solo puede leer el estado de la rifa. No hay escritura pública en
   ninguna tabla, y la tabla `boletos` no tiene ni una política: los códigos no
-  salen de la base. La validación pasa por una función que responde solo
-  verdadero o falso.
+  salen de la base. Para saber de qué rifa es un boleto hay que traer folio y
+  código ya escritos: `rifa_de_folio` solo contesta cuando los dos coinciden,
+  y nunca devuelve el código.
+- La llave que firma los códigos vive en `llave_firma`, una tabla **sin
+  ninguna política**: solo la alcanza la función de borde. Si saliera de ahí,
+  cualquiera podría fabricar boletos.
 - **El ganador es inmutable**: un disparador impide escribirlo antes de revelar
   y cambiarlo después. Ni siquiera con la llave de servicio.
 - El panel no escribe en la base: llama a la función de borde `sorteo`, que
   exige la clave del panel en cada acción y compara contra un hash que el
-  navegador no puede leer.
+  navegador no puede leer, en tiempo constante y con un retardo si falla.
 - Cada acción del sorteo queda en `sorteo_log` con su hora.
 
 Lo que esto **no** resuelve: un QR se fotografía y se reenvía, y la URL se
@@ -79,8 +112,8 @@ En un evento con mucha gente en el mismo lugar la antena se satura y las
 cargas se cortan (`ERR_NETWORK_CHANGED` y compañía). Tres decisiones para que
 eso no arruine el sorteo:
 
-- **Un solo host y una sola conexión.** La página no pide nada fuera de
-  GitHub Pages: ni CDN, ni tipografías de Google. Cada host extra son más
+- **Un solo host y una sola conexión.** La página no pide nada fuera de su
+  propio dominio: ni CDN, ni tipografías de Google. Cada host extra son más
   apretones de manos DNS y TLS, y en una red saturada cada uno es otra
   oportunidad de que la carga se corte.
 - **Nada bloquea el primer pintado.** La hoja de estilos de Google Fonts era
@@ -99,7 +132,7 @@ eso no arruine el sorteo:
   teléfono, que es justo lo que pasa a la hora del sorteo.
 
 Al cambiar archivos del sitio hay que subir la versión del caché en `sw.js`
-(`CACHE = 'rifa-v2'`, etc.) para que los teléfonos tomen la versión nueva.
+(`CACHE = 'rifa-v6'`, etc.) para que los teléfonos tomen la versión nueva.
 
 ## Qué aguanta, medido
 
@@ -172,6 +205,20 @@ En **Cloudflare Pages** son cuatro pasos, sin tocar el código: crear cuenta,
 *Workers & Pages → Create → Pages → Connect to Git*, elegir este repositorio,
 y dejar los ajustes de compilación vacíos (no hay compilación, es HTML). Cada
 `git push` se publica solo, igual que ahora.
+
+## Probar sin tocar nada real
+
+```bash
+npm install playwright jsqr pngjs && npx playwright install chromium
+node pruebas/panel.mjs
+```
+
+Levanta un servidor que finge ser Supabase y conduce un navegador de verdad:
+entra con la clave, crea una rifa, saca la hoja de boletos —y **lee el QR
+impreso** para comprobar que apunta al boleto correcto—, cambia de rifa,
+verifica un boleto de papel, y corre el sorteo entero mirando cómo la pantalla
+del participante pasa sola a «en vivo» y luego al resultado. 41 comprobaciones,
+ninguna contra la base real.
 
 ## Ensayo sin tocar la rifa real
 

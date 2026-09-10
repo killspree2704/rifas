@@ -11,3 +11,4 @@ hoja-boletos*.html
 CLAVE-*.txt
 LLAVE-*.txt
 .env
+node_modules/

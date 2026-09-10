@@ -26,8 +26,15 @@
       <p class="mensaje" id="mensajeClave" role="status" aria-live="polite"></p>
     </section>
 
-    <!-- Tablero -->
-    <section id="vistaPanel" class="caja" hidden>
+    <!-- Pestañas -->
+    <nav class="pestanas" id="pestanas" hidden>
+      <button class="pestana activa" data-panel="paneSorteo">Sorteo</button>
+      <button class="pestana" data-panel="paneRifas">Rifas</button>
+      <button class="pestana" data-panel="paneVerificar">Verificar</button>
+    </nav>
+
+    <!-- 1. Sorteo -->
+    <section id="paneSorteo" class="caja" hidden>
       <div class="estado-actual">
         <span class="etiqueta">Estado</span>
         <strong id="estadoTexto">—</strong>
@@ -76,9 +83,77 @@
       </p>
       <button class="boton fantasma" id="btnEspera">Regresar a espera</button>
     </section>
+
+    <!-- 2. Rifas -->
+    <section id="paneRifas" class="caja" hidden>
+      <details class="bloque" id="cajaNueva">
+        <summary><strong>Nueva rifa</strong></summary>
+        <p class="nota">
+          El servidor inventa los folios y los firma. Nunca repite uno usado en
+          otra rifa, así que un boleto viejo jamás pasa por nuevo.
+        </p>
+        <div class="rejilla-campos">
+          <label class="campo ancho">
+            <span>Nombre</span>
+            <input type="text" id="nvNombre" placeholder="Rifa El Muerde Manos" />
+          </label>
+          <label class="campo">
+            <span>Serie</span>
+            <input type="text" id="nvSerie" maxlength="3" placeholder="B" />
+          </label>
+          <label class="campo ancho">
+            <span>Día y hora del sorteo</span>
+            <input type="datetime-local" id="nvFecha" />
+          </label>
+          <label class="campo">
+            <span>Boletos</span>
+            <input type="number" id="nvCantidad" min="1" max="5000" value="500" />
+          </label>
+          <label class="campo">
+            <span>Dígitos del folio</span>
+            <input type="number" id="nvDigitos" min="4" max="8" value="5" />
+          </label>
+          <label class="campo">
+            <span>Precio (opcional)</span>
+            <input type="number" id="nvPrecio" min="0" step="1" placeholder="—" />
+          </label>
+        </div>
+        <button class="boton primario" id="btnCrear">Generar rifa y boletos</button>
+        <p class="mensaje" id="mensajeNueva" role="status" aria-live="polite"></p>
+      </details>
+
+      <h2 class="subtitulo-seccion">Historial</h2>
+      <p class="nota">Ninguna rifa se borra. Cada una guarda su ganador y sus folios para siempre.</p>
+      <div id="listaRifas" class="rifas"></div>
+      <p class="mensaje" id="mensajeRifas" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- 3. Verificar -->
+    <section id="paneVerificar" class="caja" hidden>
+      <p class="nota">
+        Doble confirmación de un boleto de papel: el folio es el número grande y
+        el código son los cuatro caracteres de abajo. Los dos tienen que
+        coincidir; el código sale de una firma que solo conoce el servidor, así
+        que no se puede inventar.
+      </p>
+      <div class="rejilla-campos">
+        <label class="campo">
+          <span>Folio</span>
+          <input type="text" id="vfFolio" inputmode="numeric" placeholder="11052" />
+        </label>
+        <label class="campo">
+          <span>Código</span>
+          <input type="text" id="vfCodigo" maxlength="6" placeholder="R5VR" />
+        </label>
+      </div>
+      <button class="boton primario" id="btnVerificar">Comprobar boleto</button>
+      <div id="resultadoVerificar" class="veredicto-boleto" hidden></div>
+      <p class="mensaje" id="mensajeVerificar" role="status" aria-live="polite"></p>
+    </section>
   </main>
 
   <script src="assets/config.js"></script>
+  <script src="vendor/qrcode.js"></script>
   <script src="assets/panel.js"></script>
 </body>
 </html>

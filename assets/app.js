@@ -30,6 +30,15 @@
   var folio = (params.get('f') || params.get('folio') || '').trim();
   var codigo = (params.get('c') || params.get('codigo') || '').trim().toUpperCase();
   var ensayo = params.get('ensayo') === '1';
+
+  // La rifa NO está fija en el código: la manda el folio impreso en el boleto.
+  // El servidor dice a cuál pertenece, y con eso quedan bien tanto un boleto
+  // recién impreso como uno de una rifa de hace un año. Lo de aquí abajo es
+  // solo lo que se pinta mientras el servidor contesta —o si nunca contesta,
+  // porque el teléfono está sin señal.
+  var rifaId = CFG.rifaId;
+  var nombreRifa = CFG.nombre || 'Rifa';
+  var serieRifa = CFG.serie || 'A';
   var fechaSorteo = new Date(CFG.fechaSorteo);
 
   // Ritmos del sondeo, en milisegundos. Ver el comentario de arriba.
@@ -133,7 +142,7 @@
   }
 
   function hayServidor() {
-    return !ensayo && CFG.supabaseUrl && CFG.supabaseKey && CFG.rifaId && !!cliente;
+    return !ensayo && CFG.supabaseUrl && CFG.supabaseKey && rifaId && !!cliente;
   }
 
   /**
@@ -174,7 +183,7 @@
     var consulta = cliente
       .from('rifas')
       .select('id, estado, folio_ganador, fecha_sorteo')
-      .eq('id', CFG.rifaId)
+      .eq('id', rifaId)
       .single()
       .then(function (r) {
         if (r.error) { throw r.error; }
@@ -259,10 +268,10 @@
     canalCerradoAdrede = false;
 
     canal = cliente
-      .channel('rifa-' + CFG.rifaId)
+      .channel('rifa-' + rifaId)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'rifas', filter: 'id=eq.' + CFG.rifaId },
+        { event: 'UPDATE', schema: 'public', table: 'rifas', filter: 'id=eq.' + rifaId },
         function (mensaje) {
           fallosSeguidos = 0;
           pintarEstado(mensaje.new);
@@ -366,35 +375,54 @@
   // ------------------------------------------------------------------
   // Validación del boleto
   // ------------------------------------------------------------------
-  function validar() {
+  function resolverRifa() {
     if (!hayServidor()) {
       // En ensayo no se puede comprobar la firma: se acepta cualquier folio.
       return Promise.resolve(true);
     }
     var consulta = cliente
-      .rpc('validar_boleto', { p_rifa: CFG.rifaId, p_folio: folio, p_codigo: codigo })
+      .rpc('rifa_de_folio', { p_folio: folio, p_codigo: codigo })
       .then(function (r) {
         // Hay que distinguir dos cosas muy distintas: que el servidor diga que
         // el folio NO existe, y que no hayamos podido preguntarle. Sin red,
         // `r.error` viene lleno; tratar eso como boleto falso sería acusar a
         // alguien por tener mala señal.
         if (r.error) { throw r.error; }
-        return r.data === true;
+        var rifa = (r.data || [])[0];
+        if (!rifa) { return false; }   // folio y código no van juntos: falso
+        adoptarRifa(rifa);
+        return true;
       });
     // Si no se pudo preguntar, se le da por bueno: el comprobante de verdad es
     // el boleto de papel, y el estado de la rifa sigue su curso igual.
     return conLimite(consulta, CFG.limiteConsultaMs || 7000).catch(function () { return true; });
   }
 
+  /** Ya sabemos de qué rifa es este boleto: la pantalla se pone a su nombre. */
+  function adoptarRifa(rifa) {
+    rifaId = rifa.id;
+    nombreRifa = rifa.nombre || nombreRifa;
+    serieRifa = rifa.serie || serieRifa;
+    if (rifa.fecha_sorteo) { fechaSorteo = new Date(rifa.fecha_sorteo); }
+    pintarEncabezado();
+    pintarCronometro();
+    pintarEstado(rifa);
+  }
+
   // ------------------------------------------------------------------
   // Arranque
   // ------------------------------------------------------------------
-  function iniciar() {
-    $('tituloRifa').textContent = CFG.nombre || 'Rifa';
-    document.title = CFG.nombre || 'Rifa';
-    $('serieTexto').textContent = 'Serie ' + (CFG.serie || 'A');
+  function pintarEncabezado() {
+    $('tituloRifa').textContent = nombreRifa;
+    document.title = nombreRifa;
+    $('serieTexto').textContent = 'Serie ' + serieRifa;
     $('fechaTexto').textContent = formatearFecha();
     $('fechaTexto2').textContent = formatearFecha();
+    if (folio) { $('folio').textContent = serieRifa + '-' + folio; }
+  }
+
+  function iniciar() {
+    pintarEncabezado();
 
     pintarCronometro();
     setInterval(function () {
@@ -410,7 +438,7 @@
       return;
     }
 
-    $('folio').textContent = (CFG.serie ? CFG.serie + '-' : '') + folio;
+    $('folio').textContent = serieRifa + '-' + folio;
     $('bloqueFolio').hidden = false;
 
     escucharDispositivo();
@@ -418,7 +446,7 @@
     // Primero la pantalla, con lo que dice el reloj. Sin esperar nada de red.
     pintarEstado(estadoLocal());
 
-    if (ensayo || !CFG.supabaseUrl || !CFG.supabaseKey || !CFG.rifaId) { return; }
+    if (ensayo || !CFG.supabaseUrl || !CFG.supabaseKey) { return; }
 
     // Y ya con el boleto a la vista, se conecta al servidor.
     cargarLibreria()
@@ -426,7 +454,7 @@
         cliente = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
           realtime: { params: { eventsPerSecond: 2 } },
         });
-        return validar();
+        return resolverRifa();
       })
       .then(function (valido) {
         if (!valido) {

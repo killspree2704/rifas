@@ -5,14 +5,21 @@
 -- códigos de verificación y el estado de la rifa. Quién compró cada boleto
 -- vive en la libreta del organizador, fuera de todo sistema.
 --
---   rifas       estado del sorteo, uno por rifa
+--   rifas       estado del sorteo, uno por rifa (`activa` marca cuál maneja
+--               el panel por omisión; un índice único impide que haya dos)
 --   boletos     folio (único global e histórico) y su código impreso
 --   sorteo_log  bitácora de cada acción del panel
 --   panel_clave hash de la clave del panel; sin políticas, nadie lo lee
+--   llave_firma llave HMAC con la que se firman los códigos; sin políticas,
+--               solo la alcanza la función de borde `sorteo`
 --
 -- Garantías:
 --   * El público solo puede LEER `rifas`. No hay escritura pública en ninguna
 --     tabla, y `boletos` no tiene ninguna política: sus códigos no salen.
 --   * `validar_boleto` responde únicamente verdadero/falso.
+--   * `rifa_de_folio(folio, codigo)` devuelve la rifa de un boleto y solo si
+--     los dos coinciden. Nunca devuelve el código, así que no sirve para
+--     adivinarlo: hay que traerlo ya escrito. Es lo que deja que la pantalla
+--     del participante no dependa de ninguna rifa fija.
 --   * El disparador `proteger_ganador` impide escribir el ganador antes de
 --     revelar y cambiarlo después. Ni con llave de servicio.
