@@ -83,8 +83,27 @@ async function codigoDe(llave: CryptoKey, serie: string, folio: string) {
   return codigo;
 }
 
-/** Folios al azar que no chocan con NINGUNO de ninguna rifa, nunca. */
-function generarFolios(cantidad: number, digitos: number, ocupados: Set<string>) {
+/** Cuáles de estos folios ya existen. Se pregunta a la base, por tandas. */
+async function yaUsados(candidatos: string[]) {
+  const usados = new Set<string>();
+  for (let i = 0; i < candidatos.length; i += 500) {
+    const tanda = candidatos.slice(i, i + 500);
+    const { data, error } = await db.from("boletos").select("folio").in("folio", tanda);
+    if (error) throw new Error("no se pudo comprobar los folios: " + error.message);
+    for (const b of data ?? []) usados.add(b.folio);
+  }
+  return usados;
+}
+
+/**
+ * Folios al azar que no chocan con NINGUNO de ninguna rifa, nunca.
+ *
+ * Quién está ocupado lo dice la base en cada vuelta, no una lista traída de
+ * antemano: `boletos.folio` es la llave primaria de toda la historia, y una
+ * lista puede venir recortada sin avisar. Así el lote sale limpio aunque haya
+ * decenas de miles de boletos viejos.
+ */
+async function generarFolios(cantidad: number, digitos: number) {
   const minimo = Math.pow(10, digitos - 1);
   const espacio = Math.pow(10, digitos) - minimo;
   if (cantidad > espacio * 0.3) {
@@ -92,16 +111,27 @@ function generarFolios(cantidad: number, digitos: number, ocupados: Set<string>)
       `${cantidad} folios de ${digitos} dígitos ocupan demasiado del espacio disponible; usa más dígitos`,
     );
   }
+
   const nuevos = new Set<string>();
   const azar = new Uint32Array(1);
-  let intentos = 0;
-  while (nuevos.size < cantidad) {
-    if (++intentos > cantidad * 200) throw new Error("no se pudieron generar folios suficientes");
-    crypto.getRandomValues(azar);
-    const folio = String(minimo + (azar[0] % espacio));
-    if (!ocupados.has(folio) && !nuevos.has(folio)) nuevos.add(folio);
+
+  for (let vuelta = 0; nuevos.size < cantidad; vuelta++) {
+    if (vuelta > 20) throw new Error("no se pudieron generar folios suficientes; usa más dígitos");
+    const candidatos = new Set<string>();
+    // Se piden de más para que una vuelta baste casi siempre.
+    const faltan = cantidad - nuevos.size;
+    let intentos = 0;
+    while (candidatos.size < faltan && intentos < faltan * 200) {
+      intentos++;
+      crypto.getRandomValues(azar);
+      const folio = String(minimo + (azar[0] % espacio));
+      if (!nuevos.has(folio)) candidatos.add(folio);
+    }
+    const ocupados = await yaUsados([...candidatos]);
+    for (const folio of candidatos) if (!ocupados.has(folio)) nuevos.add(folio);
   }
-  return [...nuevos].sort();
+
+  return [...nuevos].slice(0, cantidad).sort();
 }
 
 /** Un identificador legible y único para la rifa. */
@@ -217,14 +247,12 @@ Deno.serve(async (req) => {
       return responder({ error: "los dígitos del folio deben ir de 4 a 8" }, 400);
     }
 
-    const { data: existentes } = await db.from("boletos").select("folio");
-    const ocupados = new Set((existentes ?? []).map((b) => b.folio));
     const { data: rifasPrevias } = await db.from("rifas").select("id");
     const idsUsados = new Set((rifasPrevias ?? []).map((r) => r.id));
 
     let folios: string[];
     try {
-      folios = generarFolios(cantidad, digitos, ocupados);
+      folios = await generarFolios(cantidad, digitos);
     } catch (e) {
       return responder({ error: (e as Error).message }, 400);
     }
