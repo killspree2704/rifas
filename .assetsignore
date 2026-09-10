@@ -1,0 +1,19 @@
+# Qué NO se publica en Cloudflare. Sin esto sube la carpeta entera, incluido
+# el historial de git: el primer despliegue dejó /.git/config accesible desde
+# internet. El repositorio es público, así que no se filtró nada secreto, pero
+# no hay razón para servir eso.
+.git
+.git/**
+.wrangler
+.wrangler/**
+.gitignore
+.nojekyll
+.assetsignore
+wrangler.jsonc
+README.md
+
+# Herramientas de escritorio: generan folios y QR, no las usa el navegador.
+herramientas
+herramientas/**
+supabase
+supabase/**

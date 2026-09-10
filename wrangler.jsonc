@@ -1,0 +1,14 @@
+{
+  // Configuración del despliegue en Cloudflare. Al estar en el repositorio,
+  // cada despliegue sale igual al anterior en vez de depender de lo que
+  // wrangler adivine en cada compilación.
+  "name": "rifas",
+  "compatibility_date": "2026-09-10",
+  "assets": {
+    "directory": ".",
+    "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
