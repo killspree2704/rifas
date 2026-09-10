@@ -14,6 +14,17 @@ window.RIFA_CONFIG = {
   fechaSorteo: '2026-09-11T18:00:00-06:00',
   zonaHoraria: 'America/Mexico_City',
 
+  // Ritmo de las consultas de respaldo, en milisegundos. El canal en vivo es
+  // la vía principal; esto es solo la red de seguridad, y su costo se nota
+  // cuando hay cientos de teléfonos abiertos a la vez.
+  sondeoLejosMs: 60000,        // falta más de la ventana caliente para el sorteo
+  sondeoCanalSanoMs: 30000,    // cerca del sorteo, con el canal en vivo funcionando
+  sondeoSinCanalMs: 3500,      // cerca del sorteo y sin canal: hay que preguntar seguido
+  sondeoTechoMs: 5000,         // nadie espera más que esto en los minutos del sorteo
+  sondeoOcultoMs: 90000,       // el teléfono está bloqueado o en otra pestaña
+  ventanaCalienteMin: 15,      // minutos antes del sorteo en que se aprieta el ritmo
+  limiteConsultaMs: 7000,      // una consulta colgada se corta y se reintenta
+
   supabaseUrl: 'https://fgwavuaolmrwagaymgos.supabase.co',
   supabaseKey: 'sb_publishable_x6KN6Eihq2wtEcAehggb_A_fXAuvitw',
 };

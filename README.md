@@ -94,6 +94,39 @@ eso no arruine el sorteo:
 Al cambiar archivos del sitio hay que subir la versión del caché en `sw.js`
 (`CACHE = 'rifa-v2'`, etc.) para que los teléfonos tomen la versión nueva.
 
+## Qué aguanta, medido
+
+Se simularon 30 pantallas reales (Chromium) contra un servidor de pruebas,
+con la red cayéndose y volviendo en un tercio de ellas justo alrededor del
+reveal. El canal en vivo estaba **deshabilitado a propósito**: estas cifras
+son el peor caso, cuando solo queda el sondeo.
+
+| | Antes de blindar | Después |
+| --- | --- | --- |
+| Pantallas que vieron el resultado | 30/30 | 30/30 |
+| Tiempo hasta verlo (mediana) | 7.2 s | 7.1 s |
+| Peor caso | 22.7 s | **13.7 s** |
+| Consultas al servidor | 1316 | 1233 |
+| Proyección a 500 pantallas | 200/s | 167/s |
+
+El peor caso son los teléfonos que estuvieron **sin señal durante el reveal**
+y la recuperaron seis segundos después. Con señal estable, todos ven el
+resultado en menos de cinco segundos.
+
+Con el servidor caído (60 respuestas 503 seguidas): ninguna pantalla se rompe,
+todas siguen mostrando el cronómetro, y al volver el servicio las diez se
+enteran del resultado en menos de 13 segundos.
+
+Con la red apagada del todo, recargar sigue mostrando el boleto (lo guarda
+`sw.js`).
+
+### Cuánto pesa esto en Supabase
+
+El plan gratuito da **200 conexiones simultáneas y 100 mensajes por segundo**
+de Realtime. Con 500 boletos eso no alcanza si todos abren la página a la vez,
+y por eso el sondeo es la red de seguridad y no un adorno. Los ritmos se
+ajustan en `assets/config.js` sin tocar código.
+
 ## Ensayo sin tocar la rifa real
 
 `?ensayo=1` corre la pantalla del participante contra el reloj, sin servidor:
