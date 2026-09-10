@@ -47,7 +47,7 @@ export LLAVE_RIFA=…
 node herramientas/generar-folios.mjs --cantidad 500 --digitos 5 --serie B --salida lote-b
 
 # 2. Hoja para la imprenta
-node herramientas/hoja-boletos.mjs lote-b.json "https://killspree2704.github.io/rifas/" hoja-b.html
+node herramientas/hoja-boletos.mjs lote-b.json "https://rifas.el-original.workers.dev/" hoja-b.html
 
 # 3. Cargar el lote en Supabase (insert en `boletos`) y crear la fila en `rifas`
 # 4. Apuntar assets/config.js a la nueva rifa
@@ -143,6 +143,21 @@ Trae un botón para copiar el resultado y mandarlo.
 
 Conviene correrlo en la sede el día del evento, antes de que llegue la gente.
 
+## Dónde vive
+
+| | |
+| --- | --- |
+| Página del participante | `https://rifas.el-original.workers.dev/` |
+| Panel de sorteo | `https://rifas.el-original.workers.dev/panel.html` |
+| Diagnóstico de red | `https://rifas.el-original.workers.dev/diagnostico.html` |
+| Hosting | Cloudflare Workers (estáticos), desplegado desde este repositorio |
+| Base de datos | Supabase, proyecto `rifas` |
+
+Se mudó desde GitHub Pages porque **su red móvil no alcanzaba los servidores
+de GitHub**: la página no cargaba en datos, en ninguna de sus formas.
+Comprobado con el diagnóstico: en Cloudflare responde en 103 ms sobre una
+conexión de 0.25 Mbps.
+
 ## Cambiar de hosting
 
 El sitio no depende de dónde esté publicado: todas sus rutas son relativas y
@@ -150,7 +165,7 @@ no pide nada a terceros. Para moverlo basta con servir esta carpeta en otro
 lado y regenerar los QR con la URL nueva:
 
 ```bash
-node herramientas/hoja-boletos.mjs lote.json "https://LA-NUEVA-URL/" hoja.html
+node herramientas/hoja-boletos.mjs lote.json "https://rifas.el-original.workers.dev/" hoja.html
 ```
 
 En **Cloudflare Pages** son cuatro pasos, sin tocar el código: crear cuenta,
