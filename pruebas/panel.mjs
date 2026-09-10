@@ -198,6 +198,23 @@ await p2.goto(BASE + '/?f=11052&c=0000');
 await p2.waitForSelector('#vistaInvalido:not([hidden])', { timeout: 15000 });
 ok('un código que no cuadra sale como boleto no válido', true);
 
+// ------------------------------------------------ TRANSMISIÓN --------------
+console.log('\n== El enlace de la transmisión ==');
+await pagina.click('.pestana[data-panel="paneSorteo"]');
+await pagina.fill('#transmisionUrl', 'https://vimeo.com/12345');
+await pagina.click('#btnGuardarTransmision');
+await pagina.waitForFunction(() =>
+  document.getElementById('mensaje').textContent.includes('no es un enlace de YouTube'));
+ok('rechaza un enlace que no es de YouTube', true);
+
+await pagina.fill('#transmisionUrl', 'youtu.be/dQw4w9WgXcQ?si=abc');
+await pagina.click('#btnGuardarTransmision');
+await pagina.waitForFunction(() =>
+  document.getElementById('mensaje').textContent.includes('Enlace guardado'));
+ok('acepta y limpia un enlace copiado de la app',
+   (await pagina.inputValue('#transmisionUrl')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+   await pagina.inputValue('#transmisionUrl'));
+
 // ------------------------------------------------- SORTEO EN VIVO ---------
 console.log('\n== El sorteo, de punta a punta ==');
 // En su propio contexto: así el teléfono del participante no queda «en
@@ -217,11 +234,56 @@ await pagina.locator('.rifa', { hasText: 'Rifa que va a empezar' })
 await pagina.waitForFunction(() =>
   document.getElementById('mensajeRifas').textContent.includes('Ahora manejas'));
 await pagina.click('.pestana[data-panel="paneSorteo"]');
+ok('el boleto no enseña el botón antes de que haya transmisión',
+   await p3.isHidden('#enlaceTransmision'));
+
+await pagina.fill('#transmisionUrl', 'https://www.youtube.com/@ElMuerdeManos/live');
 await pagina.click('#btnEnVivo');
 await pagina.waitForFunction(() => document.getElementById('estadoTexto').textContent === 'En vivo');
-ok('el panel lo pone en vivo', true);
+ok('el panel transmite', true);
+ok('avisa que las pantallas traen el botón',
+   (await pagina.textContent('#mensaje')).includes('botón a tu transmisión'),
+   await pagina.textContent('#mensaje'));
+ok('marca que estás transmitiendo desde este aparato',
+   (await pagina.textContent('#candadoTransmision')).includes('desde este aparato'),
+   await pagina.textContent('#candadoTransmision'));
+
 await p3.waitForSelector('#vistaEnVivo:not([hidden])', { timeout: 20000 });
 ok('el teléfono cambia solo a «en vivo»', true);
+ok('con el letrero nuevo',
+   (await p3.textContent('#vistaEnVivo .destacada')) === 'La rifa se está llevando a cabo',
+   await p3.textContent('#vistaEnVivo .destacada'));
+await p3.waitForSelector('#enlaceTransmision:not([hidden])', { timeout: 15000 });
+ok('y con el botón a la transmisión',
+   (await p3.getAttribute('#enlaceTransmision', 'href')) === 'https://www.youtube.com/@ElMuerdeManos/live',
+   await p3.getAttribute('#enlaceTransmision', 'href'));
+ok('que abre en otra pestaña, para no perder el boleto',
+   (await p3.getAttribute('#enlaceTransmision', 'target')) === '_blank' &&
+   (await p3.getAttribute('#enlaceTransmision', 'rel')).includes('noopener'));
+
+// --- el candado de un solo aparato ---
+console.log('\n== Un solo aparato transmitiendo ==');
+const ctx4 = await navegador.newContext({ serviceWorkers: 'block' });
+const otro = await ctx4.newPage();
+await otro.goto(BASE + '/panel.html');
+await otro.fill('#clave', 'secreta');
+await otro.click('#btnEntrar');
+await otro.waitForSelector('#pestanas:not([hidden])');
+await otro.waitForFunction(() =>
+  !document.getElementById('candadoTransmision').hidden);
+ok('el segundo aparato ve de dónde sale la transmisión',
+   (await otro.textContent('#candadoTransmision')).includes('Transmitiendo desde'),
+   await otro.textContent('#candadoTransmision'));
+ok('y le ofrece tomar el control', await otro.isVisible('#btnTomarControl'));
+
+await otro.click('#btnTomarControl');
+await otro.waitForFunction(() => document.getElementById('mensaje').textContent.includes('confirmar'));
+ok('tomar el control pide confirmación', true);
+await otro.click('#btnTomarControl');
+await otro.waitForFunction(() =>
+  document.getElementById('candadoTransmision').textContent.includes('desde este aparato'));
+ok('el segundo aparato toma el control', true);
+await ctx4.close();
 
 // revelar
 await pagina.fill('#folioGanador', '55502');
@@ -229,7 +291,11 @@ await pagina.click('#btnRevelarFolio');
 await pagina.waitForFunction(() => document.getElementById('mensaje').textContent.includes('confirmar'));
 ok('revelar pide confirmación', true);
 await pagina.click('#btnRevelarFolio');
-await pagina.waitForFunction(() => document.getElementById('mensaje').textContent.includes('Ganador revelado'));
+// El refresco de cortesía puede reescribir el aviso con la otra redacción
+// («Folio ganador: … registrado y bloqueado»). Las dos dicen lo mismo, así
+// que lo que se comprueba es que el folio quede a la vista.
+await pagina.waitForFunction(() =>
+  document.getElementById('mensaje').textContent.includes('55502'));
 ok('queda registrado el ganador', true);
 ok('y ya no deja volver a revelar', await pagina.isDisabled('#btnRevelarFolio'));
 ok('ni regresar a espera', await pagina.isDisabled('#btnEspera'));

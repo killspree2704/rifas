@@ -6,7 +6,10 @@
 -- vive en la libreta del organizador, fuera de todo sistema.
 --
 --   rifas       estado del sorteo, uno por rifa (`activa` marca cuál maneja
---               el panel por omisión; un índice único impide que haya dos)
+--               el panel por omisión; un índice único impide que haya dos).
+--               `transmision_url` es el enlace público al directo de YouTube
+--               y `transmite_desde` anota qué aparato lo prendió, para que no
+--               se prenda dos veces desde dos lados
 --   boletos     folio (único global e histórico) y su código impreso
 --   sorteo_log  bitácora de cada acción del panel
 --   panel_clave hash de la clave del panel; sin políticas, nadie lo lee
@@ -20,6 +23,7 @@
 --   * `rifa_de_folio(folio, codigo)` devuelve la rifa de un boleto y solo si
 --     los dos coinciden. Nunca devuelve el código, así que no sirve para
 --     adivinarlo: hay que traerlo ya escrito. Es lo que deja que la pantalla
---     del participante no dependa de ninguna rifa fija.
+--     del participante no dependa de ninguna rifa fija. Devuelve también el
+--     enlace de la transmisión, que es público: es el mismo que se reparte.
 --   * El disparador `proteger_ganador` impide escribir el ganador antes de
 --     revelar y cambiarlo después. Ni con llave de servicio.

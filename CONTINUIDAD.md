@@ -108,7 +108,7 @@ El boleto de papel                El teléfono                    El panel
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa |
+| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión y desde qué aparato salió |
 | `boletos` | Folio (único de por vida) y su código. **Sin políticas: nadie las lee desde fuera** |
 | `sorteo_log` | Cada acción del panel con su hora |
 | `panel_clave` | El hash de la clave. Sin políticas |
@@ -132,8 +132,12 @@ el diseño, no una omisión.
 1. Llegar a la sede y abrir `diagnostico.html` con la red del lugar y con
    datos móviles. Dice en segundos si esa red sirve.
 2. Entrar al panel y comprobar que la rifa correcta está en **En espera**.
-3. A la hora: **Poner en vivo**. Los teléfonos cambian solos (también cambian
-   solos al llegar la hora, aunque nadie toque nada).
+3. Empezar a transmitir en YouTube desde la app. Ya al aire, copiar el enlace
+   del directo (o dejar puesto `youtube.com/@tucanal/live`, que sirve para
+   siempre) y presionar **Transmitir** en el panel. Los teléfonos cambian
+   solos a «La rifa se está llevando a cabo» y traen el botón **Ir a la
+   transmisión**, que abre YouTube en otra pestaña. **Quien lo abre no
+   necesita cuenta de nada.**
 4. Sacar el folio de la tómbola, teclearlo y **Revelar**. Pide confirmar dos
    veces. **Es irreversible**: ni tú ni nadie puede cambiar el ganador después.
 5. **Cerrar**. El resultado sigue viéndose para quien escanee, para siempre.
@@ -161,6 +165,18 @@ propio resultado.
   México). Sin ganador todavía.
 - El panel y el boleto están probados de punta a punta (`pruebas/panel.mjs`,
   41 comprobaciones).
+
+### La transmisión, en corto
+
+- Se transmite **desde la app de YouTube**, no desde la página. Un navegador
+  no puede mandar video a YouTube: no habla RTMP, y hacerlo pediría un
+  servidor propio de por medio.
+- La página **no reproduce el video**, solo apunta a él. Así sigue sin
+  depender de ningún dominio ajeno para abrir.
+- **Ver no pide cuenta**; solo comentar la pide. Y si el directo queda marcado
+  como restringido por edad, sí va a pedir sesión: no lo marques.
+- **Un solo aparato transmite a la vez.** El segundo ve de dónde está saliendo
+  y puede tomar el control si el primero se cayó.
 
 ### Pendientes
 

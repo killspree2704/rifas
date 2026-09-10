@@ -20,7 +20,7 @@ se le vendió cada boleto lo lleva el organizador a mano, en papel.
 | Estado | Pantalla |
 | --- | --- |
 | `espera` | Su folio, «Pronto conoceremos al ganador o la ganadora» y el cronómetro |
-| `en_vivo` | «El sorteo está en curso» — entra sola al llegar la hora |
+| `en_vivo` | «La rifa se está llevando a cabo», con el botón a la transmisión si la hay — entra sola al llegar la hora |
 | `revelado` | Su folio contra el ganador: ¡Ganaste! o Suerte para la próxima |
 | `cerrado` | Igual que revelado, con la rifa terminada |
 
@@ -35,9 +35,39 @@ pestañas:
 
 | Pestaña | Para qué |
 | --- | --- |
-| **Sorteo** | Poner en vivo, revelar al ganador (capturando el folio de la tómbola o dejando que el sistema sortee) y cerrar |
+| **Sorteo** | Guardar el enlace de la transmisión, salir al aire, revelar al ganador (capturando el folio de la tómbola o dejando que el sistema sortee) y cerrar |
 | **Rifas** | Crear una rifa nueva con sus folios, ver el historial completo y sacar la hoja de boletos para imprimir |
 | **Verificar** | Teclear folio y código de un boleto de papel y saber si es original |
+
+### La transmisión en vivo
+
+La página **no reproduce video**: enseña un botón que lleva al directo de
+YouTube. Eso es deliberado.
+
+- **Nadie se registra.** Ver un directo de YouTube no pide cuenta, ni público
+  ni «no listado». Solo comentar la pide, y comentar no hace falta aquí. (Un
+  directo marcado como restringido por edad sí pediría sesión: no marcarlo.)
+- **El sitio sigue sin pedirle un byte a nadie más.** Un reproductor
+  incrustado metería un dominio ajeno en el camino crítico, que es justo lo
+  que se quitó para que la página abra en una red saturada.
+- **El video lo transmite la app de YouTube**, que es sólida. Un navegador
+  transmitiendo desde un celular se corta en cuanto se bloquea la pantalla o
+  entra una llamada; además, **ningún navegador puede mandar video a YouTube
+  por su cuenta** —no habla RTMP— y hacerlo pediría un servidor propio de por
+  medio.
+- El botón abre **otra pestaña**: el boleto se queda atrás y el resultado
+  sigue llegando solo.
+
+El enlace se pega en el panel. Si usas la forma `youtube.com/@tucanal/live`,
+apunta siempre al directo que esté al aire en ese canal: se pega una vez y
+sirve para todas las rifas. El panel acepta también `youtu.be/…`, `/live/…` o
+la dirección con parámetros pegados, y las guarda ya limpias.
+
+**Un solo aparato transmite.** Al salir al aire, el panel anota desde cuál
+aparato fue. Si alguien abre el panel en otro lado, ve *«Transmitiendo desde
+el celular»* y el botón no le deja prenderla otra vez —aunque puede **tomar el
+control** si hace falta, por ejemplo si ese celular se quedó sin batería.
+Regresar a espera o cerrar suelta el candado.
 
 ### La doble confirmación del boleto
 
@@ -63,6 +93,7 @@ vendedor. Aquí solo viven números.
 | `panel.html`, `assets/panel.js` | Panel de sorteo |
 | `assets/config.js` | Rifa activa, fecha del sorteo y llaves públicas |
 | `assets/panel.css` | Estilos del panel |
+| `assets/youtube.js` | Reconoce y limpia un enlace de YouTube pegado a mano |
 | `supabase/funciones/sorteo/index.ts` | Función de borde: todo lo que el panel puede hacer |
 | `supabase/esquema.sql` | Qué hay en la base y qué garantiza |
 | `herramientas/*.mjs` | Lo mismo desde la línea de comandos, de cuando no existía el panel |
@@ -220,9 +251,10 @@ node pruebas/panel.mjs
 Levanta un servidor que finge ser Supabase y conduce un navegador de verdad:
 entra con la clave, crea una rifa, saca la hoja de boletos —y **lee el QR
 impreso** para comprobar que apunta al boleto correcto—, cambia de rifa,
-verifica un boleto de papel, y corre el sorteo entero mirando cómo la pantalla
-del participante pasa sola a «en vivo» y luego al resultado. 41 comprobaciones,
-ninguna contra la base real.
+verifica un boleto de papel, guarda el enlace de la transmisión, y corre el
+sorteo entero mirando cómo la pantalla del participante pasa sola a «en vivo»
+—con su botón al directo— y luego al resultado. **58 comprobaciones**, ninguna
+contra la base real.
 
 ## Ensayo sin tocar la rifa real
 

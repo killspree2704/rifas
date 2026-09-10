@@ -257,3 +257,19 @@ h1 {
     to   { transform: rotate(-3deg) scale(1); opacity: 1; }
   }
 }
+
+/* El botón que lleva al directo. Solo aparece cuando la rifa está en vivo y
+   el panel guardó un enlace; si no, ni existe. */
+.boton-transmision {
+  display: inline-block;
+  margin: 20px 0 4px;
+  padding: 13px 24px;
+  border-radius: 10px;
+  background: var(--sello);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+}
+.boton-transmision:hover { filter: brightness(1.08); }
+.boton-transmision:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }

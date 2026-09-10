@@ -22,6 +22,31 @@
   var rifaActual = CFG.rifaId;   // sobre cuál rifa actúan los botones del sorteo
   var ultimoEstado = null;
 
+  /**
+   * Quién es este aparato. Sirve para una cosa sola: que si la transmisión ya
+   * se prendió desde el celular, la computadora lo vea y no la prenda otra vez
+   * por su cuenta. No identifica a nadie ni sale de aquí más que como etiqueta.
+   */
+  var APARATO = (function () {
+    var guardado = null;
+    try { guardado = sessionStorage.getItem('aparato'); } catch (e) { /* modo privado */ }
+    if (guardado) { return guardado; }
+    var movil = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    var valor = (movil ? 'el celular' : 'la computadora') + '|' +
+                Math.random().toString(36).slice(2, 10);
+    try { sessionStorage.setItem('aparato', valor); } catch (e) { /* da igual */ }
+    return valor;
+  })();
+
+  function etiquetaDe(marca) {
+    var corte = String(marca || '').lastIndexOf('|');
+    return corte > 0 ? marca.slice(0, corte) : '';
+  }
+  function idDe(marca) {
+    var corte = String(marca || '').lastIndexOf('|');
+    return corte > 0 ? marca.slice(corte + 1) : '';
+  }
+
   var ETIQUETAS = {
     espera: 'En espera',
     en_vivo: 'En vivo',
@@ -87,6 +112,13 @@
     $('conteoFolios').textContent = datos.folios.length;
     $('listaFolios').textContent = datos.folios.join(' ');
 
+    // El enlace solo se reescribe cuando no lo estás editando, para no
+    // borrarte a media escritura lo que acabas de pegar.
+    if (document.activeElement !== $('transmisionUrl')) {
+      $('transmisionUrl').value = datos.rifa.transmision_url || '';
+    }
+    pintarCandado(datos.rifa);
+
     var revelada = !!datos.rifa.folio_ganador;
     $('btnEnVivo').disabled = revelada || datos.rifa.estado === 'en_vivo';
     $('btnEspera').disabled = revelada || datos.rifa.estado === 'espera';
@@ -100,6 +132,27 @@
     }
   }
 
+  /** De dónde está saliendo la transmisión, si es que ya salió de algún lado. */
+  function pintarCandado(rifa) {
+    var marca = rifa.transmite_desde || '';
+    var ajeno = marca && idDe(marca) !== idDe(APARATO);
+    var aviso = $('candadoTransmision');
+
+    if (!marca || rifa.estado !== 'en_vivo') {
+      aviso.hidden = true;
+      $('btnTomarControl').hidden = true;
+      return;
+    }
+
+    aviso.hidden = false;
+    aviso.textContent = ajeno
+      ? 'Transmitiendo desde ' + etiquetaDe(marca) + '.'
+      : 'Estás transmitiendo desde este aparato.';
+    // Si el celular que transmitía se quedó sin batería, alguien tiene que
+    // poder retomar desde otro lado sin regresar la rifa a espera.
+    $('btnTomarControl').hidden = !ajeno || !!rifa.folio_ganador;
+  }
+
   function accion(nombre, extra) {
     mensaje('Enviando…');
     llamar(nombre, extra)
@@ -108,15 +161,58 @@
         if (nombre === 'revelar') {
           mensaje('Ganador revelado: ' + datos.rifa.folio_ganador + '. Ya está en todos los teléfonos.', 'ok');
         } else if (nombre === 'en_vivo') {
-          mensaje('En vivo. Las pantallas ya cambiaron.', 'ok');
+          mensaje(datos.rifa.transmision_url
+            ? 'En vivo. Las pantallas ya cambiaron y traen el botón a tu transmisión.'
+            : 'En vivo. Las pantallas ya cambiaron. (Sin enlace de transmisión: no aparece el botón.)', 'ok');
         } else {
           mensaje('Listo.', 'ok');
         }
       })
-      .catch(function (e) { mensaje(e.message, 'error'); });
+      .catch(function (e) {
+        mensaje(e.message, 'error');
+        // El servidor puede saber algo que aquí no se sabía —por ejemplo, que
+        // ya hay otro aparato transmitiendo—, así que se vuelve a preguntar
+        // para que la pantalla enseñe de qué está hablando.
+        llamar('estado').then(pintar).catch(function () { /* ya se avisó */ });
+      });
   }
 
-  $('btnEnVivo').addEventListener('click', function () { accion('en_vivo'); });
+  $('btnEnVivo').addEventListener('click', function () { transmitir(false); });
+
+  $('btnTomarControl').addEventListener('click', function () {
+    if (!confirmar('Vas a tomar el control de la transmisión desde este aparato.')) { return; }
+    transmitir(true);
+  });
+
+  /**
+   * Prender la transmisión. Manda el enlace escrito en el momento, para que
+   * no haga falta acordarse de guardarlo antes.
+   */
+  function transmitir(forzar) {
+    var enlace = $('transmisionUrl').value.trim();
+    if (enlace && !normalizarYouTube(enlace)) {
+      mensaje('Ese enlace no es de YouTube. Revísalo antes de salir al aire.', 'error');
+      return;
+    }
+    accion('en_vivo', { dispositivo: APARATO, transmision: enlace, forzar: !!forzar });
+  }
+
+  $('btnGuardarTransmision').addEventListener('click', function () {
+    var enlace = $('transmisionUrl').value.trim();
+    if (enlace && !normalizarYouTube(enlace)) {
+      mensaje('Eso no es un enlace de YouTube.', 'error');
+      return;
+    }
+    mensaje(enlace ? 'Guardando…' : 'Quitando el enlace…');
+    llamar('transmision', { transmision: enlace })
+      .then(function (datos) {
+        pintar(datos);
+        mensaje(datos.rifa.transmision_url
+          ? 'Enlace guardado: ' + datos.rifa.transmision_url
+          : 'Enlace quitado. Las pantallas no mostrarán el botón.', 'ok');
+      })
+      .catch(function (e) { mensaje(e.message, 'error'); });
+  });
   $('btnEspera').addEventListener('click', function () { accion('espera'); });
   $('btnCerrar').addEventListener('click', function () { accion('cerrar'); });
 

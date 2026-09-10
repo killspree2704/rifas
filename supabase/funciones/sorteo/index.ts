@@ -134,6 +134,67 @@ async function generarFolios(cantidad: number, digitos: number) {
   return [...nuevos].slice(0, cantidad).sort();
 }
 
+// ---------------------------------------------------------------------------
+// Transmisión
+// ---------------------------------------------------------------------------
+/**
+ * Reconoce un enlace de YouTube y lo deja en su forma canónica.
+ *
+ * La misma lógica está en `assets/youtube.js`, que avisa al instante mientras
+ * se escribe. Esta es la que manda: una comprobación que solo vive en el
+ * navegador no comprueba nada.
+ */
+const ID_VIDEO = /^[A-Za-z0-9_-]{11}$/;
+
+function normalizarYouTube(entrada: unknown): string | null {
+  let texto = String(entrada ?? "").trim();
+  if (!texto) return null;
+  if (!/^https?:\/\//i.test(texto)) texto = "https://" + texto;
+
+  let url: URL;
+  try {
+    url = new URL(texto);
+  } catch {
+    return null;
+  }
+
+  const host = url.hostname.toLowerCase().replace(/^www\.|^m\./, "");
+  const partes = url.pathname.split("/").filter(Boolean);
+  const watch = (id: string) => `https://www.youtube.com/watch?v=${id}`;
+
+  if (host === "youtu.be") {
+    return ID_VIDEO.test(partes[0] ?? "") ? watch(partes[0]) : null;
+  }
+  if (host !== "youtube.com" && host !== "youtube-nocookie.com") return null;
+
+  if (partes[0] === "watch") {
+    const v = url.searchParams.get("v") ?? "";
+    return ID_VIDEO.test(v) ? watch(v) : null;
+  }
+  if ((partes[0] === "live" || partes[0] === "embed" || partes[0] === "shorts") && partes[1]) {
+    return ID_VIDEO.test(partes[1]) ? watch(partes[1]) : null;
+  }
+  // Enlace permanente al directo de un canal: se pega una vez y sirve siempre.
+  if (partes[partes.length - 1] === "live" && partes.length >= 2) {
+    const canal = partes[0];
+    if (canal.startsWith("@") && canal.length > 1) {
+      return `https://www.youtube.com/${canal}/live`;
+    }
+    if ((canal === "channel" || canal === "c" || canal === "user") && partes[1]) {
+      return `https://www.youtube.com/${canal}/${partes[1]}/live`;
+    }
+  }
+  return null;
+}
+
+/** Etiqueta e identificador del aparato, tal como los manda el panel. */
+function aparato(valor: unknown) {
+  const crudo = String(valor ?? "").trim().slice(0, 80);
+  const corte = crudo.lastIndexOf("|");
+  if (corte < 1) return null;
+  return { etiqueta: crudo.slice(0, corte), id: crudo.slice(corte + 1), crudo };
+}
+
 /** Un identificador legible y único para la rifa. */
 function idDeRifa(nombre: string, fecha: string, usados: Set<string>) {
   const base = (nombre || "rifa")
@@ -177,7 +238,7 @@ Deno.serve(async (req) => {
   if (accion === "rifas") {
     const { data: rifas } = await db
       .from("rifas")
-      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, revelado_en, creada_en, precio_boleto")
+      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, revelado_en, creada_en, precio_boleto, transmision_url")
       .order("fecha_sorteo", { ascending: false });
     const { data: boletos } = await db.from("boletos").select("rifa_id");
     const conteo: Record<string, number> = {};
@@ -307,7 +368,7 @@ Deno.serve(async (req) => {
 
   const { data: actual, error: errorLectura } = await db
     .from("rifas")
-    .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo")
+    .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, transmision_url, transmite_desde")
     .eq("id", rifa)
     .single();
   if (errorLectura || !actual) return responder({ error: "rifa no encontrada" }, 404);
@@ -319,6 +380,28 @@ Deno.serve(async (req) => {
     return responder({ rifa: actual, folios });
   }
 
+  /**
+   * Guardar el enlace de la transmisión sin prender nada. Se hace antes, con
+   * calma; a la hora del sorteo ya solo queda apretar un botón.
+   */
+  if (accion === "transmision") {
+    const crudo = String(cuerpo.transmision ?? "").trim();
+    let enlace: string | null = null;
+    if (crudo) {
+      enlace = normalizarYouTube(crudo);
+      if (!enlace) {
+        return responder({ error: "eso no parece un enlace de YouTube" }, 400);
+      }
+    }
+    const { data, error } = await db
+      .from("rifas").update({ transmision_url: enlace }).eq("id", rifa)
+      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, transmision_url, transmite_desde")
+      .single();
+    if (error) return responder({ error: error.message }, 400);
+    await anotar(rifa, "transmision", { enlace });
+    return responder({ rifa: data, folios });
+  }
+
   if (actual.folio_ganador && accion !== "cerrar") {
     return responder(
       { error: "esta rifa ya tiene ganador registrado y no se puede modificar", rifa: actual },
@@ -328,10 +411,36 @@ Deno.serve(async (req) => {
 
   let cambios: Record<string, unknown> | null = null;
 
-  if (accion === "en_vivo" || accion === "espera") {
-    cambios = { estado: accion };
+  if (accion === "en_vivo") {
+    const quien = aparato(cuerpo.dispositivo);
+    const dueno = aparato(actual.transmite_desde);
+    // Dos personas con el panel abierto no deben prenderlo cada una por su
+    // lado. El segundo ve de dónde está saliendo ya y decide si toma el mando.
+    if (dueno && quien && dueno.id !== quien.id && cuerpo.forzar !== true) {
+      return responder(
+        { error: `ya se está transmitiendo desde ${dueno.etiqueta}`, transmite_desde: actual.transmite_desde },
+        409,
+      );
+    }
+
+    let enlace = actual.transmision_url as string | null;
+    const crudo = String(cuerpo.transmision ?? "").trim();
+    if (crudo) {
+      enlace = normalizarYouTube(crudo);
+      if (!enlace) return responder({ error: "eso no parece un enlace de YouTube" }, 400);
+    }
+
+    cambios = {
+      estado: "en_vivo",
+      transmision_url: enlace,
+      transmite_desde: quien ? quien.crudo : null,
+      transmite_en: new Date().toISOString(),
+    };
+  } else if (accion === "espera") {
+    // Al volver a espera se suelta el candado: cualquier aparato puede retomar.
+    cambios = { estado: "espera", transmite_desde: null, transmite_en: null };
   } else if (accion === "cerrar") {
-    cambios = { estado: "cerrado" };
+    cambios = { estado: "cerrado", transmite_desde: null, transmite_en: null };
   } else if (accion === "revelar") {
     let ganador = String(cuerpo.folio ?? "").trim();
     let modo = "capturado";
@@ -356,7 +465,7 @@ Deno.serve(async (req) => {
     .from("rifas")
     .update(cambios)
     .eq("id", rifa)
-    .select("id, nombre, serie, estado, activa, folio_ganador, revelado_en, fecha_sorteo")
+    .select("id, nombre, serie, estado, activa, folio_ganador, revelado_en, fecha_sorteo, transmision_url, transmite_desde")
     .single();
 
   if (errorEscritura) return responder({ error: errorEscritura.message }, 400);

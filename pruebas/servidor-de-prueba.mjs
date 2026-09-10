@@ -6,6 +6,11 @@
 import http from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, extname, join } from 'node:path';
+import { createRequire } from 'node:module';
+
+// El mismo normalizador que usa el panel: si él cambia, la prueba lo nota.
+const normalizarYouTube = createRequire(import.meta.url)(
+  new URL('../assets/youtube.js', import.meta.url).pathname);
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const CLAVE = 'secreta';
@@ -18,10 +23,12 @@ const rifas = [{
   id: 'mm-2026-09', nombre: 'Rifa El Muerde Manos', serie: 'A', estado: 'espera',
   activa: true, folio_ganador: null, fecha_sorteo: '2026-09-13T18:00:00-06:00',
   revelado_en: null, creada_en: '2026-09-01T00:00:00Z', precio_boleto: 50,
+  transmision_url: null, transmite_desde: null,
 }, {
   id: 'vieja-2025-01', nombre: 'Rifa de estreno', serie: 'Z', estado: 'cerrado',
   activa: false, folio_ganador: '90001', fecha_sorteo: '2025-01-10T18:00:00-06:00',
   revelado_en: '2025-01-10T18:30:00Z', creada_en: '2025-01-01T00:00:00Z', precio_boleto: null,
+  transmision_url: null, transmite_desde: null,
 }];
 rifas.push({
   id: 'pronto', nombre: 'Rifa que va a empezar', serie: 'P', estado: 'espera',
@@ -29,6 +36,7 @@ rifas.push({
   // A minuto y medio: la pantalla del boleto entra en su ritmo rápido.
   fecha_sorteo: new Date(Date.now() + 90000).toISOString(),
   revelado_en: null, creada_en: new Date().toISOString(), precio_boleto: null,
+  transmision_url: null, transmite_desde: null,
 });
 const boletos = {
   pronto: [['55501', 'PPPP'], ['55502', 'QQQQ']],
@@ -84,9 +92,42 @@ function sorteo(cuerpo) {
   if (!r) return [404, { error: 'rifa no encontrada' }];
   const folios = (boletos[r.id] || []).map(([f]) => f);
   if (a === 'estado') return [200, { rifa: r, folios }];
+
+  if (a === 'transmision') {
+    const crudo = String(cuerpo.transmision || '').trim();
+    if (crudo && !normalizarYouTube(crudo)) {
+      return [400, { error: 'eso no parece un enlace de YouTube' }];
+    }
+    r.transmision_url = crudo ? normalizarYouTube(crudo) : null;
+    return [200, { rifa: r, folios }];
+  }
+
   if (r.folio_ganador && a !== 'cerrar') return [409, { error: 'ya tiene ganador' }];
-  if (a === 'en_vivo' || a === 'espera') r.estado = a;
-  else if (a === 'cerrar') r.estado = 'cerrado';
+
+  const marca = (v) => {
+    const s = String(v || '');
+    const c = s.lastIndexOf('|');
+    return c > 0 ? { etiqueta: s.slice(0, c), id: s.slice(c + 1), crudo: s } : null;
+  };
+
+  if (a === 'en_vivo') {
+    const quien = marca(cuerpo.dispositivo);
+    const dueno = marca(r.transmite_desde);
+    if (dueno && quien && dueno.id !== quien.id && cuerpo.forzar !== true) {
+      return [409, { error: `ya se está transmitiendo desde ${dueno.etiqueta}`,
+                     transmite_desde: r.transmite_desde }];
+    }
+    const crudo = String(cuerpo.transmision || '').trim();
+    if (crudo) {
+      const limpio = normalizarYouTube(crudo);
+      if (!limpio) return [400, { error: 'eso no parece un enlace de YouTube' }];
+      r.transmision_url = limpio;
+    }
+    r.estado = 'en_vivo';
+    r.transmite_desde = quien ? quien.crudo : null;
+  }
+  else if (a === 'espera') { r.estado = 'espera'; r.transmite_desde = null; }
+  else if (a === 'cerrar') { r.estado = 'cerrado'; r.transmite_desde = null; }
   else if (a === 'revelar') {
     const g = cuerpo.folio || folios[0];
     if (!folios.includes(g)) return [400, { error: `el folio ${g} no pertenece a esta rifa` }];
@@ -113,7 +154,8 @@ http.createServer((req, res) => {
           const hit = lote.find(([f, c]) => f === cuerpo.p_folio &&
             c.toUpperCase() === String(cuerpo.p_codigo).toUpperCase());
           if (hit) { const r = rifaDe(id); salida = [{ id: r.id, nombre: r.nombre, serie: r.serie,
-            estado: r.estado, folio_ganador: r.folio_ganador, fecha_sorteo: r.fecha_sorteo }]; }
+            estado: r.estado, folio_ganador: r.folio_ganador, fecha_sorteo: r.fecha_sorteo,
+            transmision_url: r.transmision_url }]; }
         }
       } else { estado = 404; salida = { error: 'no' }; }
       res.writeHead(estado, { ...cors, 'content-type': 'application/json' });

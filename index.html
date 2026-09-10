@@ -46,8 +46,12 @@
       <!-- En vivo -->
       <section id="vistaEnVivo" class="vista" hidden>
         <p class="pulso">● En vivo</p>
-        <p class="frase destacada">El sorteo está en curso</p>
+        <p class="frase destacada">La rifa se está llevando a cabo</p>
         <div class="tambor" aria-hidden="true"><span>?</span></div>
+        <!-- Se abre en otra pestaña a propósito: el boleto se queda atrás y
+             el resultado sigue llegando aunque estén viendo el video. -->
+        <a class="boton-transmision" id="enlaceTransmision" hidden
+           target="_blank" rel="noopener">Ir a la transmisión</a>
         <p class="nota">No cierres esta pantalla: el resultado aparece solo.</p>
       </section>
 

@@ -40,13 +40,31 @@
         <strong id="estadoTexto">—</strong>
       </div>
 
+      <div class="bloque-transmision">
+        <label class="campo">
+          <span>Enlace de la transmisión</span>
+          <input type="url" id="transmisionUrl" inputmode="url" autocomplete="off"
+                 placeholder="https://www.youtube.com/@tucanal/live" />
+        </label>
+        <p class="nota" id="notaTransmision">
+          Pégalo con calma antes del sorteo. Si usas la dirección
+          <code>/@tucanal/live</code> apunta siempre al directo que esté al aire,
+          y ya no hay que cambiarla nunca más.
+        </p>
+        <button class="boton" id="btnGuardarTransmision">Guardar enlace</button>
+      </div>
+
       <ol class="pasos">
         <li>
           <div>
             <strong>1. Abrir la transmisión</strong>
-            <p class="nota">Todos los teléfonos pasan a «El sorteo está en curso». También ocurre solo al llegar la hora.</p>
+            <p class="nota">Todos los teléfonos pasan a «La rifa se está llevando a cabo», con el botón para ir a tu directo. También ocurre solo al llegar la hora.</p>
+            <p class="candado" id="candadoTransmision" hidden></p>
           </div>
-          <button class="boton" id="btnEnVivo">Poner en vivo</button>
+          <div class="revelar">
+            <button class="boton" id="btnEnVivo">Transmitir</button>
+            <button class="boton fantasma chico" id="btnTomarControl" hidden>Tomar el control aquí</button>
+          </div>
         </li>
         <li>
           <div>
@@ -153,6 +171,7 @@
   </main>
 
   <script src="assets/config.js"></script>
+  <script src="assets/youtube.js"></script>
   <script src="vendor/qrcode.js"></script>
   <script src="assets/panel.js"></script>
 </body>

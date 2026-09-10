@@ -126,10 +126,35 @@
       return;
     }
 
+    // El reloj local no sabe nada de transmisiones: solo se hace caso al
+    // estado que sí trae el dato, para no apagar el botón cuando la pantalla
+    // se pinta sola por la hora.
+    if ('transmision_url' in estado) { pintarTransmision(estado.transmision_url); }
+
     if (estado.estado === 'en_vivo') { mostrar('vistaEnVivo'); return; }
 
     // En espera: si el reloj ya pasó la hora, la pantalla entra sola en vivo.
     mostrar(pintarCronometro() ? 'vistaEnVivo' : 'vistaEspera');
+  }
+
+  /**
+   * El botón que lleva al directo.
+   *
+   * La página NO reproduce el video: solo apunta hacia él. Así el sitio sigue
+   * sin pedirle un solo byte a ningún tercero —que es lo que lo hace abrir en
+   * una red saturada— y quien va a verlo no necesita cuenta de nada.
+   *
+   * Se abre en otra pestaña: el boleto se queda atrás, y al volver la pantalla
+   * consulta sola y ahí está el resultado.
+   */
+  function pintarTransmision(url) {
+    var enlace = $('enlaceTransmision');
+    if (!enlace) { return; }
+    // Solo direcciones de verdad, y solo https: el enlace viene de la base y
+    // se pega a mano, así que aquí no se confía en que venga bien.
+    var limpia = /^https:\/\/[^\s"'<>]+$/.test(String(url || '')) ? url : '';
+    enlace.hidden = !limpia;
+    if (limpia) { enlace.href = limpia; }
   }
 
   // ------------------------------------------------------------------
@@ -182,7 +207,7 @@
   function leerEstado() {
     var consulta = cliente
       .from('rifas')
-      .select('id, estado, folio_ganador, fecha_sorteo')
+      .select('id, estado, folio_ganador, fecha_sorteo, transmision_url')
       .eq('id', rifaId)
       .single()
       .then(function (r) {
