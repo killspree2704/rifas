@@ -39,6 +39,29 @@
     el.hidden = !texto;
   }
 
+  /**
+   * Reacciona a una red intermitente, que es lo normal en un evento con mucha
+   * gente conectada al mismo tiempo. No se rinde: reintenta y avisa discreto.
+   */
+  var fallosSeguidos = 0;
+
+  function refrescar() {
+    if (!hayServidor()) { return; }
+    leerEstado()
+      .then(function (estado) {
+        fallosSeguidos = 0;
+        avisar('');
+        pintarEstado(estado);
+      })
+      .catch(function () {
+        fallosSeguidos++;
+        // Un tropiezo suelto no merece asustar a nadie.
+        if (fallosSeguidos >= 2) {
+          avisar('Sin conexión estable. Seguimos intentando: no cierres esta pantalla.');
+        }
+      });
+  }
+
   function formatearFecha() {
     if (isNaN(fechaSorteo.getTime())) { return ''; }
     var zona = CFG.zonaHoraria || undefined;
@@ -135,9 +158,15 @@
       .subscribe();
 
     if (sondeo) { clearInterval(sondeo); }
-    sondeo = setInterval(function () {
-      leerEstado().then(pintarEstado).catch(function () { /* el siguiente sondeo reintenta */ });
-    }, 4000 + Math.floor(Math.random() * 2000));
+    sondeo = setInterval(refrescar, 4000 + Math.floor(Math.random() * 2000));
+
+    // Momentos en que hay que preguntar ya, sin esperar al siguiente sondeo:
+    // cuando vuelve la red y cuando la persona desbloquea el teléfono para
+    // mirar la pantalla, que es justo lo que va a pasar a la hora del sorteo.
+    window.addEventListener('online', refrescar);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) { refrescar(); }
+    });
   }
 
   // ------------------------------------------------------------------
@@ -209,4 +238,13 @@
   }
 
   iniciar();
+
+  // Deja la página utilizable aunque la red vaya y venga.
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {
+        // Sin trabajador de servicio la página sigue funcionando igual.
+      });
+    });
+  }
 })();

@@ -73,6 +73,27 @@ Lo que esto **no** resuelve: un QR se fotografía y se reenvía, y la URL se
 puede editar a mano. La página es un visor; el comprobante es el boleto
 físico.
 
+## Aguante de red
+
+En un evento con mucha gente en el mismo lugar la antena se satura y las
+cargas se cortan (`ERR_NETWORK_CHANGED` y compañía). Tres decisiones para que
+eso no arruine el sorteo:
+
+- **Nada externo para funcionar.** `supabase-js` se sirve desde el propio sitio,
+  no desde un CDN de terceros. Lo único externo son las tipografías, que si no
+  cargan solo cambian la letra.
+- **`sw.js`**: quien ya abrió la página una vez la vuelve a abrir aunque no
+  haya red. Lo único que necesita conexión es consultar el estado, que son
+  unos cuantos bytes. Verificado: con la red apagada del todo, recargar sigue
+  mostrando el boleto.
+- **Reintentos discretos.** Si la consulta falla, la pantalla no se rompe:
+  reintenta, y al segundo fallo avisa «Sin conexión estable». Vuelve a
+  preguntar en cuanto regresa la red y en cuanto la persona desbloquea el
+  teléfono, que es justo lo que pasa a la hora del sorteo.
+
+Al cambiar archivos del sitio hay que subir la versión del caché en `sw.js`
+(`CACHE = 'rifa-v2'`, etc.) para que los teléfonos tomen la versión nueva.
+
 ## Ensayo sin tocar la rifa real
 
 `?ensayo=1` corre la pantalla del participante contra el reloj, sin servidor:
