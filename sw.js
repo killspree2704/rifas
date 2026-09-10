@@ -7,7 +7,7 @@
  * permiso a la red**. Lo único que necesita conexión es consultar el estado
  * de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v4';
+const CACHE = 'rifa-v5';
 
 // Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
 // propósito: son 215 KB, y pedirlos en una red mala haría fallar la
@@ -78,24 +78,45 @@ self.addEventListener('fetch', (evento) => {
   if (peticion.method !== 'GET') { return; }
   if (new URL(peticion.url).origin !== self.location.origin) { return; }
 
-  // --- La página ---
-  // Copia primero. El folio viaja en la dirección (?f=...), no en el HTML, así
-  // que la misma copia sirve para todos los boletos. Se actualiza por detrás.
   if (peticion.mode === 'navigate') {
+    const url = new URL(peticion.url);
+    const esBoleto = url.pathname === '/' || url.pathname.endsWith('/index.html');
+
+    // --- La pantalla del boleto ---
+    // Copia primero. El folio viaja en la dirección (?f=...), no en el HTML,
+    // así que la misma copia sirve para todos los boletos: quien ya la abrió
+    // una vez la vuelve a abrir al instante, sin depender de la red.
+    if (esBoleto) {
+      evento.respondWith(
+        caches.match('index.html').then((guardada) => {
+          const desdeRed = conLimite(peticion, 8000)
+            .then((r) => guardar(new Request('index.html'), r))
+            .catch(() => null);
+          if (guardada) {
+            evento.waitUntil(desdeRed);     // refresco silencioso
+            return guardada;
+          }
+          // Primera visita sin copia: no queda más que la red.
+          return desdeRed.then((r) => r || new Response(SIN_RED, {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          }));
+        })
+      );
+      return;
+    }
+
+    // --- Las demás páginas: panel y diagnóstico ---
+    // Estas NO pueden servirse desde la copia del boleto (era el error: pedir
+    // el panel devolvía la pantalla del participante). Cada una se guarda con
+    // su propia dirección, y para ellas manda la red: el panel siempre debe
+    // mostrar el estado real, no uno viejo.
+    const suPropiaCopia = new Request(url.origin + url.pathname);
     evento.respondWith(
-      caches.match('index.html').then((guardada) => {
-        const desdeRed = conLimite(peticion, 8000)
-          .then((r) => guardar(new Request('index.html'), r))
-          .catch(() => null);
-        if (guardada) {
-          evento.waitUntil(desdeRed);       // refresco silencioso
-          return guardada;
-        }
-        // Primera visita sin copia: no queda más que la red.
-        return desdeRed.then((r) => r || new Response(SIN_RED, {
+      conLimite(peticion, 8000)
+        .then((r) => guardar(suPropiaCopia, r))
+        .catch(() => caches.match(suPropiaCopia).then((r) => r || new Response(SIN_RED, {
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        }));
-      })
+        })))
     );
     return;
   }
