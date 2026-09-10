@@ -6,7 +6,7 @@
  * a abrir aunque la red esté intermitente: lo único que necesita red es la
  * consulta del estado de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v1';
+const CACHE = 'rifa-v2';
 const BASICOS = [
   './',
   'index.html',
