@@ -132,12 +132,14 @@ el diseño, no una omisión.
 1. Llegar a la sede y abrir `diagnostico.html` con la red del lugar y con
    datos móviles. Dice en segundos si esa red sirve.
 2. Entrar al panel y comprobar que la rifa correcta está en **En espera**.
-3. Empezar a transmitir en YouTube desde la app. Ya al aire, copiar el enlace
-   del directo (o dejar puesto `youtube.com/channel/UC…/live`, que sirve para
-   siempre y sí se incrusta) y presionar **Transmitir** en el panel. Los teléfonos cambian
-   solos a «La rifa se está llevando a cabo» y traen el botón **Ir a la
-   transmisión**, que abre YouTube en otra pestaña. **Quien lo abre no
-   necesita cuenta de nada.**
+3. Empezar a transmitir en YouTube desde la app, con **«Permitir insertar»
+   encendido** en la configuración avanzada del directo. Ya al aire, copiar el
+   enlace del directo —o dejar puesto `youtube.com/channel/UC…/live`, que
+   sirve para siempre y sí se incrusta— y presionar **Transmitir** en el
+   panel. Los teléfonos cambian solos a «La rifa se está llevando a cabo» y
+   traen el botón **Ver la transmisión aquí**, que mete el reproductor en la
+   propia pantalla del boleto. Debajo queda «o ábrela en YouTube» por si algo
+   falla. **Quien la ve no necesita cuenta de nada.**
 4. Sacar el folio de la tómbola, teclearlo y **Revelar**. Pide confirmar dos
    veces. **Es irreversible**: ni tú ni nadie puede cambiar el ganador después.
 5. **Cerrar**. El resultado sigue viéndose para quien escanee, para siempre.

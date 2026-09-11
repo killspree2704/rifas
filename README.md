@@ -41,27 +41,48 @@ pestañas:
 
 ### La transmisión en vivo
 
-La página **no reproduce video**: enseña un botón que lleva al directo de
-YouTube. Eso es deliberado.
+La transmisión se ve **dentro del boleto**, pero el reproductor **no viene
+puesto**: la pantalla trae un botón, y solo al tocarlo se mete el reproductor
+de YouTube en la página.
+
+Esa es la decisión de fondo. El reproductor pesa cientos de kilobytes y vive
+en otro dominio; traerlo al abrir desharía justo lo que hace que el boleto
+aparezca en una red saturada. Traerlo cuando lo piden no le cuesta nada a
+quien no lo pide. Debajo queda siempre un **«o ábrela en YouTube»**, en otra
+pestaña, que funciona aunque el incrustado no.
 
 - **Nadie se registra.** Ver un directo de YouTube no pide cuenta, ni público
   ni «no listado». Solo comentar la pide, y comentar no hace falta aquí. (Un
   directo marcado como restringido por edad sí pediría sesión: no marcarlo.)
-- **El sitio sigue sin pedirle un byte a nadie más.** Un reproductor
-  incrustado metería un dominio ajeno en el camino crítico, que es justo lo
-  que se quitó para que la página abra en una red saturada.
+- **Al llegar el resultado el reproductor se quita.** Si se quedara puesto
+  seguiría sonando detrás de la pantalla del ganador. En su lugar aparece
+  «Seguir viendo la transmisión», que es justo cuando más quieren verla.
 - **El video lo transmite la app de YouTube**, que es sólida. Un navegador
   transmitiendo desde un celular se corta en cuanto se bloquea la pantalla o
   entra una llamada; además, **ningún navegador puede mandar video a YouTube
   por su cuenta** —no habla RTMP— y hacerlo pediría un servidor propio de por
   medio.
-- El botón abre **otra pestaña**: el boleto se queda atrás y el resultado
-  sigue llegando solo.
 
-El enlace se pega en el panel. Si usas la forma `youtube.com/@tucanal/live`,
-apunta siempre al directo que esté al aire en ese canal: se pega una vez y
-sirve para todas las rifas. El panel acepta también `youtu.be/…`, `/live/…` o
-la dirección con parámetros pegados, y las guarda ya limpias.
+#### Qué enlace pegar
+
+El panel acepta `youtu.be/…`, `/live/…`, `/watch?v=…` o la dirección con
+parámetros pegados, y las guarda ya limpias. Pero **no todas se pueden
+incrustar**, y el panel lo avisa mientras se escribe:
+
+| Forma del enlace | ¿Se ve dentro de la página? | ¿Permanente? |
+| --- | --- | --- |
+| `youtu.be/ID`, `/live/ID`, `/watch?v=ID` | **Sí** | No: cambia con cada directo |
+| `youtube.com/channel/UC…/live` | **Sí** | **Sí** |
+| `youtube.com/@tucanal/live` | No, solo abre YouTube | Sí |
+
+Incrustar necesita el identificador del video o del canal, y el arroba es un
+apodo, no un identificador: por eso con esa forma no se puede armar el
+reproductor. Si quieres las dos cosas —permanente **e** incrustable— usa la
+del `channel/UC…`.
+
+**Importante:** hay que dejar **«Permitir insertar» encendido** en la
+configuración avanzada del directo, en YouTube Studio. Viene apagado por
+omisión en los directos, y sin eso el reproductor sale en blanco.
 
 **Un solo aparato transmite.** Al salir al aire, el panel anota desde cuál
 aparato fue. Si alguien abre el panel en otro lado, ve *«Transmitiendo desde
@@ -258,8 +279,8 @@ entra con la clave, crea una rifa, saca la hoja de boletos —y **lee el QR
 impreso** para comprobar que apunta al boleto correcto—, cambia de rifa,
 verifica un boleto de papel, guarda el enlace de la transmisión, y corre el
 sorteo entero mirando cómo la pantalla del participante pasa sola a «en vivo»
-—con su botón al directo— y luego al resultado. **64 comprobaciones**, ninguna
-contra la base real.
+—con su botón al directo, y con el reproductor apareciendo al tocarlo— y luego
+al resultado. **71 comprobaciones**, ninguna contra la base real.
 
 ## Ensayo sin tocar la rifa real
 
