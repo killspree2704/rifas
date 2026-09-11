@@ -133,8 +133,8 @@ el diseño, no una omisión.
    datos móviles. Dice en segundos si esa red sirve.
 2. Entrar al panel y comprobar que la rifa correcta está en **En espera**.
 3. Empezar a transmitir en YouTube desde la app. Ya al aire, copiar el enlace
-   del directo (o dejar puesto `youtube.com/@tucanal/live`, que sirve para
-   siempre) y presionar **Transmitir** en el panel. Los teléfonos cambian
+   del directo (o dejar puesto `youtube.com/channel/UC…/live`, que sirve para
+   siempre y sí se incrusta) y presionar **Transmitir** en el panel. Los teléfonos cambian
    solos a «La rifa se está llevando a cabo» y traen el botón **Ir a la
    transmisión**, que abre YouTube en otra pestaña. **Quien lo abre no
    necesita cuenta de nada.**
@@ -171,8 +171,14 @@ propio resultado.
 - Se transmite **desde la app de YouTube**, no desde la página. Un navegador
   no puede mandar video a YouTube: no habla RTMP, y hacerlo pediría un
   servidor propio de por medio.
-- La página **no reproduce el video**, solo apunta a él. Así sigue sin
-  depender de ningún dominio ajeno para abrir.
+- La transmisión **se ve dentro del boleto**, pero el reproductor solo se
+  carga cuando alguien toca el botón. Así la página sigue abriendo sin
+  depender de ningún dominio ajeno, y quien no lo toca no paga nada.
+- **Enciende «Permitir insertar»** en la configuración avanzada del directo,
+  en YouTube Studio. Viene apagado por omisión y sin eso el reproductor sale
+  en blanco.
+- El enlace `@tucanal/live` es permanente pero **no se puede incrustar**. El
+  de `channel/UC…/live` es permanente y sí. El panel lo avisa al escribirlo.
 - **Ver no pide cuenta**; solo comentar la pide. Y si el directo queda marcado
   como restringido por edad, sí va a pedir sesión: no lo marques.
 - **Un solo aparato transmite a la vez.** El segundo ve de dónde está saliendo

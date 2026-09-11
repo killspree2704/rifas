@@ -65,6 +65,41 @@
 
   function watch(id) { return 'https://www.youtube.com/watch?v=' + id; }
 
+  /**
+   * La dirección del reproductor incrustado, o null si con este enlace no se
+   * puede incrustar.
+   *
+   * No todas las formas sirven: incrustar necesita el identificador del video,
+   * o el del canal. El enlace cómodo `youtube.com/@canal/live` no trae
+   * ninguno de los dos —el arroba es un apodo, no un identificador—, así que
+   * con ese solo queda mandar a la gente a YouTube. Es el precio de que sea
+   * permanente.
+   */
+  function incrustarYouTube(entrada) {
+    var limpia = normalizarYouTube(entrada);
+    if (!limpia) { return null; }
+
+    var video = limpia.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+    if (video) {
+      return 'https://www.youtube.com/embed/' + video[1] +
+             '?autoplay=1&playsinline=1&rel=0';
+    }
+
+    // Un canal por su identificador: YouTube resuelve solo cuál directo está
+    // al aire. Menos fiable que el del video, pero mejor que nada.
+    var canal = limpia.match(/\/channel\/(UC[A-Za-z0-9_-]{10,})\/live$/);
+    if (canal) {
+      return 'https://www.youtube.com/embed/live_stream?channel=' + canal[1] +
+             '&autoplay=1&playsinline=1';
+    }
+
+    return null;
+  }
+
   global.normalizarYouTube = normalizarYouTube;
-  if (typeof module === 'object' && module.exports) { module.exports = normalizarYouTube; }
+  global.incrustarYouTube = incrustarYouTube;
+  if (typeof module === 'object' && module.exports) {
+    module.exports = normalizarYouTube;
+    module.exports.incrustar = incrustarYouTube;
+  }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

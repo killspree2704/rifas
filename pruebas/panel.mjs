@@ -231,7 +231,16 @@ await pagina.waitForFunction(() =>
   document.getElementById('mensaje').textContent.includes('no es un enlace de YouTube'));
 ok('rechaza un enlace que no es de YouTube', true);
 
+await pagina.fill('#transmisionUrl', 'https://www.youtube.com/@ElMuerdeManos/live');
+ok('avisa que el enlace permanente no se puede incrustar',
+   (await pagina.textContent('#avisoIncrustar')).includes('no se puede incrustar'),
+   await pagina.textContent('#avisoIncrustar'));
+
 await pagina.fill('#transmisionUrl', 'youtu.be/dQw4w9WgXcQ?si=abc');
+ok('y que el del directo sí se ve dentro de la página',
+   (await pagina.textContent('#avisoIncrustar')).includes('dentro de la página'),
+   await pagina.textContent('#avisoIncrustar'));
+
 await pagina.click('#btnGuardarTransmision');
 await pagina.waitForFunction(() =>
   document.getElementById('mensaje').textContent.includes('Enlace guardado'));
@@ -261,7 +270,7 @@ await pagina.click('.pestana[data-panel="paneSorteo"]');
 ok('el boleto no enseña el botón antes de que haya transmisión',
    await p3.isHidden('#enlaceTransmision'));
 
-await pagina.fill('#transmisionUrl', 'https://www.youtube.com/@ElMuerdeManos/live');
+await pagina.fill('#transmisionUrl', 'https://youtu.be/dQw4w9WgXcQ');
 await pagina.click('#btnEnVivo');
 await pagina.waitForFunction(() => document.getElementById('estadoTexto').textContent === 'En vivo');
 ok('el panel transmite', true);
@@ -277,13 +286,28 @@ ok('el teléfono cambia solo a «en vivo»', true);
 ok('con el letrero nuevo',
    (await p3.textContent('#vistaEnVivo .destacada')) === 'La rifa se está llevando a cabo',
    await p3.textContent('#vistaEnVivo .destacada'));
-await p3.waitForSelector('#enlaceTransmision:not([hidden])', { timeout: 15000 });
-ok('y con el botón a la transmisión',
-   (await p3.getAttribute('#enlaceTransmision', 'href')) === 'https://www.youtube.com/@ElMuerdeManos/live',
-   await p3.getAttribute('#enlaceTransmision', 'href'));
-ok('que abre en otra pestaña, para no perder el boleto',
+await p3.waitForSelector('#verAqui:not([hidden])', { timeout: 15000 });
+ok('con el botón para ver la transmisión ahí mismo', true);
+ok('y la salida a YouTube por si acaso',
+   (await p3.getAttribute('#enlaceTransmision', 'href')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' &&
    (await p3.getAttribute('#enlaceTransmision', 'target')) === '_blank' &&
-   (await p3.getAttribute('#enlaceTransmision', 'rel')).includes('noopener'));
+   (await p3.getAttribute('#enlaceTransmision', 'rel')).includes('noopener'),
+   await p3.getAttribute('#enlaceTransmision', 'href'));
+
+// El reproductor no debe existir hasta que alguien lo pida: es lo que deja
+// que el boleto abra rápido en una red mala.
+ok('el reproductor NO está puesto antes de tocarlo',
+   (await p3.locator('#marcoVideo iframe').count()) === 0 &&
+   await p3.isHidden('#marcoVideo'));
+
+await p3.click('#verAqui');
+await p3.waitForSelector('#marcoVideo iframe', { timeout: 10000 });
+ok('al tocarlo, el reproductor aparece dentro de la página',
+   (await p3.getAttribute('#marcoVideo iframe', 'src'))
+     === 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&playsinline=1&rel=0',
+   await p3.getAttribute('#marcoVideo iframe', 'src'));
+ok('el tambor se quita y el botón también',
+   await p3.isHidden('#tambor') && await p3.isHidden('#verAqui'));
 
 // --- el candado de un solo aparato ---
 console.log('\n== Un solo aparato transmitiendo ==');
@@ -330,6 +354,12 @@ ok('y a este folio le toca perder',
    (await p3.textContent('#veredicto')).includes('No ganaste'), await p3.textContent('#veredicto'));
 ok('pero le dice cuál ganó',
    (await p3.textContent('#notaResultado')).includes('55502'), await p3.textContent('#notaResultado'));
+ok('el reproductor se apaga al llegar el resultado, para que no siga sonando',
+   (await p3.locator('#marcoVideo iframe').count()) === 0);
+ok('y queda la puerta para seguir viendo la transmisión',
+   await p3.isVisible('#seguirViendo') &&
+   (await p3.getAttribute('#enlaceSeguir', 'href')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+   await p3.getAttribute('#enlaceSeguir', 'href'));
 ok('sin errores de JavaScript en el sorteo', err3.length === 0, err3.join(' | '));
 
 ok('sin errores de JavaScript en el panel', errores.length === 0, errores.join(' | '));

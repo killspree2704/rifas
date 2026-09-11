@@ -265,3 +265,7 @@ input[type="url"] {
 }
 .atajos button:hover { color: var(--tinta); border-color: var(--oro); }
 #cuentaNueva { margin: 4px 0 14px; }
+
+/* El aviso de si ese enlace se podrá ver dentro de la página o no. */
+.aviso-incrustar { margin: 8px 0 12px; }
+.aviso-incrustar.bien { color: var(--gana); }

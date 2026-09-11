@@ -116,6 +116,7 @@
     // borrarte a media escritura lo que acabas de pegar.
     if (document.activeElement !== $('transmisionUrl')) {
       $('transmisionUrl').value = datos.rifa.transmision_url || '';
+      avisarIncrustar();
     }
     pintarCandado(datos.rifa);
 
@@ -196,6 +197,41 @@
     }
     accion('en_vivo', { dispositivo: APARATO, transmision: enlace, forzar: !!forzar });
   }
+
+  /**
+   * Avisa, mientras se escribe, si ese enlace se va a poder ver DENTRO de la
+   * página o solo abriendo YouTube. No son equivalentes y conviene saberlo
+   * antes del sorteo, no durante.
+   */
+  function avisarIncrustar() {
+    var caja = $('avisoIncrustar');
+    var valor = $('transmisionUrl').value.trim();
+    if (!valor) {
+      caja.hidden = false;
+      caja.className = 'nota aviso-incrustar';
+      caja.textContent = 'Sin enlace, la pantalla del boleto no muestra nada de transmisión.';
+      return;
+    }
+    if (!normalizarYouTube(valor)) {
+      caja.hidden = false;
+      caja.className = 'mensaje error aviso-incrustar';
+      caja.textContent = 'Eso no es un enlace de YouTube.';
+      return;
+    }
+    caja.hidden = false;
+    if (incrustarYouTube(valor)) {
+      caja.className = 'nota aviso-incrustar bien';
+      caja.textContent = 'Con este enlace la transmisión se ve dentro de la página, ' +
+        'sin salir del boleto. Revisa que el directo tenga permitido incrustarse.';
+    } else {
+      caja.className = 'nota aviso-incrustar';
+      caja.textContent = 'Este enlace es permanente —siempre apunta al directo que esté ' +
+        'al aire— pero no se puede incrustar: la gente saldrá a YouTube. Si quieres que ' +
+        'se vea dentro de la página, pega el enlace del directo en sí.';
+    }
+  }
+
+  $('transmisionUrl').addEventListener('input', avisarIncrustar);
 
   $('btnGuardarTransmision').addEventListener('click', function () {
     var enlace = $('transmisionUrl').value.trim();
