@@ -269,3 +269,47 @@ input[type="url"] {
 /* El aviso de si ese enlace se podrá ver dentro de la página o no. */
 .aviso-incrustar { margin: 8px 0 12px; }
 .aviso-incrustar.bien { color: var(--gana); }
+
+/* --- Cotejo del folio ganador ------------------------------------------- */
+.cotejo-fila { padding-top: 0 !important; }
+.cotejo-fila:empty { display: none; }
+.cotejo {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--linea);
+  border-left: 4px solid var(--linea);
+  border-radius: 10px;
+  background: var(--fondo);
+  text-align: center;
+}
+.cotejo.bien { border-left-color: var(--gana); }
+.cotejo.ajeno { border-left-color: var(--sello); }
+.cotejo-rotulo {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+}
+.cotejo-folio {
+  margin: 6px 0 2px;
+  font-family: var(--mono);
+  font-size: clamp(1.8rem, 9vw, 2.4rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.05em;
+}
+.cotejo-codigo {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.16em;
+  color: var(--tinta-tenue);
+}
+.cotejo.bien .cotejo-codigo { color: var(--gana); }
+.cotejo.ajeno .cotejo-codigo {
+  font-family: var(--texto);
+  font-size: 0.88rem;
+  letter-spacing: 0;
+  color: var(--sello);
+}

@@ -123,10 +123,11 @@
     var revelada = !!datos.rifa.folio_ganador;
     $('btnEnVivo').disabled = revelada || datos.rifa.estado === 'en_vivo';
     $('btnEspera').disabled = revelada || datos.rifa.estado === 'espera';
-    $('btnRevelarFolio').disabled = revelada;
     $('btnRevelarAzar').disabled = revelada;
     $('folioGanador').disabled = revelada;
     $('btnCerrar').disabled = datos.rifa.estado === 'cerrado';
+    if (revelada) { pintarCotejo('nada'); }
+    mandarBotones();
 
     if (revelada) {
       mensaje('Folio ganador: ' + datos.rifa.folio_ganador + ' — registrado y bloqueado.', 'ok');
@@ -152,6 +153,15 @@
     // Si el celular que transmitía se quedó sin batería, alguien tiene que
     // poder retomar desde otro lado sin regresar la rifa a espera.
     $('btnTomarControl').hidden = !ajeno || !!rifa.folio_ganador;
+  }
+
+  /**
+   * Revelar por folio pide dos cosas: que la rifa siga abierta y que el folio
+   * escrito ya se haya cotejado. Sin lo segundo el botón no se enciende.
+   */
+  function mandarBotones() {
+    var revelada = !!(ultimoEstado && ultimoEstado.folio_ganador);
+    $('btnRevelarFolio').disabled = revelada || !folioCotejado;
   }
 
   function accion(nombre, extra) {
@@ -252,9 +262,107 @@
   $('btnEspera').addEventListener('click', function () { accion('espera'); });
   $('btnCerrar').addEventListener('click', function () { accion('cerrar'); });
 
+  // ------------------------------------------------------------------
+  // Cotejo del folio ganador contra el talón de papel
+  //
+  // Es el único error del sistema que no tiene vuelta atrás: si se teclea
+  // 11053 en vez de 11052 y ese folio también existe, queda coronada otra
+  // persona para siempre. Así que antes de confirmar se enseña el folio con
+  // su código, para compararlo con el boleto que se trae en la mano.
+  // ------------------------------------------------------------------
+  var mapaCodigos = null;      // folio -> código, de la rifa que se maneja
+  var rifaDelMapa = null;
+  var pidiendoCodigos = null;
+  var folioCotejado = null;    // el folio que ya se comprobó y está a la vista
+
+  /** Trae los códigos una sola vez, y solo cuando de verdad hacen falta. */
+  function asegurarCodigos() {
+    if (mapaCodigos && rifaDelMapa === rifaActual) { return Promise.resolve(mapaCodigos); }
+    if (pidiendoCodigos) { return pidiendoCodigos; }
+    var deQuien = rifaActual;
+    pidiendoCodigos = llamar('boletos', { rifa: deQuien })
+      .then(function (datos) {
+        var mapa = {};
+        (datos.boletos || []).forEach(function (b) { mapa[b.folio] = b.codigo; });
+        mapaCodigos = mapa;
+        rifaDelMapa = deQuien;
+        pidiendoCodigos = null;
+        return mapa;
+      })
+      .catch(function (e) { pidiendoCodigos = null; throw e; });
+    return pidiendoCodigos;
+  }
+
+  /** El folio tal como lo teclean: puede venir con la serie pegada delante. */
+  function folioEscrito() {
+    return $('folioGanador').value.trim().replace(/^[A-Za-z]+-/, '');
+  }
+
+  function pintarCotejo(estado, folio, codigo) {
+    var caja = $('cotejoFolio');
+    if (estado === 'nada') {
+      caja.hidden = true;
+      folioCotejado = null;
+      mandarBotones();
+      return;
+    }
+    caja.hidden = false;
+    caja.className = 'cotejo ' + estado;
+    if (estado === 'buscando') {
+      $('cotejoRotulo').textContent = 'Buscando…';
+      $('cotejoNumero').textContent = folio;
+      $('cotejoCodigo').textContent = '';
+      folioCotejado = null;
+    } else if (estado === 'ajeno') {
+      $('cotejoRotulo').textContent = 'Ese folio no es de esta rifa';
+      $('cotejoNumero').textContent = folio;
+      $('cotejoCodigo').textContent = 'Revísalo antes de revelar.';
+      folioCotejado = null;
+    } else {
+      $('cotejoRotulo').textContent = 'Compara con el talón que traes en la mano';
+      $('cotejoNumero').textContent = (ultimoEstado && ultimoEstado.serie
+        ? ultimoEstado.serie + '-' : '') + folio;
+      $('cotejoCodigo').textContent = 'código ' + codigo;
+      folioCotejado = folio;
+    }
+    mandarBotones();
+  }
+
+  var relojCotejo = null;
+  function revisarFolio() {
+    var folio = folioEscrito();
+    // Cualquier cambio invalida la confirmación anterior: nadie debe poder
+    // confirmar un folio distinto del que aprobó con la vista.
+    pendiente = null;
+    if (!folio) { return pintarCotejo('nada'); }
+
+    pintarCotejo('buscando', folio);
+    clearTimeout(relojCotejo);
+    relojCotejo = setTimeout(function () {
+      var pedido = folio;
+      asegurarCodigos()
+        .then(function (mapa) {
+          if (folioEscrito() !== pedido) { return; }   // ya siguió escribiendo
+          if (mapa[pedido]) { pintarCotejo('bien', pedido, mapa[pedido]); }
+          else { pintarCotejo('ajeno', pedido); }
+        })
+        .catch(function () {
+          if (folioEscrito() !== pedido) { return; }
+          pintarCotejo('nada');
+          mensaje('No se pudieron traer los códigos para comprobar el folio.', 'error');
+        });
+    }, 250);
+  }
+
+  $('folioGanador').addEventListener('input', revisarFolio);
+
   $('btnRevelarFolio').addEventListener('click', function () {
-    var folio = $('folioGanador').value.trim();
+    var folio = folioEscrito();
     if (!folio) { mensaje('Escribe el folio que salió en la tómbola.', 'error'); return; }
+    if (folio !== folioCotejado) {
+      mensaje('Espera a que aparezca el código para compararlo con el talón.', 'error');
+      return;
+    }
     if (!confirmar('Vas a registrar el folio ' + folio + ' como ganador. Esto no se puede deshacer.')) { return; }
     accion('revelar', { folio: folio });
   });

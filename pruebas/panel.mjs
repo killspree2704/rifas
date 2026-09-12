@@ -248,6 +248,53 @@ ok('acepta y limpia un enlace copiado de la app',
    (await pagina.inputValue('#transmisionUrl')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
    await pagina.inputValue('#transmisionUrl'));
 
+// ------------------------------------------- COTEJO DEL FOLIO -------------
+console.log('\n== Cotejo del folio ganador ==');
+await pagina.click('.pestana[data-panel="paneRifas"]');
+await pagina.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Manejar esta').click();
+await pagina.waitForFunction(() =>
+  document.getElementById('mensajeRifas').textContent.includes('Ahora manejas'));
+await pagina.click('.pestana[data-panel="paneSorteo"]');
+
+ok('revelar arranca apagado, sin folio que cotejar',
+   await pagina.isDisabled('#btnRevelarFolio'));
+
+await pagina.fill('#folioGanador', '99999');
+await pagina.waitForFunction(() =>
+  document.getElementById('cotejoFolio').className.includes('ajeno'), null, { timeout: 10000 });
+ok('un folio ajeno se marca antes de revelar, no después',
+   (await pagina.textContent('#cotejoRotulo')).includes('no es de esta rifa'),
+   await pagina.textContent('#cotejoRotulo'));
+ok('y el botón sigue apagado', await pagina.isDisabled('#btnRevelarFolio'));
+
+await pagina.fill('#folioGanador', '11052');
+await pagina.waitForFunction(() =>
+  document.getElementById('cotejoFolio').className.includes('bien'), null, { timeout: 10000 });
+ok('un folio bueno enseña su código para comparar con el talón',
+   (await pagina.textContent('#cotejoCodigo')) === 'código R5VR',
+   await pagina.textContent('#cotejoCodigo'));
+ok('con su serie delante',
+   (await pagina.textContent('#cotejoNumero')) === 'A-11052',
+   await pagina.textContent('#cotejoNumero'));
+ok('y ahora sí se puede revelar', !(await pagina.isDisabled('#btnRevelarFolio')));
+
+// acepta el folio tal como viene impreso, con la serie pegada
+await pagina.fill('#folioGanador', 'A-11053');
+await pagina.waitForFunction(() =>
+  document.getElementById('cotejoCodigo').textContent === 'código ABCD', null, { timeout: 10000 });
+ok('acepta el folio tecleado con la serie, como viene en el boleto', true);
+
+// cambiar el folio tiene que tumbar una confirmación a medias
+await pagina.click('#btnRevelarFolio');
+await pagina.waitForFunction(() => document.getElementById('mensaje').textContent.includes('confirmar'));
+await pagina.fill('#folioGanador', '11054');
+await pagina.waitForFunction(() =>
+  document.getElementById('cotejoCodigo').textContent === 'código EFGH', null, { timeout: 10000 });
+await pagina.click('#btnRevelarFolio');
+await pagina.waitForFunction(() => document.getElementById('mensaje').textContent.includes('confirmar'));
+ok('cambiar el folio anula la confirmación anterior: vuelve a pedirla', true);
+await pagina.fill('#folioGanador', '');
+
 // ------------------------------------------------- SORTEO EN VIVO ---------
 console.log('\n== El sorteo, de punta a punta ==');
 // En su propio contexto: así el teléfono del participante no queda «en
@@ -361,6 +408,51 @@ ok('y queda la puerta para seguir viendo la transmisión',
    (await p3.getAttribute('#enlaceSeguir', 'href')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
    await p3.getAttribute('#enlaceSeguir', 'href'));
 ok('sin errores de JavaScript en el sorteo', err3.length === 0, err3.join(' | '));
+
+// ------------------------------------------------- DIAGNÓSTICO ------------
+// Esta página existe para no mentir: si dice «Todo en orden» el domingo, más
+// vale que sea verdad.
+console.log('\n== Diagnóstico de red ==');
+const ctxD = await navegador.newContext({ serviceWorkers: 'block' });
+const diag = await ctxD.newPage();
+const errD = [];
+diag.on('pageerror', (e) => errD.push(String(e)));
+
+await diag.goto(BASE + '/diagnostico.html');
+await diag.waitForFunction(() =>
+  !document.getElementById('veredicto').textContent.includes('Midiendo'), null, { timeout: 20000 });
+
+ok('prueba el sitio', (await diag.getAttribute('#p-sitio', 'class')).includes('bien'),
+   await diag.textContent('#d-sitio'));
+ok('prueba la base de datos', (await diag.getAttribute('#p-base', 'class')).includes('bien'),
+   await diag.textContent('#d-base'));
+ok('y ahora también el motor del panel',
+   (await diag.getAttribute('#p-panel', 'class')).includes('bien'),
+   await diag.textContent('#d-panel'));
+ok('que se comprueba sin mandar ninguna clave',
+   (await diag.textContent('#d-panel')).includes('pide clave'),
+   await diag.textContent('#d-panel'));
+ok('con todo arriba, el veredicto es que sí sirve',
+   (await diag.textContent('#veredicto')) === 'Todo en orden',
+   await diag.textContent('#veredicto'));
+
+// Y el caso que antes salía en verde engañando: base viva, panel caído.
+const diag2 = await ctxD.newPage();
+diag2.on('pageerror', (e) => errD.push(String(e)));
+await diag2.route('**/functions/v1/sorteo', (ruta) => ruta.abort());
+await diag2.goto(BASE + '/diagnostico.html');
+await diag2.waitForFunction(() =>
+  !document.getElementById('veredicto').textContent.includes('Midiendo'), null, { timeout: 25000 });
+ok('con el panel caído, la base sigue en verde',
+   (await diag2.getAttribute('#p-base', 'class')).includes('bien'));
+ok('pero el motor del panel sale en rojo',
+   (await diag2.getAttribute('#p-panel', 'class')).includes('mal'),
+   await diag2.textContent('#d-panel'));
+ok('y el veredicto YA NO dice que todo está en orden',
+   (await diag2.textContent('#veredicto')) === 'El panel no va a poder revelar',
+   await diag2.textContent('#veredicto'));
+ok('sin errores de JavaScript en el diagnóstico', errD.length === 0, errD.join(' | '));
+await ctxD.close();
 
 ok('sin errores de JavaScript en el panel', errores.length === 0, errores.join(' | '));
 ok('sin errores de JavaScript en el boleto', err2.length === 0, err2.join(' | '));

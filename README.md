@@ -90,6 +90,27 @@ el celular»* y el botón no le deja prenderla otra vez —aunque puede **tomar 
 control** si hace falta, por ejemplo si ese celular se quedó sin batería.
 Regresar a espera o cerrar suelta el candado.
 
+### Cotejar el folio ganador antes de revelarlo
+
+Registrar al ganador es lo único del sistema que **no tiene vuelta atrás**: un
+disparador de la base impide cambiarlo después, ni con la llave de servicio.
+Y el error más fácil de cometer no es técnico, es humano: teclear `11053` en
+vez de `11052` con gente mirando y la cámara encendida. Si ese folio también
+existe, queda coronada otra persona para siempre.
+
+Por eso, al escribir el folio, el panel enseña **el folio con su código** y el
+botón de revelar no se enciende hasta entonces:
+
+```
+        COMPARA CON EL TALÓN QUE TRAES EN LA MANO
+                     A-11052
+                  código R5VR
+```
+
+Se compara contra el papel. Si el talón no dice `R5VR`, el folio está mal
+tecleado. Un folio que no pertenece a la rifa se marca ahí mismo, y cambiar el
+folio anula cualquier confirmación a medias.
+
 ### La doble confirmación del boleto
 
 Cada boleto lleva dos números: el **folio** (el número grande) y el **código**
@@ -231,9 +252,22 @@ ajustan en `assets/config.js` sin tocar código.
 ## Diagnóstico desde el propio teléfono
 
 `…/diagnostico.html` — se abre con la red que se quiera probar (wifi de la
-sede, datos de cada compañía) y dice en segundos qué alcanza y qué no: el
-sitio, la base de datos de la rifa y si el reloj del teléfono está en hora.
-Trae un botón para copiar el resultado y mandarlo.
+sede, datos de cada compañía) y dice en segundos qué alcanza y qué no. Cuatro
+pruebas: el sitio, la base de datos, **el motor del panel** y el reloj del
+teléfono. Trae un botón para copiar el resultado y mandarlo.
+
+La tercera es la que evita el peor engaño. La base y la función `sorteo` son
+servicios distintos: la base puede contestar perfecto mientras el motor del
+panel está caído, y entonces los boletos se ven y el cronómetro corre, pero a
+la hora del sorteo no se puede poner en vivo ni registrar al ganador. Antes
+eso salía en verde. Ahora sale:
+
+> **El panel no va a poder revelar**
+> La página y la base responden, pero el motor del panel no.
+
+La prueba se hace **sin mandar ninguna clave**: se llama a la función a
+propósito sin ella, y que conteste «clave incorrecta» es justo la prueba de
+que está viva y cuidando la puerta.
 
 Conviene correrlo en la sede el día del evento, antes de que llegue la gente.
 
@@ -280,7 +314,8 @@ impreso** para comprobar que apunta al boleto correcto—, cambia de rifa,
 verifica un boleto de papel, guarda el enlace de la transmisión, y corre el
 sorteo entero mirando cómo la pantalla del participante pasa sola a «en vivo»
 —con su botón al directo, y con el reproductor apareciendo al tocarlo— y luego
-al resultado. **71 comprobaciones**, ninguna contra la base real.
+al resultado, además del cotejo del folio y del propio diagnóstico —incluido
+el caso de la base viva con el panel caído—. **88 comprobaciones**, ninguna contra la base real.
 
 ## Ensayo sin tocar la rifa real
 

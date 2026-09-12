@@ -73,9 +73,20 @@
           <div class="revelar">
             <div class="fila">
               <input type="text" id="folioGanador" inputmode="numeric" placeholder="Folio ganador" />
-              <button class="boton peligro" id="btnRevelarFolio">Revelar</button>
+              <button class="boton peligro" id="btnRevelarFolio" disabled>Revelar</button>
             </div>
             <button class="boton" id="btnRevelarAzar">Sortear al azar</button>
+          </div>
+        </li>
+
+        <!-- El cotejo contra el talón de papel. Un dedazo aquí no tiene vuelta
+             atrás, así que antes de confirmar se enseña el folio con su código
+             para compararlo con el boleto que se trae en la mano. -->
+        <li class="cotejo-fila">
+          <div class="cotejo" id="cotejoFolio" hidden>
+            <p class="cotejo-rotulo" id="cotejoRotulo">Compara con el talón</p>
+            <p class="cotejo-folio" id="cotejoNumero">—</p>
+            <p class="cotejo-codigo" id="cotejoCodigo"></p>
           </div>
         </li>
         <li>

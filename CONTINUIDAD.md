@@ -130,7 +130,9 @@ el diseño, no una omisión.
 ## El día de la rifa
 
 1. Llegar a la sede y abrir `diagnostico.html` con la red del lugar y con
-   datos móviles. Dice en segundos si esa red sirve.
+   datos móviles. Cuatro pruebas en segundos: sitio, base, **motor del panel**
+   y reloj. Si la tercera sale en rojo, el panel no va a poder revelar aunque
+   todo lo demás se vea bien.
 2. Entrar al panel y comprobar que la rifa correcta está en **En espera**.
 3. Empezar a transmitir en YouTube desde la app, con **«Permitir insertar»
    encendido** en la configuración avanzada del directo. Ya al aire, copiar el
@@ -140,8 +142,10 @@ el diseño, no una omisión.
    traen el botón **Ver la transmisión aquí**, que mete el reproductor en la
    propia pantalla del boleto. Debajo queda «o ábrela en YouTube» por si algo
    falla. **Quien la ve no necesita cuenta de nada.**
-4. Sacar el folio de la tómbola, teclearlo y **Revelar**. Pide confirmar dos
-   veces. **Es irreversible**: ni tú ni nadie puede cambiar el ganador después.
+4. Sacar el folio de la tómbola y teclearlo. El panel enseña el folio con su
+   código: **compáralo con el talón que traes en la mano** antes de tocar
+   Revelar, que no se enciende hasta entonces. Luego pide confirmar dos veces.
+   **Es irreversible**: ni tú ni nadie puede cambiar el ganador después.
 5. **Cerrar**. El resultado sigue viéndose para quien escanee, para siempre.
 
 Si algo sale mal con la red: la pantalla del participante funciona con el

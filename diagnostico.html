@@ -72,8 +72,13 @@
       <p class="detalle" id="d-base">Sin esto no hay estado del sorteo ni resultado.</p>
     </div>
 
+    <div class="prueba espera" id="p-panel">
+      <div class="titulo"><strong>3. Motor del panel</strong><span class="tiempo" id="t-panel">probando…</span></div>
+      <p class="detalle" id="d-panel">Lo que pone en vivo y revela al ganador.</p>
+    </div>
+
     <div class="prueba espera" id="p-tiempo">
-      <div class="titulo"><strong>3. Reloj del teléfono</strong><span class="tiempo" id="t-tiempo">probando…</span></div>
+      <div class="titulo"><strong>4. Reloj del teléfono</strong><span class="tiempo" id="t-tiempo">probando…</span></div>
       <p class="detalle" id="d-tiempo">Si va desfasado, el cronómetro miente.</p>
     </div>
 
@@ -138,8 +143,35 @@
           .then(function (r) {
             if (r.ok) { marcar('base', 'bien', r.ms + ' ms', CFG.supabaseUrl.replace('https://', '')); }
             else { marcar('base', 'mal', r.ms + ' ms', 'no respondió: ' + (r.error || 'error ' + r.estado)); }
-            probarReloj();
+            probarPanel();
           });
+      }
+
+      // --- 3. El motor del panel ---
+      // La base puede estar perfecta y el panel no servir: son dos servicios
+      // distintos. Se toca la función a propósito SIN clave: que conteste
+      // «clave incorrecta» (401) es justo la prueba de que está viva y
+      // cuidando la puerta. Aquí no viaja ninguna clave.
+      function probarPanel() {
+        if (!CFG.supabaseUrl) {
+          marcar('panel', 'mal', '—', 'falta la configuración');
+          return probarReloj();
+        }
+        pedir(CFG.supabaseUrl + '/functions/v1/sorteo', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ accion: 'estado', clave: '' }),
+        }, 12000).then(function (r) {
+          if (r.estado === 401) {
+            marcar('panel', 'bien', r.ms + ' ms', 'responde y pide clave, como debe');
+          } else if (r.estado) {
+            // Contestó algo: está viva, aunque sea una respuesta rara.
+            marcar('panel', 'bien', r.ms + ' ms', 'responde (código ' + r.estado + ')');
+          } else {
+            marcar('panel', 'mal', r.ms + ' ms', 'sin respuesta: ' + (r.error || 'no se alcanzó'));
+          }
+          probarReloj();
+        });
       }
 
       // --- 3. El reloj del teléfono ---
@@ -169,15 +201,22 @@
       function concluir() {
         var sitio = (resultados.sitio || '').indexOf('bien') === 0;
         var base = (resultados.base || '').indexOf('bien') === 0;
-        if (sitio && base) {
-          $('veredicto').textContent = 'Todo en orden';
-          $('explicacion').textContent = 'Esta red alcanza tanto la página como la base de datos. La rifa funcionará aquí.';
-        } else if (sitio && !base) {
-          $('veredicto').textContent = 'Falta la base de datos';
-          $('explicacion').textContent = 'La página carga, pero no se alcanza el servidor de la rifa: se vería el boleto y el cronómetro, pero no el resultado en vivo.';
-        } else {
+        var panel = (resultados.panel || '').indexOf('bien') === 0;
+
+        if (!sitio) {
           $('veredicto').textContent = 'Esta red no sirve para la rifa';
           $('explicacion').textContent = 'Ni siquiera se alcanza el propio sitio. Manda esta pantalla para revisarlo.';
+        } else if (!base) {
+          $('veredicto').textContent = 'Falta la base de datos';
+          $('explicacion').textContent = 'La página carga, pero no se alcanza el servidor de la rifa: se vería el boleto y el cronómetro, pero no el resultado en vivo.';
+        } else if (!panel) {
+          // Este es el caso que antes salía en verde y engañaba: la base
+          // contesta, pero quien pone en vivo y revela no.
+          $('veredicto').textContent = 'El panel no va a poder revelar';
+          $('explicacion').textContent = 'La página y la base responden, pero el motor del panel no. Los boletos se verían y el cronómetro correría, pero desde el panel no se podría poner en vivo ni registrar al ganador. Revísalo antes del sorteo.';
+        } else {
+          $('veredicto').textContent = 'Todo en orden';
+          $('explicacion').textContent = 'Esta red alcanza la página, la base de datos y el motor del panel. La rifa funcionará aquí.';
         }
         volcar();
       }
@@ -187,6 +226,7 @@
         $('datos').textContent = [
           'sitio:  ' + (resultados.sitio || '—'),
           'base:   ' + (resultados.base || '—'),
+          'panel:  ' + (resultados.panel || '—'),
           'reloj:  ' + (resultados.tiempo || '—'),
           'red:    ' + (con.effectiveType || 'desconocida') + (con.downlink ? ' · ' + con.downlink + ' Mbps' : ''),
           'host:   ' + location.host,
