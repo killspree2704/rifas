@@ -1,7 +1,10 @@
 # Dónde está todo
 
+> Para **por qué** el sistema es como es —y qué se intentó antes que no
+> funcionó— ver [`BITACORA.md`](BITACORA.md).
+
 Para retomar el proyecto desde cualquier computadora o teléfono, sin depender
-de esta máquina ni de esta conversación. Última revisión: 10 de septiembre de
+de esta máquina ni de esta conversación. Última revisión: 14 de septiembre de
 2026.
 
 ## Lo primero: qué es durable y qué no
@@ -19,21 +22,26 @@ Todo lo demás está en el repositorio. **Lo único que tienes que guardar por t
 cuenta —en un gestor de contraseñas o en papel— es la clave del panel.** Si se
 pierde, no hay forma de leerla: solo se puede poner una nueva (ver abajo).
 
-## Las llaves
+## Acceso al panel
 
-| Llave | Para qué | Dónde conseguirla |
-| --- | --- | --- |
-| Clave del panel | Entrar a `panel.html` | La sabes tú. Guárdala. |
-| Llave de firma (64 caracteres) | Calcular el código de un folio fuera del panel | `select llave from llave_firma where id = 1;` en el editor SQL de Supabase |
-| Clave pública de Supabase | Ya está en `assets/config.js` | No es secreta: solo deja leer el estado de la rifa |
+| | |
+| --- | --- |
+| Dirección | https://rifas.el-original.workers.dev/panel.html |
+| Usuario | No hay. Solo la clave |
+| Clave | **No está escrita aquí, a propósito.** Ver abajo |
 
-La llave de firma **no hace falta para nada del día a día**: el panel firma los
-códigos solo. Sirve únicamente si alguna vez quieres volver a generar boletos
-desde la terminal con `herramientas/generar-folios.mjs`.
+**La clave del panel NO se guarda en este repositorio, y no debe guardarse
+nunca.** Este repositorio es **público**: cualquiera en internet puede leerlo,
+y git conserva para siempre todo lo que se le escribe, aunque después se borre.
+Escribir aquí la clave equivale a publicar el control del sorteo — quien la
+tuviera podría revelar un ganador o crear rifas.
 
-### Si pierdes la clave del panel
+Guárdala en un gestor de contraseñas. En la base solo vive su **hash**
+SHA-256, en `panel_clave`, que ni el navegador ni nadie puede revertir.
 
-En el editor SQL de Supabase, con la clave nueva que quieras:
+### Si se pierde
+
+No se recupera: se reemplaza. En el editor SQL de Supabase:
 
 ```sql
 -- Cambia SOLO el texto entre comillas por tu clave nueva.
@@ -47,6 +55,18 @@ update public.panel_clave
 
 Los boletos ya impresos siguen siendo válidos: la clave del panel y la llave
 que firma los códigos son dos cosas distintas.
+
+## Las llaves
+
+| Llave | Para qué | Dónde conseguirla |
+| --- | --- | --- |
+| Clave del panel | Entrar a `panel.html` | La sabes tú. Guárdala. |
+| Llave de firma (64 caracteres) | Calcular el código de un folio fuera del panel | `select llave from llave_firma where id = 1;` en el editor SQL de Supabase |
+| Clave pública de Supabase | Ya está en `assets/config.js` | No es secreta: solo deja leer el estado de la rifa |
+
+La llave de firma **no hace falta para nada del día a día**: el panel firma los
+códigos solo. Sirve únicamente si alguna vez quieres volver a generar boletos
+desde la terminal con `herramientas/generar-folios.mjs`.
 
 ## Direcciones
 
