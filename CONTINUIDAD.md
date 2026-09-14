@@ -111,7 +111,7 @@ node pruebas/panel.mjs
 ```
 
 Publicar es `git push`: Cloudflare recompila solo. **Si tocas archivos del
-sitio, sube el número de versión en `sw.js`** (`CACHE = 'rifa-v6'` → `v7`) o
+sitio, sube el número de versión en `sw.js`** (`CACHE = 'rifa-v10'` → `v11`) o
 los teléfonos que ya abrieron la página seguirán viendo la vieja.
 
 ## Cómo está armado
@@ -152,7 +152,8 @@ El boleto de papel                El teléfono                    El panel
 | `proteger_ganador` (disparador) | Impide escribir el ganador antes de revelar y cambiarlo después. **Ni con la llave de servicio** |
 
 Migraciones aplicadas, en orden: `esquema_rifas`, `realtime_rifas`,
-`endurecer_trigger`, `rifa_activa_y_llave`, `rifa_de_folio`.
+`endurecer_trigger`, `rifa_activa_y_llave`, `rifa_de_folio`, `transmision`,
+`rifa_de_folio_con_transmision`.
 
 **Aquí no hay ni un dato personal.** Ni nombres, ni teléfonos, ni correos. Solo
 números. Quién compró cada boleto lo lleva el vendedor en su libreta, y ese es
@@ -195,13 +196,25 @@ Todo desde el panel, sin tocar código ni publicar nada:
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
-## Estado al 10 de septiembre de 2026
+## Estado al 14 de septiembre de 2026
 
-- Una sola rifa: `mm-2026-09`, «Rifa El Muerde Manos», serie A, 10 boletos de
-  prueba, sorteo el **domingo 13 de septiembre a las 18:00** (hora de Ciudad de
-  México). Sin ganador todavía.
+Comprobado consultando Supabase hoy, no de memoria:
+
+- **No hay ninguna rifa en la base.** `rifas`, `boletos` y `sorteo_log` están
+  en cero filas. La rifa de prueba `mm-2026-09` que figuraba aquí ya no
+  existe, y no quedó registro en la bitácora de cuándo ni cómo se fue.
+- **El sistema en sí está intacto:** las 7 migraciones aplicadas, la función
+  de borde `sorteo` activa, la clave del panel y la llave de firma en su
+  lugar. Lo que falta son datos de rifa, no piezas del sistema.
+- **`assets/config.js` quedó apuntando a la rifa que ya no existe**
+  (`rifaId: 'mm-2026-09'`, sorteo el 13 de septiembre, fecha ya pasada). Esos
+  dos valores son solo el respaldo que usa el boleto **antes** de resolver el
+  folio contra la base; un boleto con folio y código en el enlace no los toca.
+  Pero quien abra la dirección pelada, sin folio, va a ver la pantalla de
+  «en vivo» de una rifa inexistente. Al crear la próxima rifa conviene
+  emparejarlos, o dejar de dar por buena esa pantalla sin folio.
 - El panel y el boleto están probados de punta a punta (`pruebas/panel.mjs`,
-  41 comprobaciones).
+  95 comprobaciones — el número que también cita `BITACORA.md`).
 
 ### La transmisión, en corto
 
