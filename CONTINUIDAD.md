@@ -16,11 +16,13 @@ de esta máquina ni de esta conversación. Última revisión: 14 de septiembre d
 | Rifas, folios, códigos, ganadores | Supabase, proyecto `fgwavuaolmrwagaymgos` | No |
 | La función `sorteo` | Desplegada en Supabase (Edge Functions) | No |
 | La llave que firma los códigos | Tabla `llave_firma` en Supabase | No |
-| **La clave del panel** | Solo su **hash** está en `panel_clave` | **Sí: si la olvidas, no se recupera** |
+| **La clave del panel** | Aquí abajo, y su **hash** en `panel_clave` | No, mientras el repositorio siga privado |
 
-Todo lo demás está en el repositorio. **Lo único que tienes que guardar por tu
-cuenta —en un gestor de contraseñas o en papel— es la clave del panel.** Si se
-pierde, no hay forma de leerla: solo se puede poner una nueva (ver abajo).
+Todo está en el repositorio, **incluida la clave del panel** — por eso el repo
+es privado y tiene que seguir siéndolo. Aun así, guarda la clave también en un
+gestor de contraseñas: un repositorio no es buen único lugar para un secreto.
+De ella la base solo conserva un hash, así que si se pierde no se recupera: se
+reemplaza (ver abajo).
 
 ## Acceso al panel
 
@@ -28,16 +30,25 @@ pierde, no hay forma de leerla: solo se puede poner una nueva (ver abajo).
 | --- | --- |
 | Dirección | https://rifas.el-original.workers.dev/panel.html |
 | Usuario | No hay. Solo la clave |
-| Clave | **No está escrita aquí, a propósito.** Ver abajo |
+| Clave | `JrIEng7X3lSz` |
 
-**La clave del panel NO se guarda en este repositorio, y no debe guardarse
-nunca.** Este repositorio es **público**: cualquiera en internet puede leerlo,
-y git conserva para siempre todo lo que se le escribe, aunque después se borre.
-Escribir aquí la clave equivale a publicar el control del sorteo — quien la
-tuviera podría revelar un ganador o crear rifas.
+> ### ⚠️ Este repositorio tiene que seguir siendo PRIVADO
+>
+> Esa clave es el control del sorteo: quien la tenga puede revelar un ganador o
+> crear rifas. Está escrita aquí porque el repositorio es privado — comprobado:
+> un visitante anónimo recibe 404.
+>
+> **Si algún día lo vuelves público, cambia la clave ANTES de hacerlo.** Git
+> conserva para siempre lo que se le escribe: volverlo público publicaría esta
+> línea y todo el historial, aunque para entonces ya la hubieras borrado del
+> archivo.
+>
+> Lo mismo al agregar colaboradores: quien tenga acceso al repositorio tendrá
+> la clave.
 
-Guárdala en un gestor de contraseñas. En la base solo vive su **hash**
-SHA-256, en `panel_clave`, que ni el navegador ni nadie puede revertir.
+Guárdala también en un gestor de contraseñas: un repositorio no es buen único
+lugar para un secreto. En la base solo vive su **hash** SHA-256, en
+`panel_clave`, que nadie puede revertir.
 
 ### Si se pierde
 
@@ -60,7 +71,7 @@ que firma los códigos son dos cosas distintas.
 
 | Llave | Para qué | Dónde conseguirla |
 | --- | --- | --- |
-| Clave del panel | Entrar a `panel.html` | La sabes tú. Guárdala. |
+| Clave del panel | Entrar a `panel.html` | Arriba, en «Acceso al panel» |
 | Llave de firma (64 caracteres) | Calcular el código de un folio fuera del panel | `select llave from llave_firma where id = 1;` en el editor SQL de Supabase |
 | Clave pública de Supabase | Ya está en `assets/config.js` | No es secreta: solo deja leer el estado de la rifa |
 
