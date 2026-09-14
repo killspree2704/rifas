@@ -120,13 +120,26 @@
     if ('transmision_url' in estado) { pintarTransmision(estado.transmision_url); }
 
     if (hayResultado()) {
-      var gano = String(estado.folio_ganador || '') === folio;
-      $('veredicto').textContent = gano ? '¡Ganaste!' : 'No ganaste';
-      $('veredicto').className = 'veredicto' + (gano ? ' gana' : '');
-      $('fraseResultado').textContent = gano ? 'Tu folio es el ganador.' : 'Suerte para la próxima.';
-      $('notaResultado').textContent = gano
-        ? 'Presenta tu boleto físico para reclamar el premio.'
-        : 'Folio ganador: ' + estado.folio_ganador;
+      // Una rifa se puede cerrar sin haber revelado a nadie. Pasa de verdad:
+      // se suspende, se pospone, o simplemente se cierra. Decirle «no ganaste»
+      // a alguien cuando no ganó nadie es mentirle, y enseñarle el hueco donde
+      // iría el folio es peor.
+      var hayGanador = !!estado.folio_ganador;
+      var gano = hayGanador && String(estado.folio_ganador) === folio;
+
+      if (!hayGanador) {
+        $('veredicto').textContent = 'Rifa cerrada';
+        $('veredicto').className = 'veredicto';
+        $('fraseResultado').textContent = 'Se cerró sin registrar ganador.';
+        $('notaResultado').textContent = 'Conserva tu boleto y pregunta al organizador.';
+      } else {
+        $('veredicto').textContent = gano ? '¡Ganaste!' : 'No ganaste';
+        $('veredicto').className = 'veredicto' + (gano ? ' gana' : '');
+        $('fraseResultado').textContent = gano ? 'Tu folio es el ganador.' : 'Suerte para la próxima.';
+        $('notaResultado').textContent = gano
+          ? 'Presenta tu boleto físico para reclamar el premio.'
+          : 'Folio ganador: ' + estado.folio_ganador;
+      }
       // El video se apaga al llegar el resultado. Si se quedara puesto,
       // seguiría sonando detrás de esta pantalla.
       quitarVideo();

@@ -49,6 +49,43 @@ pagina.on('request', (r) => {
       r.postData().includes('crear_rifa')) { cuerpoCreacion = JSON.parse(r.postData()); }
 });
 
+// ------------------------------------------------- PANEL SIN RIFAS ---------
+// Una base recién estrenada, o borrada para volver a empezar. Antes el panel
+// no dejaba ni entrar: pedía el estado de una rifa que no existía.
+{
+  console.log('\n== Panel con cero rifas ==');
+  const ctx0 = await navegador.newContext({ serviceWorkers: 'block' });
+  const p0 = await ctx0.newPage();
+  const err0 = [];
+  p0.on('pageerror', (e) => err0.push(String(e)));
+  // Se le hace creer al panel que no hay nada.
+  await p0.route('**/functions/v1/sorteo', async (ruta) => {
+    const cuerpo = JSON.parse(ruta.request().postData() || '{}');
+    if (cuerpo.accion === 'rifas') {
+      return ruta.fulfill({ status: 200, contentType: 'application/json',
+                            body: JSON.stringify({ rifas: [] }) });
+    }
+    return ruta.continue();
+  });
+  await p0.goto(BASE + '/panel.html');
+  await p0.fill('#clave', 'secreta');
+  await p0.click('#btnEntrar');
+  await p0.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  ok('se puede entrar aunque no haya ninguna rifa', true);
+  ok('y aterriza en Rifas, no en Sorteo', await p0.isVisible('#paneRifas'));
+  ok('con el formulario de nueva rifa ya abierto',
+     await p0.isVisible('#nvNombre'));
+  ok('y lo dice en el encabezado',
+     (await p0.textContent('#tituloRifa')).includes('Todavía no hay ninguna rifa'),
+     await p0.textContent('#tituloRifa'));
+  await p0.click('.pestana[data-panel="paneSorteo"]');
+  ok('la pestaña Sorteo avisa que no hay nada que manejar',
+     (await p0.textContent('#mensaje')).includes('Crea una'),
+     await p0.textContent('#mensaje'));
+  ok('sin errores de JavaScript con la base vacía', err0.length === 0, err0.join(' | '));
+  await ctx0.close();
+}
+
 // ---------------------------------------------------------------- PANEL ----
 console.log('\n== Panel ==');
 await pagina.goto(BASE + '/panel.html');
@@ -69,8 +106,8 @@ ok('entra con la clave buena', true);
 ok('abre en la pestaña Sorteo', await pagina.isVisible('#paneSorteo'));
 ok('toma la rifa activa', (await pagina.textContent('#tituloRifa')) === 'Rifa El Muerde Manos',
    await pagina.textContent('#tituloRifa'));
-ok('el subtítulo trae fecha y boletos',
-   /Serie A · 3 boletos · 13 sep\.? 2026, 06:00 p\. ?m\./.test(await pagina.textContent('#subtitulo')),
+ok('el subtítulo trae serie, boletos y fecha',
+   /^Serie A · 3 boletos · \d{1,2} \w+\.? \d{4},/.test(await pagina.textContent('#subtitulo')),
    await pagina.textContent('#subtitulo'));
 
 // --- pestaña Rifas ---
@@ -78,7 +115,7 @@ console.log('\n== Rifas ==');
 await pagina.click('.pestana[data-panel="paneRifas"]');
 await pagina.waitForSelector('#listaRifas .rifa');
 const tarjetas = await pagina.$$('#listaRifas .rifa');
-ok('lista todo el historial', tarjetas.length === 3, tarjetas.length + ' tarjetas');
+ok('lista todo el historial', tarjetas.length === 4, tarjetas.length + ' tarjetas');
 ok('marca cuál se está manejando', await pagina.isVisible('#listaRifas .rifa.manejando'));
 const textoVieja = await pagina.locator('.rifa', { hasText: 'Rifa de estreno' }).textContent();
 ok('la rifa vieja conserva su ganador', textoVieja.includes('Ganador: Z-90001'), textoVieja.trim().replace(/\s+/g,' '));
@@ -153,8 +190,28 @@ ok('genera los boletos pedidos', (await hoja2.$$('.boleto')).length === 4);
 ok('la hoja nueva sale con su serie', (await hoja2.textContent('.boleto .folio')).startsWith('B-'),
    await hoja2.textContent('.boleto .folio'));
 await hoja2.close();
-await pagina.waitForSelector('#listaRifas .rifa:nth-child(4)');
-ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 4);
+
+// Crear una rifa deja el panel manejándola: si no, se quedaba con la
+// anterior —normalmente ya cerrada— y parecía trabado.
+await pagina.waitForSelector('#paneSorteo:not([hidden])', { timeout: 15000 });
+ok('tras crearla, el panel salta solo a la pestaña Sorteo', true);
+ok('y ya está manejando la rifa nueva, no la anterior',
+   (await pagina.textContent('#tituloRifa')) === 'Rifa de prueba',
+   await pagina.textContent('#tituloRifa'));
+ok('lo dice en voz alta',
+   (await pagina.textContent('#mensaje')).includes('El panel ya la está manejando'),
+   await pagina.textContent('#mensaje'));
+
+await pagina.click('.pestana[data-panel="paneRifas"]');
+await pagina.waitForSelector('#listaRifas .rifa:nth-child(5)');
+ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 5);
+ok('y queda marcada como la que se maneja',
+   (await pagina.locator('.rifa.manejando').textContent()).includes('Rifa de prueba'),
+   (await pagina.locator('.rifa.manejando').textContent()).replace(/\s+/g, ' ').slice(0, 60));
+await pagina.click('#cajaNueva > summary');
+ok('el formulario queda limpio para la siguiente',
+   (await pagina.inputValue('#nvNombre')) === '' &&
+   (await pagina.inputValue('#nvCantidad')) === '');
 
 // la hora tecleada se guarda como hora del evento, no del navegador que la
 // escribió: 20:00 en Ciudad de México son las 02:00 UTC del día siguiente.
@@ -247,6 +304,17 @@ await pagina.waitForFunction(() =>
 ok('acepta y limpia un enlace copiado de la app',
    (await pagina.inputValue('#transmisionUrl')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
    await pagina.inputValue('#transmisionUrl'));
+
+// Una rifa se puede cerrar sin revelar a nadie. Ahí no hay perdedores.
+await p2.goto(BASE + '/?f=33301&c=SSSS');
+await p2.waitForSelector('#vistaResultado:not([hidden])', { timeout: 15000 });
+ok('una rifa cerrada sin ganador no le dice «no ganaste» a nadie',
+   (await p2.textContent('#veredicto')) === 'Rifa cerrada',
+   await p2.textContent('#veredicto'));
+ok('ni le enseña un hueco donde iría el folio',
+   !(await p2.textContent('#notaResultado')).includes('null') &&
+   (await p2.textContent('#notaResultado')).includes('Conserva tu boleto'),
+   await p2.textContent('#notaResultado'));
 
 // ------------------------------------------- COTEJO DEL FOLIO -------------
 console.log('\n== Cotejo del folio ganador ==');

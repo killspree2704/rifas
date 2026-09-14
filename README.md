@@ -24,6 +24,11 @@ se le vendió cada boleto lo lleva el organizador a mano, en papel.
 | `revelado` | Su folio contra el ganador: ¡Ganaste! o Suerte para la próxima |
 | `cerrado` | Igual que revelado, con la rifa terminada |
 
+Una rifa se puede **cerrar sin haber revelado a nadie** —se suspende, se
+pospone—. En ese caso la pantalla dice «Rifa cerrada · se cerró sin registrar
+ganador», no «no ganaste»: decirle a alguien que perdió cuando no ganó nadie
+es mentirle.
+
 Un folio inventado, o con código equivocado, ve **Boleto no válido**.
 
 Cada boleto sabe a qué rifa pertenece: la pantalla no está atada a ninguna
@@ -156,7 +161,13 @@ Todo desde el panel, sin tocar código ni volver a publicar el sitio:
 2. El servidor inventa los folios, los firma y los guarda. Al terminar abre
    la **hoja de boletos** con folio, código y QR de cada uno: de ahí sale a
    la impresora o a un PDF (*Imprimir → Guardar como PDF*).
-3. **Manejar esta** pone esa rifa al frente de la pestaña Sorteo.
+3. Al terminar, **el panel se pasa solo a la rifa recién creada** y salta a la
+   pestaña Sorteo. No hay que activarla a mano.
+
+Si la base está vacía —recién estrenada, o borrada para empezar de nuevo— el
+panel entra igual y aterriza en «Rifas» con el formulario abierto.
+
+Para volver a una rifa anterior, **Manejar esta** en el historial.
 
 La hoja se puede volver a sacar cuando sea desde **Hoja de boletos** en
 cualquier rifa del historial. Nada se borra: cada rifa conserva sus folios y
@@ -314,8 +325,9 @@ impreso** para comprobar que apunta al boleto correcto—, cambia de rifa,
 verifica un boleto de papel, guarda el enlace de la transmisión, y corre el
 sorteo entero mirando cómo la pantalla del participante pasa sola a «en vivo»
 —con su botón al directo, y con el reproductor apareciendo al tocarlo— y luego
-al resultado, además del cotejo del folio y del propio diagnóstico —incluido
-el caso de la base viva con el panel caído—. **88 comprobaciones**, ninguna contra la base real.
+al resultado, además del cotejo del folio, del propio diagnóstico —incluido el
+caso de la base viva con el panel caído— y del panel contra una base vacía.
+**95 comprobaciones**, ninguna contra la base real.
 
 ## Ensayo sin tocar la rifa real
 

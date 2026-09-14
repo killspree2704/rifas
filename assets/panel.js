@@ -89,6 +89,9 @@
 
   function abrirPestana(id) {
     PANES.forEach(function (p) { $(p).hidden = (p !== id); });
+    if (id === 'paneSorteo' && !rifaActual) {
+      mensaje('Todavía no hay ninguna rifa que manejar. Crea una en la pestaña «Rifas».', 'error');
+    }
     Array.prototype.forEach.call(document.querySelectorAll('.pestana'), function (b) {
       b.classList.toggle('activa', b.dataset.panel === id);
     });
@@ -564,13 +567,37 @@
         $('btnCrear').disabled = false;
         mensaje('Lista: ' + datos.boletos.length + ' boletos. Abriendo la hoja para imprimir…', 'ok', 'mensajeNueva');
         abrirHoja(datos.rifa, datos.boletos);
-        cargarRifas();
+
+        // Y el panel se pasa solo a la rifa recién creada. Antes se quedaba
+        // manejando la anterior —normalmente una ya cerrada, con todo
+        // apagado— y parecía que el panel se había trabado.
+        rifaActual = datos.rifa.id;
+        mapaCodigos = null;
+        return llamar('activar', { rifa: datos.rifa.id })
+          .then(function () { return llamar('estado'); })
+          .then(function (estado) {
+            pintar(estado);
+            abrirPestana('paneSorteo');
+            mensaje('«' + estado.rifa.nombre + '» creada y lista. El panel ya la está manejando.', 'ok');
+            limpiarFormularioNueva();
+          });
       })
       .catch(function (e) {
         $('btnCrear').disabled = false;
         mensaje(e.message, 'error', 'mensajeNueva');
       });
   });
+
+  /** Deja el formulario listo para la siguiente, sin arrastrar lo anterior. */
+  function limpiarFormularioNueva() {
+    ['nvNombre', 'nvSerie', 'nvFecha', 'nvCantidad', 'nvPrecio'].forEach(function (id) {
+      $(id).value = '';
+    });
+    $('nvDigitos').value = '5';
+    resumenNueva();
+    mensaje('', '', 'mensajeNueva');
+    $('cajaNueva').open = false;
+  }
 
   var pendienteNueva = null;
   function confirmarNueva(texto) {
@@ -778,15 +805,28 @@
     llamar('rifas')
       .then(function (datos) {
         var lista = datos.rifas || [];
-        var activa = lista.filter(function (r) { return r.activa; })[0];
-        rifaActual = (activa && activa.id) || (lista[0] && lista[0].id) || CFG.rifaId;
-        return llamar('estado');
-      })
-      .then(function (datos) {
+        var activa = lista.filter(function (r) { return r.activa; })[0] || lista[0];
+
         $('vistaClave').hidden = true;
         $('pestanas').hidden = false;
-        abrirPestana('paneSorteo');
-        pintar(datos);
+
+        // Base recién estrenada, o borrada para empezar de nuevo: no hay nada
+        // que manejar todavía. Se entra igual, directo a crear la primera.
+        if (!activa) {
+          rifaActual = null;
+          ultimoEstado = null;
+          $('tituloRifa').textContent = 'Todavía no hay ninguna rifa';
+          $('subtitulo').textContent = 'Crea la primera aquí abajo.';
+          abrirPestana('paneRifas');
+          $('cajaNueva').open = true;
+          return null;
+        }
+
+        rifaActual = activa.id;
+        return llamar('estado').then(function (estado) {
+          abrirPestana('paneSorteo');
+          pintar(estado);
+        });
       })
       .catch(function (e) {
         clave = '';
@@ -801,7 +841,7 @@
 
   // Refresco de cortesía por si alguien más movió el estado.
   setInterval(function () {
-    if (!clave || !ultimoEstado || $('paneSorteo').hidden) { return; }
+    if (!clave || !rifaActual || !ultimoEstado || $('paneSorteo').hidden) { return; }
     llamar('estado').then(pintar).catch(function () { /* el siguiente intento reintenta */ });
   }, 10000);
 })();

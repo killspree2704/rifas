@@ -21,7 +21,10 @@ const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 // --- estado fingido ---------------------------------------------------------
 const rifas = [{
   id: 'mm-2026-09', nombre: 'Rifa El Muerde Manos', serie: 'A', estado: 'espera',
-  activa: true, folio_ganador: null, fecha_sorteo: '2026-09-13T18:00:00-06:00',
+  activa: true, folio_ganador: null,
+  // Relativa a hoy, no fija: una fecha escrita a mano se vuelve pasado y la
+  // prueba empieza a fallar sola, sin que nada se haya roto.
+  fecha_sorteo: new Date(Date.now() + 3 * 86400000).toISOString(),
   revelado_en: null, creada_en: '2026-09-01T00:00:00Z', precio_boleto: 50,
   transmision_url: null, transmite_desde: null,
 }, {
@@ -38,7 +41,14 @@ rifas.push({
   revelado_en: null, creada_en: new Date().toISOString(), precio_boleto: null,
   transmision_url: null, transmite_desde: null,
 });
+rifas.push({
+  id: 'suspendida', nombre: 'Rifa suspendida', serie: 'S', estado: 'cerrado',
+  activa: false, folio_ganador: null, fecha_sorteo: '2025-06-01T18:00:00-06:00',
+  revelado_en: null, creada_en: '2025-05-01T00:00:00Z', precio_boleto: null,
+  transmision_url: null, transmite_desde: null,
+});
 const boletos = {
+  suspendida: [['33301', 'SSSS']],
   pronto: [['55501', 'PPPP'], ['55502', 'QQQQ']],
   'mm-2026-09': [['11052', 'R5VR'], ['11053', 'ABCD'], ['11054', 'EFGH']],
   'vieja-2025-01': [['90001', 'ZZZZ'], ['90002', 'YYYY']],
