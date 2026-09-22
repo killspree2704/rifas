@@ -4,7 +4,7 @@
 > funcionó— ver [`BITACORA.md`](BITACORA.md).
 
 Para retomar el proyecto desde cualquier computadora o teléfono, sin depender
-de esta máquina ni de esta conversación. Última revisión: 14 de septiembre de
+de esta máquina ni de esta conversación. Última revisión: 22 de septiembre de
 2026.
 
 ## Lo primero: qué es durable y qué no
@@ -196,23 +196,39 @@ Todo desde el panel, sin tocar código ni publicar nada:
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
-## Estado al 14 de septiembre de 2026
+## Estado al 22 de septiembre de 2026
 
-Comprobado consultando Supabase hoy, no de memoria:
+Comprobado consultando Supabase, no de memoria. **Dos rifas de prueba**, las
+dos ya cerradas, hechas desde el panel la noche del 21 de septiembre:
 
-- **No hay ninguna rifa en la base.** `rifas`, `boletos` y `sorteo_log` están
-  en cero filas. La rifa de prueba `mm-2026-09` que figuraba aquí ya no
-  existe, y no quedó registro en la bitácora de cuándo ni cómo se fue.
-- **El sistema en sí está intacto:** las 7 migraciones aplicadas, la función
-  de borde `sorteo` activa, la clave del panel y la llave de firma en su
-  lugar. Lo que falta son datos de rifa, no piezas del sistema.
-- **`assets/config.js` quedó apuntando a la rifa que ya no existe**
-  (`rifaId: 'mm-2026-09'`, sorteo el 13 de septiembre, fecha ya pasada). Esos
-  dos valores son solo el respaldo que usa el boleto **antes** de resolver el
-  folio contra la base; un boleto con folio y código en el enlace no los toca.
-  Pero quien abra la dirección pelada, sin folio, va a ver la pantalla de
-  «en vivo» de una rifa inexistente. Al crear la próxima rifa conviene
-  emparejarlos, o dejar de dar por buena esa pantalla sin folio.
+| Rifa | Serie | Boletos | Estado | Ganador |
+| --- | --- | --- | --- | --- |
+| `prueba-1-20260922` · «PRUEBA 1» | A, 5 dígitos | 10 | Cerrada | Folio **33388** (revelado al azar) |
+| `el-muerde-manos-20260922` · «EL MUERDE MANOS» | AB, 6 dígitos | 10 | Cerrada | **Ninguno: se cerró sin revelar** |
+
+La primera recorrió el camino completo —crear, activar, revelar, transmitir,
+cerrar— y el folio ganador sí existe entre sus diez boletos: el sorteo hizo lo
+que debía.
+
+La segunda se **cerró sin revelar**. No es una falla: es el caso que el
+sistema ya sabe manejar, y por eso quien escanee uno de esos boletos ve «Rifa
+cerrada» y no la mentira de «No ganaste · Folio ganador: null». Pero esa rifa
+**quedó marcada como la activa**, así que es la que el panel maneja al abrirlo.
+Si vas a probar de nuevo, crea una rifa nueva y el panel salta solo a ella.
+
+Antes de estas dos, la base había quedado en cero: la rifa `mm-2026-09` que
+figuraba aquí en septiembre ya no está, y `sorteo_log` tampoco guardó rastro
+de cuándo se fue.
+
+- **El sistema está intacto:** las 7 migraciones aplicadas, la función de
+  borde `sorteo` activa, la clave del panel y la llave de firma en su lugar.
+- **`assets/config.js` sigue apuntando a `mm-2026-09`**, una rifa que ya no
+  existe, con fecha de sorteo pasada. Esos dos valores son solo el respaldo
+  que usa el boleto **antes** de resolver el folio contra la base; un boleto
+  con folio y código en el enlace no los toca. Pero quien abra la dirección
+  pelada, sin folio, va a ver la pantalla de «en vivo» de una rifa
+  inexistente. Al crear la rifa de verdad conviene emparejarlos, o dejar de
+  dar por buena esa pantalla sin folio.
 - El panel y el boleto están probados de punta a punta (`pruebas/panel.mjs`,
   95 comprobaciones — el número que también cita `BITACORA.md`).
 
