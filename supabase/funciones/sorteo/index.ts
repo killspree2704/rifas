@@ -95,6 +95,32 @@ async function codigoDe(llave: CryptoKey, serie: string, boleto: string) {
   return codigo;
 }
 
+/**
+ * Un entero al azar en [0, tope), repartido parejo.
+ *
+ * `getRandomValues` sobre un Uint32 da 32 bits, y eso se queda corto en dos
+ * sentidos. Uno: no alcanza a cubrir un espacio de diez dígitos —9.000
+ * millones—, así que `azar % espacio` dejaba fuera todo lo que pasara de
+ * 5.294.967.295 y ningún boleto podía empezar con 6, 7, 8 ni 9. Dos: tomar el
+ * residuo reparte de más los valores bajos, aunque el espacio sí quepa.
+ *
+ * Aquí se toman 53 bits —lo que un número de JavaScript representa exacto— y
+ * se descarta lo que caiga en la cola incompleta. Así todos los valores salen
+ * con la misma probabilidad, valga lo que valga el tope. Importa: un lote
+ * predecible es un lote adivinable, y el folio ganador se saca con esto mismo.
+ */
+function azarHasta(tope: number) {
+  const bytes = new Uint8Array(7);
+  const limite = Math.floor(Math.pow(2, 53) / tope) * tope;
+  for (;;) {
+    crypto.getRandomValues(bytes);
+    let n = 0;
+    for (let i = 0; i < 6; i++) n = n * 256 + bytes[i];   // 48 bits
+    n = n * 32 + (bytes[6] & 31);                         // 53 en total
+    if (n < limite) return n % tope;
+  }
+}
+
 /** Cuáles de estos números ya existen. Se pregunta a la base, por tandas. */
 async function yaUsados(tabla: string, columna: string, candidatos: string[]) {
   const usados = new Set<string>();
@@ -129,7 +155,6 @@ async function generarUnicos(cantidad: number, digitos: number, tabla: string, c
   }
 
   const nuevos = new Set<string>();
-  const azar = new Uint32Array(1);
 
   for (let vuelta = 0; nuevos.size < cantidad; vuelta++) {
     if (vuelta > 20) throw new Error("no se pudieron generar folios suficientes; usa más dígitos");
@@ -139,8 +164,7 @@ async function generarUnicos(cantidad: number, digitos: number, tabla: string, c
     let intentos = 0;
     while (candidatos.size < faltan && intentos < faltan * 200) {
       intentos++;
-      crypto.getRandomValues(azar);
-      const folio = String(minimo + (azar[0] % espacio));
+      const folio = String(minimo + azarHasta(espacio));
       if (!nuevos.has(folio)) candidatos.add(folio);
     }
     const ocupados = await yaUsados(tabla, columna, [...candidatos]);
@@ -404,9 +428,7 @@ Deno.serve(async (req) => {
     // repartirlos para que los cuatro de un mismo papel no queden vecinos:
     // con números seguidos, ver uno daría pistas de los otros tres.
     for (let i = folios.length - 1; i > 0; i--) {
-      const azar = new Uint32Array(1);
-      crypto.getRandomValues(azar);
-      const j = azar[0] % (i + 1);
+      const j = azarHasta(i + 1);
       [folios[i], folios[j]] = [folios[j], folios[i]];
     }
 
@@ -565,9 +587,7 @@ Deno.serve(async (req) => {
       }
     } else {
       if (folios.length === 0) return responder({ error: "la rifa no tiene boletos" }, 400);
-      const azar = new Uint32Array(1);
-      crypto.getRandomValues(azar);
-      ganador = folios[azar[0] % folios.length];
+      ganador = folios[azarHasta(folios.length)];
       modo = "aleatorio";
     }
     // De qué papel salió ese número: es lo que hay que pedir para entregar.

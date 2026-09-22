@@ -78,6 +78,7 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 | **Folios consecutivos en un boleto** | Si los cuatro números de un papel fueran seguidos, ver uno daría pistas de los otros tres. Se revuelven antes de repartirlos |
 | **Verificar sin código** | Se dejó pasar la consulta por folio suelto «para cotejar la bolita». Una prueba lo cachó: así cualquier número tecleado decía «boleto original», que es justo lo contrario de lo que esa pantalla existe para probar. El código se exige siempre |
 | **Dejar `rifaId` en nulo sin más** | Al quitar la rifa fija de la configuración, la pantalla dejó de preguntarle al servidor: la comprobación exigía saber la rifa para ir a averiguar cuál era. Circular. Ahora resolver el boleto solo pide conexión |
+| **Sacar el azar de un `Uint32`** | 32 bits alcanzan para un folio de 8 dígitos, pero no para el identificador de boleto de 10: `azar % espacio` dejaba fuera todo lo que pasara de 5.294.967.295, así que **ningún boleto podía empezar con 6, 7, 8 ni 9** y solo se usaba el 47,7 % del espacio. Y el residuo, además, reparte de más los valores bajos. Se cambió por muestreo por rechazo sobre 53 bits. Medido después: los diez dígitos completos y chi-cuadrado 10,7 sobre 9 grados de libertad |
 
 ## Cómo llegó a ser lo que es
 
@@ -107,6 +108,11 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 - **Que el público no ve los números**: consultando la base como `anon`,
   `boletos` y `folios` devuelven cero filas. El estado de la rifa sí es
   público, que es el diseño.
+- **Que el azar reparte parejo**: 300.000 identificadores de diez dígitos
+  cubren el espacio entero y empiezan con los nueve dígitos posibles; 600.000
+  tiradas en diez casillas dan chi-cuadrado 10,7 (por debajo de 21,7, el
+  umbral con 9 grados de libertad). Importa dos veces: un lote predecible es
+  adivinable, y el folio ganador se saca con ese mismo sorteo.
 - **El panel, contra el servidor real:** se creó una rifa de 500 boletos, se
   transmitió, se reveló al azar y se cerró. Funcionó.
 
