@@ -25,12 +25,12 @@ const rifas = [{
   // Relativa a hoy, no fija: una fecha escrita a mano se vuelve pasado y la
   // prueba empieza a fallar sola, sin que nada se haya roto.
   fecha_sorteo: new Date(Date.now() + 3 * 86400000).toISOString(),
-  revelado_en: null, creada_en: '2026-09-01T00:00:00Z', precio_boleto: 50,
+  revelado_en: null, creada_en: '2026-09-01T00:00:00Z', precio_boleto: 50, folios_por_boleto: 4,
   transmision_url: null, transmite_desde: null,
 }, {
   id: 'vieja-2025-01', nombre: 'Rifa de estreno', serie: 'Z', estado: 'cerrado',
   activa: false, folio_ganador: '90001', fecha_sorteo: '2025-01-10T18:00:00-06:00',
-  revelado_en: '2025-01-10T18:30:00Z', creada_en: '2025-01-01T00:00:00Z', precio_boleto: null,
+  revelado_en: '2025-01-10T18:30:00Z', creada_en: '2025-01-01T00:00:00Z', precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 }];
 rifas.push({
@@ -38,60 +38,103 @@ rifas.push({
   activa: false, folio_ganador: null,
   // A minuto y medio: la pantalla del boleto entra en su ritmo rápido.
   fecha_sorteo: new Date(Date.now() + 90000).toISOString(),
-  revelado_en: null, creada_en: new Date().toISOString(), precio_boleto: null,
+  revelado_en: null, creada_en: new Date().toISOString(), precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 });
 rifas.push({
   id: 'suspendida', nombre: 'Rifa suspendida', serie: 'S', estado: 'cerrado',
   activa: false, folio_ganador: null, fecha_sorteo: '2025-06-01T18:00:00-06:00',
-  revelado_en: null, creada_en: '2025-05-01T00:00:00Z', precio_boleto: null,
+  revelado_en: null, creada_en: '2025-05-01T00:00:00Z', precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 });
+// Un boleto de papel con varios números. Igual que en el servidor de verdad:
+// el código es del boleto, no de cada folio.
 const boletos = {
-  suspendida: [['33301', 'SSSS']],
-  pronto: [['55501', 'PPPP'], ['55502', 'QQQQ']],
-  'mm-2026-09': [['11052', 'R5VR'], ['11053', 'ABCD'], ['11054', 'EFGH']],
-  'vieja-2025-01': [['90001', 'ZZZZ'], ['90002', 'YYYY']],
+  suspendida: [{ id: '9000000301', codigo: 'SSSS', folios: ['33301', '33302'] }],
+  pronto: [
+    { id: '9000000501', codigo: 'PPPP', folios: ['55501', '55502'] },
+    { id: '9000000502', codigo: 'QQQQ', folios: ['55503', '55504'] },
+  ],
+  'mm-2026-09': [
+    { id: '9000001052', codigo: 'R5VR', folios: ['11052', '11053', '11054', '11055'] },
+    { id: '9000001060', codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
+  ],
+  'vieja-2025-01': [{ id: '9000009001', codigo: 'ZZZZ', folios: ['90001', '90002'] }],
 };
 let contadorNuevas = 0;
 
 function rifaDe(id) { return rifas.find((r) => r.id === id); }
+
+/** Todos los folios de una rifa, como los devuelve el servidor real. */
+function foliosDe(id) {
+  return (boletos[id] || []).flatMap((b) => b.folios);
+}
+
+/** De un folio al boleto de papel que lo lleva, en cualquier rifa. */
+function boletoConFolio(folio) {
+  for (const [id, lote] of Object.entries(boletos)) {
+    const hit = lote.find((b) => b.folios.includes(folio));
+    if (hit) return [id, hit];
+  }
+  return [null, null];
+}
 
 function sorteo(cuerpo) {
   if (cuerpo.clave !== CLAVE) return [401, { error: 'clave incorrecta' }];
   const a = cuerpo.accion;
 
   if (a === 'rifas') {
-    return [200, { rifas: rifas.map((r) => ({ ...r, boletos: (boletos[r.id] || []).length })) }];
+    return [200, { rifas: rifas.map((r) => ({
+      ...r, boletos: (boletos[r.id] || []).length, folios: foliosDe(r.id).length,
+    })) }];
   }
   if (a === 'boletos') {
     const r = rifaDe(cuerpo.rifa);
     if (!r) return [404, { error: 'rifa no encontrada' }];
-    return [200, { rifa: r, boletos: (boletos[r.id] || []).map(([folio, codigo]) => ({ folio, codigo })) }];
+    return [200, { rifa: r, boletos: boletos[r.id] || [] }];
   }
   if (a === 'verificar') {
-    for (const [id, lote] of Object.entries(boletos)) {
-      const hit = lote.find(([f, c]) => f === cuerpo.folio && c === String(cuerpo.codigo).toUpperCase());
-      if (hit) {
-        const r = rifaDe(id);
-        return [200, { valido: true, folio: hit[0], rifa: r, ganador: r.folio_ganador === hit[0] }];
+    // Se puede preguntar por el boleto (con su código) o por cualquiera de
+    // sus números, que es lo que sale de la tómbola.
+    let id = null, hit = null;
+    if (cuerpo.boleto) {
+      for (const [rid, lote] of Object.entries(boletos)) {
+        const b = lote.find((x) => x.id === cuerpo.boleto);
+        if (b) { id = rid; hit = b; break; }
       }
+    } else {
+      [id, hit] = boletoConFolio(cuerpo.folio);
     }
-    return [200, { valido: false }];
+    if (!hit) return [200, { valido: false }];
+    // El código se exige por los dos caminos: sin él esto no confirma nada.
+    if (hit.codigo !== String(cuerpo.codigo).toUpperCase()) return [200, { valido: false }];
+    const r = rifaDe(id);
+    return [200, {
+      valido: true, boleto: hit.id, codigo: hit.codigo, folios: hit.folios, rifa: r,
+      ganador: !!r.folio_ganador && hit.folios.includes(r.folio_ganador),
+      folio_ganador: r.folio_ganador,
+    }];
   }
   if (a === 'crear_rifa') {
     if (!cuerpo.nombre) return [400, { error: 'falta el nombre de la rifa' }];
     const id = 'nueva-' + (++contadorNuevas);
+    const porBoleto = cuerpo.folios_por_boleto || 4;
     const nueva = { id, nombre: cuerpo.nombre, serie: cuerpo.serie, estado: 'espera', activa: false,
-      folio_ganador: null, fecha_sorteo: cuerpo.fecha_sorteo, precio_boleto: cuerpo.precio };
+      folio_ganador: null, fecha_sorteo: cuerpo.fecha_sorteo, precio_boleto: cuerpo.precio,
+      folios_por_boleto: porBoleto };
     rifas.unshift(nueva);
     const lote = [];
+    let siguiente = 70000 + contadorNuevas * 1000;
     for (let i = 0; i < cuerpo.cantidad; i++) {
-      lote.push([String(70000 + contadorNuevas * 1000 + i), 'C' + String(i).padStart(3, '0')]);
+      const suyos = [];
+      for (let j = 0; j < porBoleto; j++) suyos.push(String(siguiente++));
+      lote.push({ id: String(8000000000 + contadorNuevas * 1000 + i), codigo: 'C' + String(i).padStart(3, '0'), folios: suyos });
     }
     boletos[id] = lote;
-    return [200, { rifa: { ...nueva, boletos: lote.length },
-                   boletos: lote.map(([folio, codigo]) => ({ folio, codigo })) }];
+    return [200, {
+      rifa: { ...nueva, boletos: lote.length, folios: lote.length * porBoleto },
+      boletos: lote,
+    }];
   }
   if (a === 'activar') {
     rifas.forEach((r) => { r.activa = r.id === cuerpo.rifa; });
@@ -100,7 +143,7 @@ function sorteo(cuerpo) {
 
   const r = rifaDe(cuerpo.rifa);
   if (!r) return [404, { error: 'rifa no encontrada' }];
-  const folios = (boletos[r.id] || []).map(([f]) => f);
+  const folios = foliosDe(r.id);
   if (a === 'estado') return [200, { rifa: r, folios }];
 
   if (a === 'transmision') {
@@ -158,14 +201,14 @@ http.createServer((req, res) => {
       const cuerpo = JSON.parse(datos || '{}');
       let estado = 200, salida;
       if (url.pathname === '/functions/v1/sorteo') { [estado, salida] = sorteo(cuerpo); }
-      else if (url.pathname === '/rest/v1/rpc/rifa_de_folio') {
+      else if (url.pathname === '/rest/v1/rpc/rifa_de_boleto') {
         salida = [];
         for (const [id, lote] of Object.entries(boletos)) {
-          const hit = lote.find(([f, c]) => f === cuerpo.p_folio &&
-            c.toUpperCase() === String(cuerpo.p_codigo).toUpperCase());
+          const hit = lote.find((b) => b.id === cuerpo.p_boleto &&
+            b.codigo.toUpperCase() === String(cuerpo.p_codigo).toUpperCase());
           if (hit) { const r = rifaDe(id); salida = [{ id: r.id, nombre: r.nombre, serie: r.serie,
             estado: r.estado, folio_ganador: r.folio_ganador, fecha_sorteo: r.fecha_sorteo,
-            transmision_url: r.transmision_url }]; }
+            transmision_url: r.transmision_url, folios: hit.folios }]; }
         }
       } else { estado = 404; salida = { error: 'no' }; }
       res.writeHead(estado, { ...cors, 'content-type': 'application/json' });

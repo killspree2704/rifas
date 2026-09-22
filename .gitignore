@@ -12,3 +12,6 @@ CLAVE-*.txt
 LLAVE-*.txt
 .env
 node_modules/
+
+# Rastro que deja la CLI de Supabase al correrla.
+supabase/.temp/

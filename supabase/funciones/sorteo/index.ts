@@ -27,6 +27,13 @@ const db = createClient(
 const ALFABETO = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const LARGO_CODIGO = 4;
 
+// Dígitos del identificador del boleto de papel. Es lo que viaja en el QR y
+// lo que se teclea para verificar, así que va largo: no se saca a mano.
+const DIGITOS_BOLETO = 10;
+
+// Cuántos folios lleva cada boleto si no se pide otra cosa.
+const FOLIOS_POR_BOLETO = 4;
+
 function responder(cuerpo: unknown, status = 200) {
   return new Response(JSON.stringify(cuerpo), {
     status,
@@ -73,37 +80,46 @@ async function firmante() {
   );
 }
 
-/** El código impreso en el boleto. Determinista: mismo folio, mismo código. */
-async function codigoDe(llave: CryptoKey, serie: string, folio: string) {
+/**
+ * El código impreso en el boleto. Determinista: mismo boleto, mismo código.
+ *
+ * Se firma el boleto, no cada folio: el papel lleva un solo código para sus
+ * cuatro números, igual que lleva un solo QR.
+ */
+async function codigoDe(llave: CryptoKey, serie: string, boleto: string) {
   const firma = new Uint8Array(
-    await crypto.subtle.sign("HMAC", llave, new TextEncoder().encode(`${serie}:${folio}`)),
+    await crypto.subtle.sign("HMAC", llave, new TextEncoder().encode(`${serie}:${boleto}`)),
   );
   let codigo = "";
   for (let i = 0; i < LARGO_CODIGO; i++) codigo += ALFABETO[firma[i] % ALFABETO.length];
   return codigo;
 }
 
-/** Cuáles de estos folios ya existen. Se pregunta a la base, por tandas. */
-async function yaUsados(candidatos: string[]) {
+/** Cuáles de estos números ya existen. Se pregunta a la base, por tandas. */
+async function yaUsados(tabla: string, columna: string, candidatos: string[]) {
   const usados = new Set<string>();
   for (let i = 0; i < candidatos.length; i += 500) {
     const tanda = candidatos.slice(i, i + 500);
-    const { data, error } = await db.from("boletos").select("folio").in("folio", tanda);
-    if (error) throw new Error("no se pudo comprobar los folios: " + error.message);
-    for (const b of data ?? []) usados.add(b.folio);
+    const { data, error } = await db.from(tabla).select(columna).in(columna, tanda);
+    if (error) throw new Error(`no se pudo comprobar los ${columna}: ` + error.message);
+    for (const fila of data ?? []) usados.add((fila as Record<string, string>)[columna]);
   }
   return usados;
 }
 
 /**
- * Folios al azar que no chocan con NINGUNO de ninguna rifa, nunca.
+ * Números al azar que no chocan con NINGUNO de ninguna rifa, nunca.
  *
  * Quién está ocupado lo dice la base en cada vuelta, no una lista traída de
- * antemano: `boletos.folio` es la llave primaria de toda la historia, y una
- * lista puede venir recortada sin avisar. Así el lote sale limpio aunque haya
+ * antemano: la columna es la llave primaria de toda la historia, y una lista
+ * puede venir recortada sin avisar. Así el lote sale limpio aunque haya
  * decenas de miles de boletos viejos.
+ *
+ * Sirve igual para los folios (`folios.folio`) que para el identificador del
+ * boleto de papel (`boletos.id`): son dos espacios de números separados, y
+ * ninguno de los dos se repite jamás.
  */
-async function generarFolios(cantidad: number, digitos: number) {
+async function generarUnicos(cantidad: number, digitos: number, tabla: string, columna: string) {
   const minimo = Math.pow(10, digitos - 1);
   const espacio = Math.pow(10, digitos) - minimo;
   if (cantidad > espacio * 0.3) {
@@ -127,11 +143,25 @@ async function generarFolios(cantidad: number, digitos: number) {
       const folio = String(minimo + (azar[0] % espacio));
       if (!nuevos.has(folio)) candidatos.add(folio);
     }
-    const ocupados = await yaUsados([...candidatos]);
-    for (const folio of candidatos) if (!ocupados.has(folio)) nuevos.add(folio);
+    const ocupados = await yaUsados(tabla, columna, [...candidatos]);
+    for (const numero of candidatos) if (!ocupados.has(numero)) nuevos.add(numero);
   }
 
   return [...nuevos].slice(0, cantidad).sort();
+}
+
+/**
+ * Reparte los folios entre los boletos, en orden.
+ *
+ * Los folios de un mismo boleto NO son consecutivos ni guardan relación: cada
+ * uno salió del mismo sorteo ciego que todos los demás. Que estén juntos en un
+ * papel no los hace parientes, y así nadie puede adivinar los otros tres
+ * teniendo uno.
+ */
+function repartir<T>(lista: T[], porGrupo: number): T[][] {
+  const grupos: T[][] = [];
+  for (let i = 0; i < lista.length; i += porGrupo) grupos.push(lista.slice(i, i + porGrupo));
+  return grupos;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,13 +268,20 @@ Deno.serve(async (req) => {
   if (accion === "rifas") {
     const { data: rifas } = await db
       .from("rifas")
-      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, revelado_en, creada_en, precio_boleto, transmision_url")
+      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, revelado_en, creada_en, precio_boleto, transmision_url, folios_por_boleto")
       .order("fecha_sorteo", { ascending: false });
     const { data: boletos } = await db.from("boletos").select("rifa_id");
+    const { data: folios } = await db.from("folios").select("rifa_id");
     const conteo: Record<string, number> = {};
     for (const b of boletos ?? []) conteo[b.rifa_id] = (conteo[b.rifa_id] ?? 0) + 1;
+    const conteoFolios: Record<string, number> = {};
+    for (const f of folios ?? []) conteoFolios[f.rifa_id] = (conteoFolios[f.rifa_id] ?? 0) + 1;
     return responder({
-      rifas: (rifas ?? []).map((r) => ({ ...r, boletos: conteo[r.id] ?? 0 })),
+      rifas: (rifas ?? []).map((r) => ({
+        ...r,
+        boletos: conteo[r.id] ?? 0,
+        folios: conteoFolios[r.id] ?? 0,
+      })),
     });
   }
 
@@ -253,47 +290,83 @@ Deno.serve(async (req) => {
     const rifaPedida = String(cuerpo.rifa ?? "");
     if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
     const { data: ficha } = await db
-      .from("rifas").select("id, nombre, serie, fecha_sorteo").eq("id", rifaPedida).maybeSingle();
+      .from("rifas").select("id, nombre, serie, fecha_sorteo, precio_boleto, folios_por_boleto")
+      .eq("id", rifaPedida).maybeSingle();
     if (!ficha) return responder({ error: "rifa no encontrada" }, 404);
     const { data: lote } = await db
-      .from("boletos").select("folio, codigo").eq("rifa_id", rifaPedida).order("folio");
-    return responder({ rifa: ficha, boletos: lote ?? [] });
+      .from("boletos").select("id, codigo").eq("rifa_id", rifaPedida).order("id");
+    const { data: sueltos } = await db
+      .from("folios").select("folio, boleto_id").eq("rifa_id", rifaPedida).order("folio");
+
+    const porBoleto: Record<string, string[]> = {};
+    for (const f of sueltos ?? []) (porBoleto[f.boleto_id] ??= []).push(f.folio);
+
+    return responder({
+      rifa: ficha,
+      boletos: (lote ?? []).map((b) => ({ ...b, folios: porBoleto[b.id] ?? [] })),
+    });
   }
 
-  /** ¿Es original este boleto? La doble confirmación, sin escanear nada. */
+  /**
+   * ¿Es original este boleto? La doble confirmación, sin escanear nada.
+   *
+   * Se puede llegar al papel de dos maneras: por el identificador del boleto,
+   * que es lo que trae el QR, o por CUALQUIERA de sus números, que es lo que
+   * está impreso en grande. Las dos llevan al mismo boleto.
+   *
+   * El código se exige SIEMPRE, por los dos caminos. Esta pantalla existe para
+   * confirmar que un papel es original, y eso solo lo prueba el código: sin
+   * él, teclear cualquier número daría «boleto original». Quien verifica tiene
+   * el papel en la mano, así que tiene los dos datos.
+   */
   if (accion === "verificar") {
-    const folio = String(cuerpo.folio ?? "").trim();
+    const pedidoBoleto = String(cuerpo.boleto ?? "").trim();
+    const pedidoFolio = String(cuerpo.folio ?? "").trim();
     const codigo = String(cuerpo.codigo ?? "").trim().toUpperCase();
-    if (!folio || !codigo) return responder({ error: "falta folio o código" }, 400);
+    if (!pedidoBoleto && !pedidoFolio) return responder({ error: "falta el boleto o el folio" }, 400);
+    if (!codigo) return responder({ error: "falta el código" }, 400);
+
+    let idBoleto = pedidoBoleto;
+    if (!idBoleto) {
+      const { data: suelto } = await db
+        .from("folios").select("boleto_id").eq("folio", pedidoFolio).maybeSingle();
+      if (!suelto) return responder({ valido: false });
+      idBoleto = suelto.boleto_id;
+    }
 
     const { data: boleto } = await db
-      .from("boletos")
-      .select("folio, codigo, rifa_id")
-      .eq("folio", folio)
-      .maybeSingle();
+      .from("boletos").select("id, codigo, rifa_id").eq("id", idBoleto).maybeSingle();
+    if (!boleto) return responder({ valido: false });
+    if (boleto.codigo.toUpperCase() !== codigo) return responder({ valido: false });
 
-    if (!boleto || boleto.codigo.toUpperCase() !== codigo) {
-      return responder({ valido: false });
-    }
+    const { data: sueltos } = await db
+      .from("folios").select("folio").eq("boleto_id", boleto.id).order("folio");
+    const folios = (sueltos ?? []).map((f) => f.folio);
+
     const { data: rifa } = await db
       .from("rifas")
       .select("id, nombre, serie, estado, folio_ganador, fecha_sorteo")
       .eq("id", boleto.rifa_id)
       .single();
+
     return responder({
       valido: true,
-      folio: boleto.folio,
+      boleto: boleto.id,
+      codigo: boleto.codigo,
+      folios,
       rifa,
-      ganador: rifa?.folio_ganador === boleto.folio,
+      ganador: !!rifa?.folio_ganador && folios.includes(rifa.folio_ganador),
+      folio_ganador: rifa?.folio_ganador ?? null,
     });
   }
 
-  /** Crear una rifa con su lote de folios. */
+  /** Crear una rifa con su lote de boletos, cada uno con sus folios. */
   if (accion === "crear_rifa") {
     const nombre = String(cuerpo.nombre ?? "").trim();
     const fecha = String(cuerpo.fecha_sorteo ?? "").trim();
     const cantidad = Number(cuerpo.cantidad ?? 0);
     const digitos = Number(cuerpo.digitos ?? 5);
+    const porBoleto = Number(cuerpo.folios_por_boleto ?? FOLIOS_POR_BOLETO);
     const serie = String(cuerpo.serie ?? "A").trim().toUpperCase().slice(0, 3) || "A";
     const precio = cuerpo.precio === undefined || cuerpo.precio === null || cuerpo.precio === ""
       ? null
@@ -307,43 +380,85 @@ Deno.serve(async (req) => {
     if (!Number.isInteger(digitos) || digitos < 4 || digitos > 8) {
       return responder({ error: "los dígitos del folio deben ir de 4 a 8" }, 400);
     }
+    if (!Number.isInteger(porBoleto) || porBoleto < 1 || porBoleto > 10) {
+      return responder({ error: "los folios por boleto deben ir de 1 a 10" }, 400);
+    }
 
     const { data: rifasPrevias } = await db.from("rifas").select("id");
     const idsUsados = new Set((rifasPrevias ?? []).map((r) => r.id));
 
+    // Un folio por oportunidad: si son 200 boletos de 4, son 800 números, y
+    // los 800 tienen que caber holgados en el espacio de dígitos elegido.
+    const totalFolios = cantidad * porBoleto;
+
     let folios: string[];
+    let identificadores: string[];
     try {
-      folios = await generarFolios(cantidad, digitos);
+      folios = await generarUnicos(totalFolios, digitos, "folios", "folio");
+      identificadores = await generarUnicos(cantidad, DIGITOS_BOLETO, "boletos", "id");
     } catch (e) {
       return responder({ error: (e as Error).message }, 400);
     }
 
+    // Los folios salieron ordenados del generador. Se revuelven antes de
+    // repartirlos para que los cuatro de un mismo papel no queden vecinos:
+    // con números seguidos, ver uno daría pistas de los otros tres.
+    for (let i = folios.length - 1; i > 0; i--) {
+      const azar = new Uint32Array(1);
+      crypto.getRandomValues(azar);
+      const j = azar[0] % (i + 1);
+      [folios[i], folios[j]] = [folios[j], folios[i]];
+    }
+
     const id = idDeRifa(nombre, fecha, idsUsados);
     const { error: errorRifa } = await db.from("rifas").insert({
-      id, nombre, serie, fecha_sorteo: fecha, estado: "espera", activa: false, precio_boleto: precio,
+      id, nombre, serie, fecha_sorteo: fecha, estado: "espera", activa: false,
+      precio_boleto: precio, folios_por_boleto: porBoleto,
     });
     if (errorRifa) return responder({ error: errorRifa.message }, 400);
 
+    /** Deshacer una rifa a medias: mejor nada que un lote incompleto. */
+    const deshacer = async () => {
+      await db.from("folios").delete().eq("rifa_id", id);
+      await db.from("boletos").delete().eq("rifa_id", id);
+      await db.from("rifas").delete().eq("id", id);
+    };
+
     const llave = await firmante();
+    const grupos = repartir(folios, porBoleto);
     const boletos = [];
-    for (const folio of folios) {
-      boletos.push({ folio, rifa_id: id, codigo: await codigoDe(llave, serie, folio) });
+    const filasBoletos = [];
+    const filasFolios = [];
+    for (let i = 0; i < identificadores.length; i++) {
+      const idBoleto = identificadores[i];
+      const codigo = await codigoDe(llave, serie, idBoleto);
+      const suyos = (grupos[i] ?? []).slice().sort();
+      boletos.push({ id: idBoleto, codigo, folios: suyos });
+      filasBoletos.push({ id: idBoleto, rifa_id: id, codigo });
+      for (const folio of suyos) filasFolios.push({ folio, boleto_id: idBoleto, rifa_id: id });
     }
 
-    // De 500 en 500 para no mandar una sola petición gigantesca.
-    for (let i = 0; i < boletos.length; i += 500) {
-      const { error } = await db.from("boletos").insert(boletos.slice(i, i + 500));
-      if (error) {
-        // Se deshace la rifa a medias: mejor nada que un lote incompleto.
-        await db.from("boletos").delete().eq("rifa_id", id);
-        await db.from("rifas").delete().eq("id", id);
-        return responder({ error: "no se pudo guardar el lote: " + error.message }, 400);
+    // De 500 en 500 para no mandar una sola petición gigantesca. Primero los
+    // boletos: los folios apuntan a ellos.
+    for (const [tabla, filas] of [["boletos", filasBoletos], ["folios", filasFolios]] as const) {
+      for (let i = 0; i < filas.length; i += 500) {
+        const { error } = await db.from(tabla).insert(filas.slice(i, i + 500));
+        if (error) {
+          await deshacer();
+          return responder({ error: "no se pudo guardar el lote: " + error.message }, 400);
+        }
       }
     }
 
-    await anotar(id, "crear_rifa", { boletos: boletos.length, digitos, serie });
+    await anotar(id, "crear_rifa", {
+      boletos: boletos.length, folios: filasFolios.length, folios_por_boleto: porBoleto, digitos, serie,
+    });
     return responder({
-      rifa: { id, nombre, serie, fecha_sorteo: fecha, estado: "espera", activa: false, boletos: boletos.length },
+      rifa: {
+        id, nombre, serie, fecha_sorteo: fecha, estado: "espera", activa: false,
+        boletos: boletos.length, folios: filasFolios.length, folios_por_boleto: porBoleto,
+        precio_boleto: precio,
+      },
       boletos,
     });
   }
@@ -368,13 +483,13 @@ Deno.serve(async (req) => {
 
   const { data: actual, error: errorLectura } = await db
     .from("rifas")
-    .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, transmision_url, transmite_desde")
+    .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, transmision_url, transmite_desde, folios_por_boleto")
     .eq("id", rifa)
     .single();
   if (errorLectura || !actual) return responder({ error: "rifa no encontrada" }, 404);
 
-  const { data: boletos } = await db.from("boletos").select("folio").eq("rifa_id", rifa);
-  const folios = (boletos ?? []).map((b) => b.folio).sort();
+  const { data: sueltos } = await db.from("folios").select("folio").eq("rifa_id", rifa);
+  const folios = (sueltos ?? []).map((f) => f.folio).sort();
 
   if (accion === "estado") {
     return responder({ rifa: actual, folios });
@@ -455,8 +570,14 @@ Deno.serve(async (req) => {
       ganador = folios[azar[0] % folios.length];
       modo = "aleatorio";
     }
+    // De qué papel salió ese número: es lo que hay que pedir para entregar.
+    const { data: duenoDelFolio } = await db
+      .from("folios").select("boleto_id").eq("folio", ganador).maybeSingle();
+
     cambios = { estado: "revelado", folio_ganador: ganador };
-    await anotar(rifa, "revelar", { folio: ganador, modo, boletos: folios.length });
+    await anotar(rifa, "revelar", {
+      folio: ganador, modo, folios: folios.length, boleto: duenoDelFolio?.boleto_id ?? null,
+    });
   } else {
     return responder({ error: "acción desconocida" }, 400);
   }

@@ -4,14 +4,18 @@
  * estado de la rifa y nada más).
  */
 window.RIFA_CONFIG = {
-  // Qué rifa está activa. Cambiar esto es todo lo que hace falta para la próxima.
-  rifaId: 'mm-2026-09',
-  nombre: 'Rifa El Muerde Manos',
+  // Respaldo para el primer pintado, ANTES de que el servidor conteste. La
+  // rifa de verdad la decide el boleto: el servidor dice a cuál pertenece y
+  // esto se reemplaza solo. Lo de aquí solo se ve un instante, o cuando el
+  // teléfono está sin señal.
+  rifaId: null,
+  nombre: 'Rifa',
   serie: 'A',
 
-  // Momento del sorteo. La página lo muestra siempre en esta zona horaria,
-  // sin importar dónde esté el teléfono que la abre.
-  fechaSorteo: '2026-09-13T18:00:00-06:00',
+  // Momento del sorteo, también de respaldo. La fecha real viene con la rifa
+  // del boleto. La página lo muestra siempre en esta zona horaria, sin
+  // importar dónde esté el teléfono que la abre.
+  fechaSorteo: null,
   zonaHoraria: 'America/Mexico_City',
 
   // Ritmo de las consultas de respaldo, en milisegundos. El canal en vivo es

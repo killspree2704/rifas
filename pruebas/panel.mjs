@@ -38,7 +38,11 @@ function ok(nombre, cond, extra) {
   if (!cond) fallos.push(nombre);
 }
 
-const navegador = await chromium.launch();
+// El navegador. En un entorno donde Chromium ya viene instalado —como el de
+// integración continua— se le pasa su ruta en CHROMIUM_BIN en vez de que
+// Playwright se descargue el suyo.
+const navegador = await chromium.launch(
+  process.env.CHROMIUM_BIN ? { executablePath: process.env.CHROMIUM_BIN } : {});
 const ctx = await navegador.newContext({ serviceWorkers: 'block' });
 const pagina = await ctx.newPage();
 const errores = [];
@@ -106,8 +110,8 @@ ok('entra con la clave buena', true);
 ok('abre en la pestaña Sorteo', await pagina.isVisible('#paneSorteo'));
 ok('toma la rifa activa', (await pagina.textContent('#tituloRifa')) === 'Rifa El Muerde Manos',
    await pagina.textContent('#tituloRifa'));
-ok('el subtítulo trae serie, boletos y fecha',
-   /^Serie A · 3 boletos · \d{1,2} \w+\.? \d{4},/.test(await pagina.textContent('#subtitulo')),
+ok('el subtítulo separa boletos de números, que ya no son lo mismo',
+   /^Serie A · 2 boletos · 8 números · \d{1,2} \w+\.? \d{4},/.test(await pagina.textContent('#subtitulo')),
    await pagina.textContent('#subtitulo'));
 
 // --- pestaña Rifas ---
@@ -120,7 +124,8 @@ ok('marca cuál se está manejando', await pagina.isVisible('#listaRifas .rifa.m
 const textoVieja = await pagina.locator('.rifa', { hasText: 'Rifa de estreno' }).textContent();
 ok('la rifa vieja conserva su ganador', textoVieja.includes('Ganador: Z-90001'), textoVieja.trim().replace(/\s+/g,' '));
 const textoNueva = await pagina.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).textContent();
-ok('calcula el ingreso cuando hay precio', textoNueva.includes('$50 c/u') && textoNueva.includes('$150.00 en total'),
+ok('calcula el ingreso por BOLETO, no por número',
+   textoNueva.includes('$50 c/u') && textoNueva.includes('$100.00 en total'),
    textoNueva.trim().replace(/\s+/g,' '));
 
 // --- hoja de boletos de una rifa vieja ---
@@ -132,9 +137,16 @@ const [hoja] = await Promise.all([
 await hoja.waitForLoadState('domcontentloaded');
 await hoja.waitForSelector('.boleto');
 const boletosHoja = await hoja.$$('.boleto');
-ok('la hoja trae un boleto por folio', boletosHoja.length === 2, boletosHoja.length + ' boletos');
-ok('imprime folio con su serie', (await hoja.textContent('.boleto .folio')) === 'Z-90001');
-ok('imprime el código de verificación', (await hoja.textContent('.boleto .codigo')) === 'Código ZZZZ');
+ok('la hoja trae un boleto de papel por cada boleto, no por folio',
+   boletosHoja.length === 1, boletosHoja.length + ' boletos');
+const numerosHoja = await hoja.$$eval('.boleto .num', (n) => n.map((e) => e.textContent));
+ok('y cada boleto imprime TODOS sus números',
+   numerosHoja.join(' ') === '90001 90002', numerosHoja.join(' '));
+ok('imprime un solo código para todo el boleto',
+   (await hoja.textContent('.boleto .codigo')) === 'Código ZZZZ');
+ok('y su número de boleto, el que va en el QR',
+   (await hoja.textContent('.boleto .serial')) === '9000009001',
+   await hoja.textContent('.boleto .serial'));
 ok('trae botón de imprimir/PDF', await hoja.isVisible('button'));
 
 // el QR tiene que decodificarse de verdad
@@ -143,7 +155,7 @@ const foto = await caja.screenshot({ scale: 'css' });
 const png = PNG.sync.read(foto);
 const leido = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
 ok('el QR se lee y apunta al boleto correcto',
-   !!leido && leido.data === BASE + '/?f=90001&c=ZZZZ', leido ? leido.data : 'no se pudo leer');
+   !!leido && leido.data === BASE + '/?b=9000009001&c=ZZZZ', leido ? leido.data : 'no se pudo leer');
 await hoja.close();
 
 // --- crear una rifa nueva ---
@@ -152,14 +164,17 @@ await pagina.click('#cajaNueva > summary');
 ok('la casilla de boletos arranca vacía: el número lo elige quien crea la rifa',
    (await pagina.inputValue('#nvCantidad')) === '',
    JSON.stringify(await pagina.inputValue('#nvCantidad')));
-ok('y dice cuántos caben con los dígitos puestos',
-   (await pagina.textContent('#cuentaNueva')).includes('27,000'),
+// El tope ya no se cuenta en boletos sino en números: con 4 por boleto,
+// en 5 dígitos caben 27,000 números, o sea 6,750 boletos.
+ok('el tope que anuncia descuenta los números por boleto',
+   (await pagina.textContent('#cuentaNueva')).includes('6,750 boletos'),
    await pagina.textContent('#cuentaNueva'));
 
 await pagina.click('#atajosCantidad button[data-cantidad="25"]');
 ok('los atajos llenan la casilla', (await pagina.inputValue('#nvCantidad')) === '25');
-ok('y el resumen lo dice en voz alta',
-   (await pagina.textContent('#cuentaNueva')).includes('25 boletos de 5 dígitos'),
+ok('y el resumen dice boletos y números por separado',
+   (await pagina.textContent('#cuentaNueva'))
+     .includes('25 boletos con 4 números cada uno: 100 folios de 5 dígitos'),
    await pagina.textContent('#cuentaNueva'));
 
 // avisa antes de apretar el botón, no después
@@ -187,8 +202,8 @@ const [hoja2] = await Promise.all([
 ]);
 await hoja2.waitForSelector('.boleto');
 ok('genera los boletos pedidos', (await hoja2.$$('.boleto')).length === 4);
-ok('la hoja nueva sale con su serie', (await hoja2.textContent('.boleto .folio')).startsWith('B-'),
-   await hoja2.textContent('.boleto .folio'));
+const numerosNueva = await hoja2.$$eval('.boleto .num', (n) => n.map((e) => e.textContent));
+ok('y cada uno con sus cuatro números', numerosNueva.length === 16, numerosNueva.length + ' números');
 await hoja2.close();
 
 // Crear una rifa deja el panel manejándola: si no, se quedaba con la
@@ -258,24 +273,35 @@ const err2 = [];
 p2.on('pageerror', (e) => err2.push(String(e)));
 
 // boleto de la rifa vieja: tiene que enseñar SU rifa, no la activa
-await p2.goto(BASE + '/?f=90001&c=ZZZZ');
+await p2.goto(BASE + '/?b=9000009001&c=ZZZZ');
 await p2.waitForSelector('#vistaResultado:not([hidden])', { timeout: 15000 });
 ok('un boleto viejo abre en su propio resultado', true);
 ok('lo pone a nombre de su rifa, no de la activa',
    (await p2.textContent('#tituloRifa')) === 'Rifa de estreno', await p2.textContent('#tituloRifa'));
-ok('con su serie', (await p2.textContent('#folio')) === 'Z-90001', await p2.textContent('#folio'));
+
+// Un boleto lleva varios números: se enseñan TODOS, con su serie.
+const numerosViejo = await p2.$$eval('#folios .folio', (n) => n.map((e) => e.textContent));
+ok('enseña los dos números del boleto, no uno solo',
+   numerosViejo.join(' ') === 'Z-90001 Z-90002', numerosViejo.join(' '));
 ok('y le dice que ganó', (await p2.textContent('#veredicto')).includes('Ganaste'),
    await p2.textContent('#veredicto'));
+const marcado = await p2.$$eval('#folios .folioGanador', (n) => n.map((e) => e.textContent));
+ok('marca cuál de sus números fue el ganador, y solo ese',
+   marcado.length === 1 && marcado[0] === 'Z-90001', marcado.join(' ') || 'ninguno marcado');
 
 // boleto de la rifa en espera
-await p2.goto(BASE + '/?f=11052&c=R5VR');
+await p2.goto(BASE + '/?b=9000001052&c=R5VR');
 await p2.waitForSelector('#vistaEspera:not([hidden])', { timeout: 15000 });
 ok('un boleto de la rifa pendiente ve la cuenta regresiva', true);
 ok('con el nombre de su rifa', (await p2.textContent('#tituloRifa')) === 'Rifa El Muerde Manos');
-ok('y su serie', (await p2.textContent('#folio')) === 'A-11052', await p2.textContent('#folio'));
+const numerosEspera = await p2.$$eval('#folios .folio', (n) => n.map((e) => e.textContent));
+ok('con sus cuatro números y su serie',
+   numerosEspera.join(' ') === 'A-11052 A-11053 A-11054 A-11055', numerosEspera.join(' '));
+ok('y ninguno marcado como ganador antes del sorteo',
+   (await p2.$$('#folios .folioGanador')).length === 0);
 
 // boleto falso
-await p2.goto(BASE + '/?f=11052&c=0000');
+await p2.goto(BASE + '/?b=9000001052&c=0000');
 await p2.waitForSelector('#vistaInvalido:not([hidden])', { timeout: 15000 });
 ok('un código que no cuadra sale como boleto no válido', true);
 
@@ -306,7 +332,7 @@ ok('acepta y limpia un enlace copiado de la app',
    await pagina.inputValue('#transmisionUrl'));
 
 // Una rifa se puede cerrar sin revelar a nadie. Ahí no hay perdedores.
-await p2.goto(BASE + '/?f=33301&c=SSSS');
+await p2.goto(BASE + '/?b=9000000301&c=SSSS');
 await p2.waitForSelector('#vistaResultado:not([hidden])', { timeout: 15000 });
 ok('una rifa cerrada sin ganador no le dice «no ganaste» a nadie',
    (await p2.textContent('#veredicto')) === 'Rifa cerrada',
@@ -338,9 +364,15 @@ ok('y el botón sigue apagado', await pagina.isDisabled('#btnRevelarFolio'));
 await pagina.fill('#folioGanador', '11052');
 await pagina.waitForFunction(() =>
   document.getElementById('cotejoFolio').className.includes('bien'), null, { timeout: 10000 });
-ok('un folio bueno enseña su código para comparar con el talón',
-   (await pagina.textContent('#cotejoCodigo')) === 'código R5VR',
-   await pagina.textContent('#cotejoCodigo'));
+// La bolita trae un número, pero lo que hay que pedir es el PAPEL. El cotejo
+// enseña de qué boleto salió, con su código y sus otros números.
+const cotejo = await pagina.textContent('#cotejoCodigo');
+ok('el cotejo dice de qué boleto salió la bolita',
+   cotejo.includes('boleto 9000001052'), cotejo);
+ok('con el código del papel para comparar', cotejo.includes('código R5VR'), cotejo);
+ok('y los otros números del mismo boleto, para no confundirlo',
+   cotejo.includes('A-11053') && cotejo.includes('A-11054') && cotejo.includes('A-11055'), cotejo);
+ok('sin repetir el número que salió', !cotejo.includes('sus otros números: A-11052'), cotejo);
 ok('con su serie delante',
    (await pagina.textContent('#cotejoNumero')) === 'A-11052',
    await pagina.textContent('#cotejoNumero'));
@@ -349,15 +381,15 @@ ok('y ahora sí se puede revelar', !(await pagina.isDisabled('#btnRevelarFolio')
 // acepta el folio tal como viene impreso, con la serie pegada
 await pagina.fill('#folioGanador', 'A-11053');
 await pagina.waitForFunction(() =>
-  document.getElementById('cotejoCodigo').textContent === 'código ABCD', null, { timeout: 10000 });
+  document.getElementById('cotejoNumero').textContent === 'A-11053', null, { timeout: 10000 });
 ok('acepta el folio tecleado con la serie, como viene en el boleto', true);
 
 // cambiar el folio tiene que tumbar una confirmación a medias
 await pagina.click('#btnRevelarFolio');
 await pagina.waitForFunction(() => document.getElementById('mensaje').textContent.includes('confirmar'));
-await pagina.fill('#folioGanador', '11054');
+await pagina.fill('#folioGanador', '11060');
 await pagina.waitForFunction(() =>
-  document.getElementById('cotejoCodigo').textContent === 'código EFGH', null, { timeout: 10000 });
+  document.getElementById('cotejoCodigo').textContent.includes('código EFGH'), null, { timeout: 10000 });
 await pagina.click('#btnRevelarFolio');
 await pagina.waitForFunction(() => document.getElementById('mensaje').textContent.includes('confirmar'));
 ok('cambiar el folio anula la confirmación anterior: vuelve a pedirla', true);
@@ -371,7 +403,7 @@ const ctx3 = await navegador.newContext({ serviceWorkers: 'block' });
 const p3 = await ctx3.newPage();
 const err3 = [];
 p3.on('pageerror', (e) => err3.push(String(e)));
-await p3.goto(BASE + '/?f=55501&c=PPPP');
+await p3.goto(BASE + '/?b=9000000501&c=PPPP');
 await p3.waitForSelector('#vistaEspera:not([hidden])', { timeout: 15000 });
 ok('el boleto arranca en la cuenta regresiva', true);
 
@@ -448,8 +480,10 @@ await otro.waitForFunction(() =>
 ok('el segundo aparato toma el control', true);
 await ctx4.close();
 
-// revelar
-await pagina.fill('#folioGanador', '55502');
+// Revelar un número del OTRO boleto: así el teléfono que está abierto tiene
+// que perder con sus dos números, que es lo que se quiere comprobar. Con uno
+// del suyo ganaría, y la prueba de la derrota no probaría nada.
+await pagina.fill('#folioGanador', '55503');
 await pagina.click('#btnRevelarFolio');
 await pagina.waitForFunction(() => document.getElementById('mensaje').textContent.includes('confirmar'));
 ok('revelar pide confirmación', true);
@@ -458,17 +492,19 @@ await pagina.click('#btnRevelarFolio');
 // («Folio ganador: … registrado y bloqueado»). Las dos dicen lo mismo, así
 // que lo que se comprueba es que el folio quede a la vista.
 await pagina.waitForFunction(() =>
-  document.getElementById('mensaje').textContent.includes('55502'));
+  document.getElementById('mensaje').textContent.includes('55503'));
 ok('queda registrado el ganador', true);
 ok('y ya no deja volver a revelar', await pagina.isDisabled('#btnRevelarFolio'));
 ok('ni regresar a espera', await pagina.isDisabled('#btnEspera'));
 
 await p3.waitForSelector('#vistaResultado:not([hidden])', { timeout: 25000 });
 ok('el teléfono se entera del resultado solo', true);
-ok('y a este folio le toca perder',
+ok('a un boleto cuyos DOS números fallaron le toca perder',
    (await p3.textContent('#veredicto')).includes('No ganaste'), await p3.textContent('#veredicto'));
 ok('pero le dice cuál ganó',
-   (await p3.textContent('#notaResultado')).includes('55502'), await p3.textContent('#notaResultado'));
+   (await p3.textContent('#notaResultado')).includes('55503'), await p3.textContent('#notaResultado'));
+ok('y no le marca ninguno de los suyos como ganador',
+   (await p3.$$('#folios .folioGanador')).length === 0);
 ok('el reproductor se apaga al llegar el resultado, para que no siga sonando',
    (await p3.locator('#marcoVideo iframe').count()) === 0);
 ok('y queda la puerta para seguir viendo la transmisión',

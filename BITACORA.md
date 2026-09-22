@@ -11,7 +11,7 @@ Rifas con boleto de papel. Cada boleto lleva un folio, un código de
 verificación y un QR. Quien lo escanea ve su folio y, a la hora del sorteo, si
 ganó o no — sin registrarse, sin instalar nada.
 
-## Las seis decisiones de fondo
+## Las siete decisiones de fondo
 
 **1. Aquí no vive ningún dato personal.**
 Ni nombres, ni teléfonos, ni correos. Solo números. Quién compró cada boleto lo
@@ -42,7 +42,18 @@ Transmitir es trabajo de la app de YouTube. Un navegador no puede mandar video
 a YouTube —no habla RTMP— y hacerlo pediría un servidor propio de por medio.
 La página enseña un botón; el reproductor se mete solo cuando alguien lo toca.
 
-**6. El panel no escribe en la base.**
+**6. Un boleto vale por cuatro números, pero gana una sola vez.**
+El boleto de papel lleva cuatro folios —configurable— y cada uno entra a la
+tómbola por separado. Es lo que hacen las rifas de calle: por veinte pesos te
+llevas cuatro oportunidades, no cuatro premios. El ganador sigue siendo **uno
+solo**, y por eso el candado de irreversibilidad no cambió ni una línea.
+Se consideró la otra lectura —varios premios, primer y segundo lugar— y se
+descartó: habría pedido una tabla de ganadores y rehacer el disparador que
+hoy hace que el ganador no se pueda tocar. Esa garantía vale más.
+El folio sigue siendo único de por vida entre todas las rifas; lo que cambió
+es que ahora hay dos tablas, `boletos` (el papel) y `folios` (sus números).
+
+**7. El panel no escribe en la base.**
 Todo pasa por la función de borde `sorteo`, que exige la clave en cada acción.
 El público solo puede leer el estado de la rifa; `boletos` no tiene ni una
 política, así que los códigos no salen.
@@ -63,6 +74,10 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 | **Fecha fija en las pruebas** | La fecha sembrada a mano se volvió pasado y **la prueba empezó a fallar sola**, sin que nada se hubiera roto. Ahora es relativa a hoy |
 | **Crear rifa sin activarla** | El panel seguía manejando la anterior —normalmente cerrada, con todo apagado— y **parecía trabado**. Ahora salta solo a la recién creada |
 | **Cerrar sin revelar** | La pantalla decía «No ganaste · Folio ganador: **null**». Mentirle a alguien que no perdió. Ahora dice «Rifa cerrada» |
+| **Un código por folio** | Con cuatro números por boleto habría cuatro códigos en un papel que solo tiene espacio para uno. El código se firma sobre el BOLETO: un papel, un código, un QR |
+| **Folios consecutivos en un boleto** | Si los cuatro números de un papel fueran seguidos, ver uno daría pistas de los otros tres. Se revuelven antes de repartirlos |
+| **Verificar sin código** | Se dejó pasar la consulta por folio suelto «para cotejar la bolita». Una prueba lo cachó: así cualquier número tecleado decía «boleto original», que es justo lo contrario de lo que esa pantalla existe para probar. El código se exige siempre |
+| **Dejar `rifaId` en nulo sin más** | Al quitar la rifa fija de la configuración, la pantalla dejó de preguntarle al servidor: la comprobación exigía saber la rifa para ir a averiguar cuál era. Circular. Ahora resolver el boleto solo pide conexión |
 
 ## Cómo llegó a ser lo que es
 
@@ -86,8 +101,12 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
   13.7 s. Proyección a 500: 167 consultas/s.
 - **Con el servidor caído** (60 respuestas 503 seguidas): ninguna pantalla se
   rompe, todas siguen con el cronómetro.
-- **95 comprobaciones automáticas** (`node pruebas/panel.mjs`), incluida la
-  lectura del QR impreso para confirmar a dónde apunta.
+- **108 comprobaciones automáticas** (`node pruebas/panel.mjs`), incluida la
+  lectura del QR impreso para confirmar a dónde apunta, y que un boleto gana
+  si CUALQUIERA de sus cuatro números sale.
+- **Que el público no ve los números**: consultando la base como `anon`,
+  `boletos` y `folios` devuelven cero filas. El estado de la rifa sí es
+  público, que es el diseño.
 - **El panel, contra el servidor real:** se creó una rifa de 500 boletos, se
   transmitió, se reveló al azar y se cerró. Funcionó.
 
