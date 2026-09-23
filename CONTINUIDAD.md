@@ -4,7 +4,7 @@
 > funcionó— ver [`BITACORA.md`](BITACORA.md).
 
 Para retomar el proyecto desde cualquier computadora o teléfono, sin depender
-de esta máquina ni de esta conversación. Última revisión: 22 de septiembre de
+de esta máquina ni de esta conversación. Última revisión: 23 de septiembre de
 2026.
 
 ## Lo primero: qué es durable y qué no
@@ -204,42 +204,52 @@ Todo desde el panel, sin tocar código ni publicar nada:
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
-## Estado al 22 de septiembre de 2026
+## Estado al 23 de septiembre de 2026
 
 Comprobado consultando Supabase, no de memoria.
 
-**La base está vacía a propósito.** Cero rifas, cero boletos, cero folios,
-bitácora en cero. Todas las rifas que existieron eran ensayos y se borraron a
-petición del cliente para empezar limpio. La clave del panel y la llave de
-firma siguen intactas: lo que se fue son datos de rifa, no piezas del sistema.
+**El cambio de los cuatro folios ya corrió contra el servidor de verdad.** Hay
+una rifa creada desde el panel:
 
-**El boleto cambió de forma.** Ahora un boleto de papel lleva **varios folios**
-—cuatro por omisión— en vez de uno. Cada número es una oportunidad de ganar el
-**mismo** premio: el boleto entra cuatro veces a la tómbola, no se lleva cuatro
-premios. Eso partió la tabla vieja en dos, `boletos` y `folios`, y cambió el
-QR: ahora lleva el boleto (`?b=…&c=…`), no un folio.
+| | |
+| --- | --- |
+| Rifa | `el-muerde-manos-20260922` · «El muerde manos» |
+| Serie | A · $30 · 4 números por boleto |
+| Tamaño | **10 boletos, 40 folios** |
+| Estado | En espera, y es la que el panel maneja |
+| Ganador | Todavía ninguno |
 
-- **El sistema está al día:** las 8 migraciones aplicadas, la función de borde
-  `sorteo` desplegada en su versión 6, la clave del panel y la llave de firma
-  en su lugar.
-- `assets/config.js` **ya no apunta a ninguna rifa**. Sus valores son solo el
-  respaldo del primer pintado; la rifa de verdad la resuelve el boleto contra
-  la base. Ya no hay que acordarse de emparejarlo al crear una rifa nueva.
-- El panel y el boleto están probados de punta a punta (`pruebas/panel.mjs`,
-  **108 comprobaciones**, todas en verde).
+Ojo con la fecha: quedó puesta el **22 de septiembre a las 22:40 UTC**, que ya
+pasó. Por eso la pantalla del participante entra sola en «La rifa se está
+llevando a cabo» aunque el panel siga en espera —el boleto se guía por el
+reloj cuando la hora llegó—. Si esa rifa es solo un ensayo, no importa; si va
+en serio, cámbiale la fecha antes de repartir nada.
 
-### Lo que falta probar a mano
+### Lo que se comprobó de ese lote, contra la base real
 
-La función de borde se desplegó y la base se comprobó desde aquí, pero **este
-entorno no puede llamar a `supabase.co`** (lo bloquea su política de red), así
-que el camino completo panel → función → base **no se ejercitó contra el
-servidor real**. Lo que sí está probado: las 108 comprobaciones contra un
-servidor de mentira que imita al real, y `rifa_de_boleto` consultada
-directamente contra la base de verdad.
+- **10 boletos, 40 folios, y los 40 distintos.** Cada boleto tiene exactamente
+  cuatro, ninguno suelto sin dueño.
+- **Los 10 identificadores son de 10 dígitos** y los 10 códigos son distintos.
+- **Los 10 códigos son firmas válidas**: se recalcularon dentro de la base con
+  la misma llave y coinciden uno por uno. Si esto fallara, todos los QR dirían
+  «Boleto no válido».
+- **Los 10 boletos resuelven por `rifa_de_boleto`** con su código, **rechazan**
+  un código inventado, y devuelven sus cuatro números tal como están guardados.
 
-Antes de imprimir nada en serio, crea una rifa de prueba desde el panel y
-comprueba que la hoja sale con cuatro números por boleto y que el QR abre el
-boleto correcto. Es un minuto y cierra el único hueco que queda.
+Con eso queda cerrado el hueco que se había anotado: el camino panel → función
+de borde → base sí se ejercitó de punta a punta. Lo único que no se pudo hacer
+desde aquí fue *llamar* a la función —este entorno no alcanza `supabase.co`,
+lo bloquea la política de egreso de la organización—, pero el lote que dejó en
+la base se revisó entero.
+
+### El resto del sistema
+
+- Las **8 migraciones** aplicadas; la función de borde `sorteo` en su
+  **versión 7**; la clave del panel y la llave de firma en su lugar.
+- `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
+  respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
+- El panel y el boleto pasan **108 comprobaciones** automáticas
+  (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
 
