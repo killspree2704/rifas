@@ -216,44 +216,58 @@ propio resultado.
 
 Comprobado consultando Supabase, no de memoria.
 
-**El cambio de los cuatro folios ya corrió contra el servidor de verdad.** Hay
-una rifa creada desde el panel:
+**Cuatro rifas en la base, las cuatro de ensayo.** Ninguna tiene ganador
+revelado, y las cuatro llevan **4 números por boleto**:
 
-| | |
-| --- | --- |
-| Rifa | `el-muerde-manos-20260922` · «El muerde manos» |
-| Serie | A · $30 · 4 números por boleto |
-| Tamaño | **10 boletos, 40 folios** |
-| Estado | En espera, y es la que el panel maneja |
-| Ganador | Todavía ninguno |
+| Rifa | Serie | Tamaño | Estado |
+| --- | --- | --- | --- |
+| `el-muerde-manos-20260922` · El muerde manos | A | 10 boletos · 40 folios | Cerrada |
+| `prueba-2-20261001` · PRUEBA 2 | B | 25 boletos · 100 folios | Cerrada |
+| `rifa-prueba-3-20261001` · RIFA PRUEBA 3 | C | 50 boletos · 200 folios | Cerrada |
+| `pablo-test1-20261001` · PABLO TEST1 | D | 10 boletos · 40 folios | **En espera, y es la que el panel maneja** |
 
-Ojo con la fecha: quedó puesta el **22 de septiembre a las 22:40 UTC**, que ya
-pasó. Por eso la pantalla del participante entra sola en «La rifa se está
-llevando a cabo» aunque el panel siga en espera —el boleto se guía por el
-reloj cuando la hora llegó—. Si esa rifa es solo un ensayo, no importa; si va
-en serio, cámbiale la fecha antes de repartir nada.
+En total **95 boletos y 380 folios**.
 
-### Lo que se comprobó de ese lote, contra la base real
+### Lo que se comprobó, contra la base real
 
-- **10 boletos, 40 folios, y los 40 distintos.** Cada boleto tiene exactamente
-  cuatro, ninguno suelto sin dueño.
-- **Los 10 identificadores son de 10 dígitos** y los 10 códigos son distintos.
-- **Los 10 códigos son firmas válidas**: se recalcularon dentro de la base con
-  la misma llave y coinciden uno por uno. Si esto fallara, todos los QR dirían
-  «Boleto no válido».
-- **Los 10 boletos resuelven por `rifa_de_boleto`** con su código, **rechazan**
-  un código inventado, y devuelven sus cuatro números tal como están guardados.
+- **Los 380 folios son distintos** entre las cuatro rifas, y ninguno quedó
+  suelto sin boleto. 95 boletos con 95 códigos distintos.
+- De `PABLO TEST1` —la primera creada *después* del arreglo del panel—: los 10
+  boletos llevan exactamente cuatro números, los 10 identificadores son de 10
+  dígitos, y **los 10 códigos son firmas válidas**, recalculadas dentro de la
+  base con la misma llave. Si esto fallara, todos los QR dirían «Boleto no
+  válido».
 
-Con eso queda cerrado el hueco que se había anotado: el camino panel → función
-de borde → base sí se ejercitó de punta a punta. Lo único que no se pudo hacer
-desde aquí fue *llamar* a la función —este entorno no alcanza `supabase.co`,
-lo bloquea la política de egreso de la organización—, pero el lote que dejó en
-la base se revisó entero.
+El camino panel → función de borde → base está ejercitado de punta a punta. Lo
+único que no se puede hacer desde el entorno donde se escribe este código es
+*llamar* a la función o abrir el sitio publicado: la política de egreso de la
+organización bloquea `supabase.co` y `workers.dev`. Lo que esas rifas dejaron
+en la base sí se revisó entero, con SQL.
+
+### El «undefined» de las hojas: qué fue
+
+Las hojas de `PRUEBA 2` y `RIFA PRUEBA 3` salieron con `C-undefined` donde iba
+el código. **No fue la base**: los datos de las dos están completos y bien
+firmados. Fueron dos errores encadenados, los dos ya corregidos y anotados en
+la bitácora:
+
+1. La función `sorteo` se publicó antes que el sitio. El panel viejo pedía
+   `boleto.folio`, campo que la función nueva ya no manda.
+2. Aun después de publicar el sitio, el trabajador de servicio seguía sirviendo
+   `panel.js` desde la copia guardada: HTML nuevo corriendo JavaScript viejo.
+   Ahora los archivos del panel van a la red primero y sus etiquetas llevan
+   `?v=`, que sube a la par de `CACHE`.
+
+**Las hojas ya impresas de esas dos rifas hay que volver a generarlas** desde
+Rifas → Hoja de boletos. No hace falta recrear las rifas: lo que salió mal fue
+el dibujo de la hoja, no lo que está guardado.
 
 ### El resto del sistema
 
 - Las **8 migraciones** aplicadas; la función de borde `sorteo` en su
   **versión 7**; la clave del panel y la llave de firma en su lugar.
+- El trabajador de servicio va en **`rifa-v12`**, a la par del `?v=12` de
+  `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
 - El panel y el boleto pasan **108 comprobaciones** automáticas
@@ -289,3 +303,8 @@ la base se revisó entero.
   rama sigue ahí.
 - **Cambiar el nombre** «El Muerde Manos» cuando toque: ya no está escrito en
   ninguna dirección, solo es el nombre de esa rifa en la base.
+- **Volver a generar las hojas** de `PRUEBA 2` y `RIFA PRUEBA 3`, las que
+  salieron con «undefined». Los datos están intactos; se rehacen desde
+  Rifas → Hoja de boletos.
+- **Limpiar las rifas de ensayo** cuando vaya a entrar una de verdad. Las
+  cuatro que hay son pruebas; ninguna se repartió.
