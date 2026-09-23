@@ -114,11 +114,14 @@ input:focus-visible { outline: 2px solid var(--oro); outline-offset: 1px; }
 /* --- Pestañas ---------------------------------------------------------- */
 .pestanas {
   display: flex;
+  /* Con cuatro pestañas, en un teléfono angosto ya no caben en un renglón:
+     antes de apretarlas hasta que el texto se corte, que bajen a dos. */
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 14px;
 }
 .pestana {
-  flex: 1;
+  flex: 1 1 88px;
   padding: 10px 8px;
   font: inherit;
   font-weight: 600;
@@ -321,4 +324,30 @@ input[type="url"] {
   font-size: 0.74rem;
   line-height: 1.35;
   color: var(--tinta-tenue);
+}
+
+/* --- Casilla de verificación ------------------------------------------- */
+/*
+ * Se usa para «Ver la clave». El área que responde al toque es la etiqueta
+ * entera, no el cuadrito: en un celular, apuntarle a 13 píxeles es justo lo
+ * que hace que alguien se rinda y teclee a ciegas.
+ */
+.casilla {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: -4px 0 14px;
+  padding: 6px 2px;
+  font-size: 0.9rem;
+  color: var(--tinta-tenue);
+  cursor: pointer;
+  user-select: none;
+}
+.casilla input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--oro);
+  cursor: pointer;
 }

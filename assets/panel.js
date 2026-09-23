@@ -74,6 +74,25 @@
     el.className = 'mensaje' + (tipo ? ' ' + tipo : '');
   }
 
+  /**
+   * Conecta una casilla con unos campos de clave para poder ver lo tecleado.
+   *
+   * La clave del panel es larga y se escribe en un celular, a veces con el sol
+   * encima y siempre con prisa. A ciegas, un dedazo solo se descubre cuando el
+   * servidor contesta que no, y entonces hay que volver a escribirla entera.
+   * Enseñarla es decisión de quien la teclea: la casilla nace apagada.
+   */
+  function casillaDeVer(casilla, campos) {
+    var marca = $(casilla);
+    if (!marca) { return; }
+    marca.addEventListener('change', function () {
+      campos.forEach(function (id) {
+        var campo = $(id);
+        if (campo) { campo.type = marca.checked ? 'text' : 'password'; }
+      });
+    });
+  }
+
   /** Fecha larga, siempre en la zona del evento y no en la del teléfono. */
   function fecha(iso) {
     if (!iso) { return '—'; }
@@ -85,7 +104,7 @@
   // ------------------------------------------------------------------
   // Pestañas
   // ------------------------------------------------------------------
-  var PANES = ['paneSorteo', 'paneRifas', 'paneVerificar'];
+  var PANES = ['paneSorteo', 'paneRifas', 'paneVerificar', 'panePerfil'];
 
   function abrirPestana(id) {
     PANES.forEach(function (p) { $(p).hidden = (p !== id); });
@@ -871,8 +890,58 @@
   }
 
   // ------------------------------------------------------------------
+  // Pestaña 4: perfil — cambiar la clave del panel
+  // ------------------------------------------------------------------
+  $('btnCambiarClave').addEventListener('click', cambiarClave);
+  $('clRepetir').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); cambiarClave(); }
+  });
+
+  function cambiarClave() {
+    // Se recorta igual que al entrar. No es cosmético: si aquí se guardara una
+    // clave con un espacio al final y la entrada lo quitara, quedaría una
+    // clave imposible de teclear y nadie podría volver a abrir el panel.
+    var actual = $('clActual').value.trim();
+    var nueva = $('clNueva').value.trim();
+    var repetir = $('clRepetir').value.trim();
+
+    if (!actual || !nueva || !repetir) {
+      return mensaje('Llena los tres campos.', 'error', 'mensajePerfil');
+    }
+    if (nueva.length < 8) {
+      return mensaje('La clave nueva necesita ocho caracteres o más.', 'error', 'mensajePerfil');
+    }
+    if (nueva !== repetir) {
+      return mensaje('Las dos claves nuevas no son iguales.', 'error', 'mensajePerfil');
+    }
+    if (nueva === actual) {
+      return mensaje('La clave nueva es la misma de antes.', 'error', 'mensajePerfil');
+    }
+
+    mensaje('Cambiando…', '', 'mensajePerfil');
+    // La clave actual va TECLEADA, no la que esta pantalla trae guardada: así
+    // quien encuentre el panel abierto y sin dueño no puede dejar al dueño
+    // fuera. El servidor la comprueba como comprueba cualquier otra acción.
+    llamar('cambiar_clave', { clave: actual, nueva: nueva })
+      .then(function () {
+        // Esta pantalla sigue trabajando con la nueva; si no, la siguiente
+        // consulta contestaría «clave incorrecta» sin que nada esté mal.
+        clave = nueva;
+        $('clActual').value = '';
+        $('clNueva').value = '';
+        $('clRepetir').value = '';
+        mensaje('Listo: la clave quedó cambiada. Guárdala donde no se pierda, ' +
+                'porque de ella no queda copia que se pueda leer.', 'ok', 'mensajePerfil');
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajePerfil'); });
+  }
+
+  // ------------------------------------------------------------------
   // Entrada
   // ------------------------------------------------------------------
+  casillaDeVer('verClave', ['clave']);
+  casillaDeVer('verClaves', ['clActual', 'clNueva', 'clRepetir']);
+
   function entrar() {
     clave = $('clave').value.trim();
     if (!clave) { mensaje('Escribe la clave.', 'error', 'mensajeClave'); return; }
