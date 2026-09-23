@@ -199,9 +199,20 @@ function repartir<T>(lista: T[], porGrupo: number): T[][] {
  * comprobación que solo vive en el navegador no comprueba nada.
  */
 const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche"];
-// Solo el NOMBRE de la trama viaja y se guarda; el dibujo lo arma el panel a
-// partir de él. Por eso aquí no hay forma de colar nada dentro del estilo.
-const TRAMAS_VALIDAS = ["ninguna", "lineas", "puntos", "rejilla", "cruzado", "zigzag"];
+/*
+ * De la trama solo viaja y se guarda el NOMBRE; el dibujo lo arma el panel a
+ * partir de él. Aquí se comprueba la FORMA, no el catálogo, y es a propósito:
+ *
+ *   - Para la seguridad basta con esto. Un nombre de puras minúsculas no puede
+ *     escaparse de ningún sitio, valga lo que valga.
+ *   - Tener el catálogo también aquí obligaría a volver a desplegar la función
+ *     cada vez que se agrega un motivo nuevo, que es puro adorno. Ese
+ *     acoplamiento no compra nada.
+ *
+ * Quién decide qué existe es el panel: un nombre que no conozca lo pinta como
+ * «ninguna». Un dedazo sale sin trama, no roto.
+ */
+const TRAMA = /^[a-z]{3,20}$/;
 const INTENSIDADES_VALIDAS = ["suave", "media", "marcada"];
 const COLOR = /^#[0-9a-fA-F]{6}$/;
 const LOGO_MAX = 200 * 1024;
@@ -235,7 +246,7 @@ function limpiarDiseno(entrada: unknown) {
   }
 
   const trama = String(d.trama ?? "ninguna");
-  if (!TRAMAS_VALIDAS.includes(trama)) throw new Error("esa trama no existe");
+  if (!TRAMA.test(trama)) throw new Error("esa trama no es válida");
 
   const intensidad = String(d.intensidad ?? "suave");
   if (!INTENSIDADES_VALIDAS.includes(intensidad)) {

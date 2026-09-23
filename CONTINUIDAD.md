@@ -16,13 +16,11 @@ de esta máquina ni de esta conversación. Última revisión: 23 de septiembre d
 | Rifas, folios, códigos, ganadores | Supabase, proyecto `fgwavuaolmrwagaymgos` | No |
 | La función `sorteo` | Desplegada en Supabase (Edge Functions) | No |
 | La llave que firma los códigos | Tabla `llave_firma` en Supabase | No |
-| **La clave del panel** | Aquí abajo, y su **hash** en `panel_clave` | No, mientras el repositorio siga privado |
+| **La clave del panel** | En el gestor de contraseñas del dueño; su **hash** en `panel_clave` | No. Y si se pierde, se reemplaza desde Supabase |
 
-Todo está en el repositorio, **incluida la clave del panel** — por eso el repo
-es privado y tiene que seguir siéndolo. Aun así, guarda la clave también en un
-gestor de contraseñas: un repositorio no es buen único lugar para un secreto.
-De ella la base solo conserva un hash, así que si se pierde no se recupera: se
-reemplaza (ver abajo).
+Todo el código está en el repositorio; **la clave del panel ya no**. De ella la
+base solo conserva un hash, así que no se «recupera»: se reemplaza, y eso se
+hace desde Supabase sin necesitar la anterior (ver abajo).
 
 ## Acceso al panel
 
@@ -30,25 +28,25 @@ reemplaza (ver abajo).
 | --- | --- |
 | Dirección | https://rifas.el-original.workers.dev/panel.html |
 | Usuario | No hay. Solo la clave |
-| Clave | `JrIEng7X3lSz` |
+| Clave | **No está aquí.** La cambió el dueño desde el panel el 23 de septiembre de 2026; vive en su gestor de contraseñas |
 
-> ### ⚠️ Este repositorio tiene que seguir siendo PRIVADO
+> ### La clave ya no vive en este repositorio, y así debe seguir
 >
-> Esa clave es el control del sorteo: quien la tenga puede revelar un ganador o
-> crear rifas. Está escrita aquí porque el repositorio es privado — comprobado:
-> un visitante anónimo recibe 404.
+> Hasta el 23 de septiembre de 2026 estaba escrita en esta misma tabla, y por
+> eso el repositorio tenía que ser privado. Ya no: se cambió desde la pestaña
+> «Perfil» del panel y el valor nuevo nunca se escribió aquí.
 >
-> **Si algún día lo vuelves público, cambia la clave ANTES de hacerlo.** Git
-> conserva para siempre lo que se le escribe: volverlo público publicaría esta
-> línea y todo el historial, aunque para entonces ya la hubieras borrado del
-> archivo.
+> **No la vuelvas a escribir en este archivo.** Git conserva para siempre lo
+> que se le entrega: una clave escrita hoy sigue ahí dentro del historial
+> aunque mañana se borre del archivo, y volver público el repositorio la
+> publicaría entera.
 >
-> Lo mismo al agregar colaboradores: quien tenga acceso al repositorio tendrá
-> la clave.
+> Ojo: la clave **vieja** sí sigue en el historial de git. No sirve para nada
+> —la base ya no la reconoce, comprobado—, pero es una razón más para no
+> repetir la costumbre.
 
-Guárdala también en un gestor de contraseñas: un repositorio no es buen único
-lugar para un secreto. En la base solo vive su **hash** SHA-256, en
-`panel_clave`, que nadie puede revertir.
+En la base solo vive su **hash** SHA-256, en `panel_clave`, que nadie puede
+revertir. Guárdala en un gestor de contraseñas: ese es su lugar.
 
 ### Cómo cambiarla
 
@@ -57,16 +55,17 @@ pantalla trae guardada, para que un panel abierto y sin dueño no sirva para
 dejar al dueño fuera—, la nueva dos veces, y ocho caracteres o más. La pantalla
 que la cambió sigue trabajando; las demás tienen que volver a entrar.
 
-> ⚠️ **Si la cambias desde el panel, cambia también la línea de arriba en este
-> archivo**, o este documento va a mentir la próxima vez que alguien lo lea
-> buscando entrar. Mejor todavía: guárdala en el gestor de contraseñas y deja
-> aquí solo una nota de dónde está, para que el repositorio deje de ser el
-> lugar donde vive el secreto.
+> ⚠️ **Al cambiarla, guárdala en el gestor de contraseñas y no aquí.** Si este
+> documento se queda con una clave vieja escrita, va a mentirle a quien lo lea
+> buscando entrar; y si se queda con la nueva, el secreto vuelve a vivir en el
+> repositorio, que es justo de donde acaba de salir.
 
 ### Si se pierde
 
-Entonces no se recupera —el servidor solo guarda su huella— y hay que
-reemplazarla por fuera. En el editor SQL de Supabase:
+**Sí se puede restablecer**, y no hace falta el panel ni la clave vieja: basta
+con entrar a Supabase con la cuenta dueña del proyecto. No es «recuperarla»
+—el servidor solo guarda su huella y de una huella no se saca el original—,
+es **reemplazarla** por una nueva. En el editor SQL de Supabase:
 
 ```sql
 -- Cambia SOLO el texto entre comillas por tu clave nueva.
@@ -78,8 +77,13 @@ update public.panel_clave
 
 (Comprobado: así es exactamente como la función compara la clave que tecleas.)
 
-Los boletos ya impresos siguen siendo válidos: la clave del panel y la llave
-que firma los códigos son dos cosas distintas.
+Surte efecto en la llamada siguiente; no hay que publicar nada ni reiniciar
+nada. Quien tuviera el panel abierto con la clave vieja tendrá que volver a
+entrar.
+
+**Los boletos ya impresos siguen siendo válidos**: la clave del panel y la
+llave que firma los códigos son dos cosas distintas. Cambiar una no toca a la
+otra, así que restablecer la clave nunca invalida un lote.
 
 ## Las llaves
 
@@ -230,8 +234,10 @@ Todo desde el panel, sin tocar código ni publicar nada:
 2. Se abre la hoja: **Imprimir → Guardar como PDF**, y de ahí a la imprenta.
 3. **Manejar esta** para que el panel opere esa rifa.
 4. Si quieres darle aspecto, **pestaña «Diseño»**: seis temas listos, tus
-   colores encima, seis tramas de fondo al estilo del papel de seguridad,
-   logo y el aviso de letra chica. **Se puede diseñar antes de crear la
+   colores encima, **doce fondos** —seis de línea, al estilo del papel de
+   seguridad, y seis de figura: estrellas, confeti, burbujas, corazones,
+   tréboles y fiesta, con sus propios colores—, logo y el aviso de letra
+   chica. **Se puede diseñar antes de crear la
    rifa**: sin ninguna, lo que guardes se le copia a la próxima al nacer. Se guarda **en esa rifa**,
    así que cada una puede verse distinta y reimprimir una hoja vieja da la hoja
    de entonces. Solo toca el papel; la pantalla del participante no cambia.
@@ -295,12 +301,12 @@ número uno es el caché del navegador, no la base.
 ### El resto del sistema
 
 - Las **10 migraciones** aplicadas; la función de borde `sorteo` en su
-  **versión 10**; la clave del panel y la llave de firma en su lugar.
-- El trabajador de servicio va en **`rifa-v15`**, a la par del `?v=15` de
+  **versión 11**; la clave del panel y la llave de firma en su lugar.
+- El trabajador de servicio va en **`rifa-v16`**, a la par del `?v=16` de
   `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **159 comprobaciones** automáticas
+- El panel y el boleto pasan **164 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

@@ -772,33 +772,87 @@
   };
 
   /*
-   * Tramas de fondo, al estilo del papel de seguridad. Se dibujan con
-   * degradados de CSS y no con imágenes: pesan cero, salen nítidas a
-   * cualquier resolución de impresora, y sobre todo, lo que se guarda en la
-   * base es el NOMBRE de la trama, no el dibujo. Así nadie puede colar algo
-   * raro dentro de la hoja de estilos del boleto.
+   * Fondos del boleto. Hay de dos clases y se manejan igual:
    *
-   * Las medidas van en milímetros porque esto es papel, no pantalla: una
-   * línea de 0.35 mm se ve igual impresa salga de donde salga.
+   *   - de línea: rayas, puntos, rejilla. Se dibujan con degradados de CSS y
+   *     toman el color del marco, rebajado. Son el papel de seguridad sobrio.
+   *   - de figura: estrellas, confeti, tréboles. Son un SVG diminuto que se
+   *     repite, con su propia paleta de colores de fiesta. Es lo que hace que
+   *     un boleto de rifa se vea de rifa y no de recibo.
+   *
+   * Lo que se guarda en la base es el NOMBRE, nunca el dibujo. El panel lo
+   * arma a partir de él, así que no hay forma de colar nada dentro del estilo
+   * del boleto. Y el SVG va por `encodeURIComponent`, que se lleva los `<`,
+   * los `>` y las comillas: lo que queda no puede escaparse de la hoja de
+   * estilos aunque se quisiera.
    */
+
+  // Pastel, como los boletos que se venden en la calle. No sale del tema
+  // porque la gracia de las figuras es justo que sean de varios colores.
+  var COLORES_FIESTA = ['#ef9ebc', '#8fcbe4', '#9ed8ae', '#c3aade', '#f6d08a'];
+
+  var ESTRELLA = '<path d="M0,-10 L2.35,-3.24 L9.51,-3.09 L3.8,1.24 L5.88,8.09 ' +
+    'L0,4 L-5.88,8.09 L-3.8,1.24 L-9.51,-3.09 L-2.35,-3.24 Z"/>';
+  var CORAZON = '<path d="M0,7 C-9,-1 -7,-11 0,-5 C7,-11 9,-1 0,7 Z"/>';
+  var TREBOL = '<g><circle cx="-3.5" cy="-1" r="3.6"/><circle cx="3.5" cy="-1" r="3.6"/>' +
+    '<circle cx="0" cy="-5" r="3.6"/><circle cx="0" cy="3" r="3.6"/>' +
+    '<rect x="-0.7" y="2" width="1.4" height="7" rx="0.7"/></g>';
+  var CONFETI = '<rect x="-5" y="-1.6" width="10" height="3.2" rx="1.6"/>';
+  var BURBUJA = '<circle cx="0" cy="0" r="6"/>';
+
+  /**
+   * Reparte una figura por el mosaico que se va a repetir.
+   *
+   * Las posiciones son fijas, NO al azar. Un lote de doscientos boletos tiene
+   * que salir igual que la vista previa y que la reimpresión de mañana; un
+   * fondo distinto cada vez sería un fondo que nadie eligió.
+   */
+  var SEMBRADO = [
+    [18, 20, 0, 1], [62, 14, 25, 0.75], [88, 42, -15, 0.9],
+    [40, 54, 12, 1.1], [12, 78, -20, 0.8], [72, 80, 8, 0.95],
+  ];
+
+  function esparcir(figura, escala) {
+    return function (alfa) {
+      return SEMBRADO.map(function (p, i) {
+        return '<g transform="translate(' + p[0] + ',' + p[1] + ') rotate(' + p[2] +
+          ') scale(' + (escala * p[3]).toFixed(2) + ')" fill="' +
+          COLORES_FIESTA[i % COLORES_FIESTA.length] +
+          '" fill-opacity="' + alfa + '">' + figura + '</g>';
+      }).join('');
+    };
+  }
+
+  /** Un mosaico de SVG listo para usarse como fondo repetido. */
+  function mosaico(contenido, ladoMm) {
+    // Con width y height además del viewBox: así el mosaico trae su propio
+    // tamaño y no depende de que quien lo use se lo dé.
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" ' +
+      'viewBox="0 0 100 100">' + contenido + '</svg>';
+    return 'background-image: url("data:image/svg+xml,' + encodeURIComponent(svg) + '");' +
+      ' background-size: ' + ladoMm + 'mm ' + ladoMm + 'mm;';
+  }
+
   var TRAMAS = {
-    ninguna: { nombre: 'Ninguna', css: function () { return ''; } },
+    ninguna: { nombre: 'Ninguna', tipo: 'linea', css: function () { return ''; } },
+
+    // --- De línea -----------------------------------------------------
     lineas: {
-      nombre: 'Líneas',
+      nombre: 'Líneas', tipo: 'linea',
       css: function (c) {
         return 'background-image: repeating-linear-gradient(45deg,' +
                c + ' 0 0.35mm, transparent 0.35mm 2mm);';
       },
     },
     puntos: {
-      nombre: 'Puntos',
+      nombre: 'Puntos', tipo: 'linea',
       css: function (c) {
         return 'background-image: radial-gradient(' + c + ' 0.25mm, transparent 0.26mm);' +
                ' background-size: 2mm 2mm;';
       },
     },
     rejilla: {
-      nombre: 'Rejilla',
+      nombre: 'Rejilla', tipo: 'linea',
       css: function (c) {
         return 'background-image: repeating-linear-gradient(0deg,' +
                c + ' 0 0.2mm, transparent 0.2mm 2.5mm),' +
@@ -806,7 +860,7 @@
       },
     },
     cruzado: {
-      nombre: 'Cruzado',
+      nombre: 'Cruzado', tipo: 'linea',
       css: function (c) {
         return 'background-image: repeating-linear-gradient(45deg,' +
                c + ' 0 0.25mm, transparent 0.25mm 2mm),' +
@@ -814,24 +868,72 @@
       },
     },
     zigzag: {
-      nombre: 'Zigzag',
+      nombre: 'Zigzag', tipo: 'linea',
       css: function (c) {
         return 'background-image: linear-gradient(135deg,' + c + ' 25%, transparent 25%),' +
                ' linear-gradient(225deg,' + c + ' 25%, transparent 25%);' +
                ' background-size: 3mm 3mm;';
       },
     },
+
+    // --- De figura ----------------------------------------------------
+    estrellas: {
+      nombre: 'Estrellas', tipo: 'figura',
+      css: function (c, alfa) { return mosaico(esparcir(ESTRELLA, 1)(alfa), 16); },
+    },
+    confeti: {
+      nombre: 'Confeti', tipo: 'figura',
+      css: function (c, alfa) { return mosaico(esparcir(CONFETI, 2)(alfa), 17); },
+    },
+    burbujas: {
+      nombre: 'Burbujas', tipo: 'figura',
+      css: function (c, alfa) { return mosaico(esparcir(BURBUJA, 1.3)(alfa), 16); },
+    },
+    corazones: {
+      nombre: 'Corazones', tipo: 'figura',
+      css: function (c, alfa) { return mosaico(esparcir(CORAZON, 1.4)(alfa), 17); },
+    },
+    treboles: {
+      nombre: 'Tréboles', tipo: 'figura',
+      css: function (c, alfa) { return mosaico(esparcir(TREBOL, 1.3)(alfa), 18); },
+    },
+    fiesta: {
+      nombre: 'Fiesta', tipo: 'figura',
+      css: function (c, alfa) {
+        // Estrellas y confeti revueltos, que es como se ven los boletos de
+        // feria de verdad: no un patrón, un puñado de cosas tiradas.
+        return mosaico(esparcir(ESTRELLA, 1.1)(alfa) +
+          '<g transform="translate(50,88) rotate(-12) scale(1.7)" fill="' +
+          COLORES_FIESTA[1] + '" fill-opacity="' + alfa + '">' + CONFETI + '</g>' +
+          '<g transform="translate(90,10) rotate(30) scale(1.6)" fill="' +
+          COLORES_FIESTA[4] + '" fill-opacity="' + alfa + '">' + CONFETI + '</g>', 20);
+      },
+    },
   };
 
-  // Qué tan marcada va la trama. Suave de omisión: una trama que compite con
-  // los números deja de ser fondo y estorba.
-  var INTENSIDADES = { suave: 0.07, media: 0.14, marcada: 0.24 };
+  /*
+   * Qué tan marcado va el fondo. Las dos clases piden números muy distintos:
+   * una raya al 60 % ensucia el boleto, y una estrella al 7 % no se ve. Por
+   * eso la intensidad se lee por tipo y no como un número suelto.
+   */
+  var INTENSIDADES = {
+    suave:   { linea: 0.07, figura: 0.35 },
+    media:   { linea: 0.14, figura: 0.60 },
+    marcada: { linea: 0.24, figura: 0.90 },
+  };
 
-  /** El color de la trama: el del marco, rebajado. */
+  /** El color de la trama de línea: el del marco, rebajado. */
   function conAlfa(hex, alfa) {
     return 'rgba(' + parseInt(hex.substr(1, 2), 16) + ',' +
            parseInt(hex.substr(3, 2), 16) + ',' +
            parseInt(hex.substr(5, 2), 16) + ',' + alfa + ')';
+  }
+
+  /** El fondo completo de un boleto, sea de línea o de figura. */
+  function fondoDe(d) {
+    var trama = TRAMAS[d.trama];
+    var alfa = INTENSIDADES[d.intensidad][trama.tipo];
+    return trama.css(conAlfa(d.borde, alfa), alfa);
   }
 
   var AVISO_DE_SIEMPRE = 'El boleto se anulará si se encuentra roto, con tachones, ' +
@@ -914,8 +1016,7 @@
       // la trama que viene justo después.
       p + '.boleto { background-color: ' + d.fondo + '; color: ' + d.tinta + ';' +
       ' border: 1px solid ' + d.borde + '; border-radius: 2mm; padding: 3mm 4mm;' +
-      ' break-inside: avoid; ' +
-      TRAMAS[d.trama].css(conAlfa(d.borde, INTENSIDADES[d.intensidad])) + ' }' +
+      ' break-inside: avoid; ' + fondoDe(d) + ' }' +
       p + '.logo { display: block; max-height: 9mm; max-width: 60%; margin: 0 auto 1mm; }' +
       p + '.marca { font-size: 13pt; font-weight: 700; text-transform: uppercase;' +
       ' letter-spacing: 0.04em; text-align: center; margin: 0 0 1mm; }' +
@@ -1111,7 +1212,6 @@
     var caja = $('tramas');
     caja.textContent = '';
     var d = disenoCompleto(disenoEnEdicion);
-    var tinte = conAlfa(d.borde, INTENSIDADES[d.intensidad]);
     Object.keys(TRAMAS).forEach(function (llave) {
       var boton = document.createElement('button');
       boton.type = 'button';
@@ -1122,8 +1222,10 @@
       // no con unos de catálogo: así se elige viendo cómo va a quedar.
       var muestra = document.createElement('span');
       muestra.className = 'muestra';
+      // Cada muestra se pinta con SU trama pero con los colores que el boleto
+      // tiene ahora: se elige viendo cómo va a quedar, no un catálogo.
       muestra.style.cssText = 'background-color:' + d.fondo + ';' +
-        TRAMAS[llave].css(tinte);
+        fondoDe({ trama: llave, intensidad: d.intensidad, borde: d.borde });
 
       var nombre = document.createElement('span');
       nombre.className = 'nombre';
