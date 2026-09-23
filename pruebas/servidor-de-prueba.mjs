@@ -13,7 +13,9 @@ const normalizarYouTube = createRequire(import.meta.url)(
   new URL('../assets/youtube.js', import.meta.url).pathname);
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-const CLAVE = 'secreta';
+// Cambia: el panel puede reemplazarla desde la pestaña «Perfil», y la prueba
+// necesita ver que el cambio surte efecto de verdad.
+let clavePanel = 'secreta';
 
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
@@ -80,8 +82,16 @@ function boletoConFolio(folio) {
 }
 
 function sorteo(cuerpo) {
-  if (cuerpo.clave !== CLAVE) return [401, { error: 'clave incorrecta' }];
+  if (cuerpo.clave !== clavePanel) return [401, { error: 'clave incorrecta' }];
   const a = cuerpo.accion;
+
+  if (a === 'cambiar_clave') {
+    const nueva = String(cuerpo.nueva ?? '');
+    if (nueva.length < 8) return [400, { error: 'la clave nueva necesita ocho caracteres o más' }];
+    if (nueva === cuerpo.clave) return [400, { error: 'la clave nueva es la misma de antes' }];
+    clavePanel = nueva;
+    return [200, { ok: true }];
+  }
 
   if (a === 'rifas') {
     return [200, { rifas: rifas.map((r) => ({

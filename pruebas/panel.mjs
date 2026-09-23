@@ -95,6 +95,15 @@ console.log('\n== Panel ==');
 await pagina.goto(BASE + '/panel.html');
 await pagina.waitForSelector('#clave');
 
+// Ver lo que uno teclea: la clave es larga y se escribe en un celular.
+ok('la clave nace oculta', await pagina.getAttribute('#clave', 'type') === 'password');
+ok('la casilla nace apagada', !(await pagina.isChecked('#verClave')));
+await pagina.check('#verClave');
+ok('marcándola, la clave se ve', await pagina.getAttribute('#clave', 'type') === 'text');
+await pagina.uncheck('#verClave');
+ok('y desmarcándola vuelve a ocultarse',
+   await pagina.getAttribute('#clave', 'type') === 'password');
+
 // clave mala
 await pagina.fill('#clave', 'nopes');
 await pagina.click('#btnEntrar');
@@ -557,6 +566,124 @@ ok('y el veredicto YA NO dice que todo está en orden',
    await diag2.textContent('#veredicto'));
 ok('sin errores de JavaScript en el diagnóstico', errD.length === 0, errD.join(' | '));
 await ctxD.close();
+
+// ---------------------------------------------------------------- PERFIL ---
+// Aparte y con su propio navegador: esta prueba cambia la clave del servidor
+// de verdad, y si se colara en medio de las otras las dejaría fuera.
+{
+  console.log('\n== Perfil: cambiar la clave ==');
+  const ctxP = await navegador.newContext({ serviceWorkers: 'block' });
+  const pp = await ctxP.newPage();
+  const errP = [];
+  pp.on('pageerror', (e) => errP.push(String(e)));
+  await pp.goto(BASE + '/panel.html');
+  await pp.fill('#clave', 'secreta');
+  await pp.click('#btnEntrar');
+  await pp.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pp.click('.pestana[data-panel="panePerfil"]');
+  ok('hay una pestaña Perfil y se abre', await pp.isVisible('#panePerfil'));
+
+  const mensajeP = () => pp.textContent('#mensajePerfil');
+
+  // Las tres negativas, antes de dejar cambiar nada.
+  await pp.fill('#clActual', 'secreta');
+  await pp.fill('#clNueva', 'corta');
+  await pp.fill('#clRepetir', 'corta');
+  await pp.click('#btnCambiarClave');
+  ok('una clave de menos de ocho caracteres se rechaza',
+     (await mensajeP()).includes('ocho caracteres'), await mensajeP());
+
+  await pp.fill('#clNueva', 'clavenueva1');
+  await pp.fill('#clRepetir', 'clavenueva2');
+  await pp.click('#btnCambiarClave');
+  ok('dos claves nuevas distintas se rechazan',
+     (await mensajeP()).includes('no son iguales'), await mensajeP());
+
+  // Y la actual mal tecleada: es lo que impide que un panel abierto y sin
+  // dueño sirva para dejar al dueño fuera.
+  await pp.fill('#clActual', 'noesesta');
+  await pp.fill('#clNueva', 'clavenueva1');
+  await pp.fill('#clRepetir', 'clavenueva1');
+  await pp.click('#btnCambiarClave');
+  await pp.waitForFunction(() =>
+    document.getElementById('mensajePerfil').textContent.includes('incorrecta'), null, { timeout: 10000 });
+  ok('con la clave actual mal tecleada, el servidor no cambia nada', true);
+
+  // Ver las claves, igual que en la entrada.
+  ok('las tres claves nacen ocultas',
+     (await pp.getAttribute('#clActual', 'type')) === 'password' &&
+     (await pp.getAttribute('#clNueva', 'type')) === 'password' &&
+     (await pp.getAttribute('#clRepetir', 'type')) === 'password');
+  await pp.check('#verClaves');
+  ok('la casilla las enseña las tres',
+     (await pp.getAttribute('#clActual', 'type')) === 'text' &&
+     (await pp.getAttribute('#clNueva', 'type')) === 'text' &&
+     (await pp.getAttribute('#clRepetir', 'type')) === 'text');
+  await pp.uncheck('#verClaves');
+
+  // Ahora sí, el cambio bueno.
+  await pp.fill('#clActual', 'secreta');
+  await pp.fill('#clNueva', 'clavenueva1');
+  await pp.fill('#clRepetir', 'clavenueva1');
+  await pp.click('#btnCambiarClave');
+  await pp.waitForFunction(() =>
+    document.getElementById('mensajePerfil').textContent.includes('quedó cambiada'), null, { timeout: 10000 });
+  ok('la clave se cambia', true);
+  ok('y los campos quedan vacíos, sin la clave a la vista',
+     (await pp.inputValue('#clActual')) === '' && (await pp.inputValue('#clNueva')) === '');
+
+  // Ya con una clave lo bastante larga, sí se alcanza esta negativa: antes el
+  // largo saltaba primero y la tapaba.
+  await pp.fill('#clActual', 'clavenueva1');
+  await pp.fill('#clNueva', 'clavenueva1');
+  await pp.fill('#clRepetir', 'clavenueva1');
+  await pp.click('#btnCambiarClave');
+  ok('poner de nuevo la clave que ya se tiene se rechaza',
+     (await mensajeP()).includes('misma de antes'), await mensajeP());
+  await pp.fill('#clActual', '');
+  await pp.fill('#clNueva', '');
+  await pp.fill('#clRepetir', '');
+
+  // Lo que más importa: esta pantalla NO se queda hablando con la clave vieja.
+  await pp.click('.pestana[data-panel="paneRifas"]');
+  // Se espera a que la consulta TERMINE, no a que arranque: «Cargando…»
+  // tampoco dice «incorrecta», así que mirar ahí daría un verde de mentira.
+  await pp.waitForFunction(() =>
+    document.getElementById('mensajeRifas').textContent !== 'Cargando…', null, { timeout: 10000 });
+  ok('y la misma pantalla sigue trabajando con la clave nueva',
+     (await pp.textContent('#mensajeRifas')) === '' &&
+     (await pp.locator('#listaRifas .rifa').count()) > 0,
+     'mensaje: «' + (await pp.textContent('#mensajeRifas')) + '» · rifas: ' +
+     (await pp.locator('#listaRifas .rifa').count()));
+
+  // Un aparato nuevo ya no entra con la vieja, y sí con la nueva.
+  const otroP = await ctxP.newPage();
+  otroP.on('pageerror', (e) => errP.push(String(e)));
+  await otroP.goto(BASE + '/panel.html');
+  await otroP.fill('#clave', 'secreta');
+  await otroP.click('#btnEntrar');
+  await otroP.waitForFunction(() =>
+    document.getElementById('mensajeClave').textContent.includes('incorrecta'), null, { timeout: 10000 });
+  ok('la clave vieja ya no sirve en otro aparato', true);
+  await otroP.fill('#clave', 'clavenueva1');
+  await otroP.click('#btnEntrar');
+  await otroP.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  ok('y la nueva sí', true);
+
+  // Se deja como estaba, para no ensuciarle el estado a nadie más. Hay que
+  // volver a Perfil: la prueba anterior se fue a Rifas y este pane está oculto.
+  await pp.click('.pestana[data-panel="panePerfil"]');
+  await pp.fill('#clActual', 'clavenueva1');
+  await pp.fill('#clNueva', 'secretaotra');
+  await pp.fill('#clRepetir', 'secretaotra');
+  await pp.click('#btnCambiarClave');
+  await pp.waitForFunction(() =>
+    document.getElementById('mensajePerfil').textContent.includes('quedó cambiada'), null, { timeout: 10000 });
+  ok('y se puede volver a cambiar cuantas veces haga falta', true);
+
+  ok('sin errores de JavaScript en Perfil', errP.length === 0, errP.join(' | '));
+  await ctxP.close();
+}
 
 ok('sin errores de JavaScript en el panel', errores.length === 0, errores.join(' | '));
 ok('sin errores de JavaScript en el boleto', err2.length === 0, err2.join(' | '));

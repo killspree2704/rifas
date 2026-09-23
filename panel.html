@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=12" />
-  <link rel="stylesheet" href="assets/panel.css?v=12" />
+  <link rel="stylesheet" href="assets/estilos.css?v=13" />
+  <link rel="stylesheet" href="assets/panel.css?v=13" />
 </head>
 <body class="panel">
   <main class="tablero">
@@ -31,6 +31,15 @@
         <span>Clave del panel</span>
         <input type="password" id="clave" autocomplete="current-password" />
       </label>
+      <!--
+        Ver lo que uno teclea no es un lujo: la clave se escribe en un celular,
+        muchas veces con prisa y a veces con el sol encima, y una clave larga
+        mal tecleada solo avisa cuando el servidor ya dijo que no.
+      -->
+      <label class="casilla">
+        <input type="checkbox" id="verClave" />
+        <span>Ver la clave</span>
+      </label>
       <button class="boton primario" id="btnEntrar">Entrar</button>
       <p class="mensaje" id="mensajeClave" role="status" aria-live="polite"></p>
     </section>
@@ -40,6 +49,7 @@
       <button class="pestana activa" data-panel="paneSorteo">Sorteo</button>
       <button class="pestana" data-panel="paneRifas">Rifas</button>
       <button class="pestana" data-panel="paneVerificar">Verificar</button>
+      <button class="pestana" data-panel="panePerfil">Perfil</button>
     </nav>
 
     <!-- 1. Sorteo -->
@@ -204,11 +214,50 @@
       <div id="resultadoVerificar" class="veredicto-boleto" hidden></div>
       <p class="mensaje" id="mensajeVerificar" role="status" aria-live="polite"></p>
     </section>
+
+    <!-- 4. Perfil -->
+    <section id="panePerfil" class="caja" hidden>
+      <h2 class="subtitulo-seccion">Cambiar la clave del panel</h2>
+      <p class="nota">
+        La clave es el control del sorteo: quien la tenga puede crear rifas y
+        revelar un ganador. El servidor no guarda la clave, solo una huella
+        suya que no se puede revertir, así que <strong>si la olvidas no se
+        recupera</strong>: se reemplaza. Para eso hace falta la actual.
+      </p>
+      <div class="rejilla-campos">
+        <label class="campo ancho">
+          <span>Clave actual</span>
+          <input type="password" id="clActual" autocomplete="current-password" />
+        </label>
+        <label class="campo">
+          <span>Clave nueva</span>
+          <input type="password" id="clNueva" autocomplete="new-password" />
+          <small class="ayuda">Ocho caracteres o más.</small>
+        </label>
+        <label class="campo">
+          <span>Repite la nueva</span>
+          <input type="password" id="clRepetir" autocomplete="new-password" />
+        </label>
+      </div>
+      <label class="casilla">
+        <input type="checkbox" id="verClaves" />
+        <span>Ver las claves</span>
+      </label>
+      <button class="boton primario" id="btnCambiarClave">Cambiar la clave</button>
+      <p class="mensaje" id="mensajePerfil" role="status" aria-live="polite"></p>
+      <p class="nota pie-panel">
+        Al cambiarla, esta pantalla se queda con la nueva y sigue trabajando.
+        Los demás aparatos que tengan el panel abierto tendrán que volver a
+        entrar. <strong>Los boletos ya impresos no se ven afectados</strong>: la
+        clave del panel y la llave que firma los códigos son dos cosas
+        distintas.
+      </p>
+    </section>
   </main>
 
-  <script src="assets/config.js?v=12"></script>
-  <script src="assets/youtube.js?v=12"></script>
+  <script src="assets/config.js?v=13"></script>
+  <script src="assets/youtube.js?v=13"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=12"></script>
+  <script src="assets/panel.js?v=13"></script>
 </body>
 </html>

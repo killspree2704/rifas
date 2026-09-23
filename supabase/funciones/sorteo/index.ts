@@ -288,6 +288,39 @@ Deno.serve(async (req) => {
 
   // ---- Acciones que no dependen de una rifa concreta ----------------------
 
+  /**
+   * Reemplazar la clave del panel.
+   *
+   * Llegar hasta aquí ya prueba que quien pide el cambio sabe la clave actual:
+   * la comprobación de arriba es la misma para todas las acciones, y el panel
+   * manda en `clave` la que se acaba de teclear, no la que trae guardada de
+   * cuando se entró. Esa diferencia es el punto: un panel abierto y sin dueño
+   * no alcanza para dejar al dueño fuera.
+   *
+   * De la clave no se guarda la clave, solo su huella. Por eso perderla no
+   * tiene vuelta atrás y aquí no hay forma de «recuperarla»: se reemplaza.
+   */
+  if (accion === "cambiar_clave") {
+    const nueva = String(cuerpo.nueva ?? "");
+    if (nueva.length < 8) {
+      return responder({ error: "la clave nueva necesita ocho caracteres o más" }, 400);
+    }
+    if (nueva === clave) {
+      return responder({ error: "la clave nueva es la misma de antes" }, 400);
+    }
+    const { error } = await db
+      .from("panel_clave")
+      .update({ hash: await sha256Hex(nueva), actualizado_en: new Date().toISOString() })
+      .eq("id", 1);
+    if (error) {
+      return responder({ error: "no se pudo cambiar la clave: " + error.message }, 400);
+    }
+    // No se anota en `sorteo_log`: esa bitácora cuelga de una rifa, y un cambio
+    // de clave no pertenece a ninguna. La hora queda en `actualizado_en`, que
+    // es justo lo que hay que saber y no revela nada.
+    return responder({ ok: true });
+  }
+
   /** El histórico completo. Nada se borra nunca. */
   if (accion === "rifas") {
     const { data: rifas } = await db

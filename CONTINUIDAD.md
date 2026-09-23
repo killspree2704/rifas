@@ -50,9 +50,23 @@ Guárdala también en un gestor de contraseñas: un repositorio no es buen únic
 lugar para un secreto. En la base solo vive su **hash** SHA-256, en
 `panel_clave`, que nadie puede revertir.
 
+### Cómo cambiarla
+
+**Desde el panel: pestaña «Perfil».** Pide la actual —tecleada, no la que la
+pantalla trae guardada, para que un panel abierto y sin dueño no sirva para
+dejar al dueño fuera—, la nueva dos veces, y ocho caracteres o más. La pantalla
+que la cambió sigue trabajando; las demás tienen que volver a entrar.
+
+> ⚠️ **Si la cambias desde el panel, cambia también la línea de arriba en este
+> archivo**, o este documento va a mentir la próxima vez que alguien lo lea
+> buscando entrar. Mejor todavía: guárdala en el gestor de contraseñas y deja
+> aquí solo una nota de dónde está, para que el repositorio deje de ser el
+> lugar donde vive el secreto.
+
 ### Si se pierde
 
-No se recupera: se reemplaza. En el editor SQL de Supabase:
+Entonces no se recupera —el servidor solo guarda su huella— y hay que
+reemplazarla por fuera. En el editor SQL de Supabase:
 
 ```sql
 -- Cambia SOLO el texto entre comillas por tu clave nueva.
@@ -118,9 +132,14 @@ al mismo número: eso es lo único que alcanza al operador que ya tiene instalad
 el trabajador de servicio anterior, porque una dirección que su copia nunca vio
 lo obliga a ir a la red.
 
-Y un orden que no se negocia: **si cambia la función `sorteo`, el sitio se
-publica antes o al mismo tiempo, nunca después**. Al revés el panel le pide al
-servidor campos que ya no existen y la hoja sale con «undefined».
+Y el orden al publicar, que depende de qué cambió en la función `sorteo`:
+
+- **Si la función quita o renombra algo** (un campo, una respuesta), **el sitio
+  va primero o al mismo tiempo, nunca después.** Al revés el panel le pide al
+  servidor algo que ya no existe: así salió el «undefined» en las hojas.
+- **Si la función solo agrega algo** (una acción nueva que el sitio va a usar),
+  **la función va primero.** Nadie la llama todavía, así que no rompe nada, y
+  cuando el sitio llegue ya la encuentra.
 
 ## Cómo está armado
 
@@ -266,11 +285,11 @@ número uno es el caché del navegador, no la base.
 
 - Las **8 migraciones** aplicadas; la función de borde `sorteo` en su
   **versión 7**; la clave del panel y la llave de firma en su lugar.
-- El trabajador de servicio va en **`rifa-v12`**, a la par del `?v=12` de
+- El trabajador de servicio va en **`rifa-v13`**, a la par del `?v=13` de
   `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **108 comprobaciones** automáticas
+- El panel y el boleto pasan **126 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
