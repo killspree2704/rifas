@@ -567,6 +567,143 @@ ok('y el veredicto YA NO dice que todo está en orden',
 ok('sin errores de JavaScript en el diagnóstico', errD.length === 0, errD.join(' | '));
 await ctxD.close();
 
+// --------------------------------------------------------------- DISEÑO ----
+// Aparte y con su propio navegador: guarda un diseño en el servidor de prueba
+// y eso cambiaría la hoja que revisan las demás.
+{
+  console.log('\n== Diseño del boleto ==');
+  const ctxG = await navegador.newContext({ serviceWorkers: 'block' });
+  const pg = await ctxG.newPage();
+  const errG = [];
+  pg.on('pageerror', (e) => errG.push(String(e)));
+  await pg.goto(BASE + '/panel.html');
+  await pg.fill('#clave', 'secreta');
+  await pg.click('#btnEntrar');
+  await pg.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+
+  // Cuál rifa se maneja se deja dicho aquí y no se hereda: las pruebas de más
+  // arriba mueven la rifa activa, y el diseño es de la rifa que se maneja.
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  await pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Manejar esta').click();
+  await pg.waitForFunction(() =>
+    document.getElementById('tituloRifa').textContent === 'Rifa El Muerde Manos',
+    null, { timeout: 10000 });
+
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  ok('hay una pestaña Diseño y se abre', await pg.isVisible('#paneDiseno'));
+  ok('y dice de cuál rifa es el boleto que se está diseñando',
+     (await pg.textContent('#disenoDeQuien')).includes('Rifa El Muerde Manos'),
+     await pg.textContent('#disenoDeQuien'));
+
+  ok('ofrece los seis temas', (await pg.locator('.tema').count()) === 6,
+     String(await pg.locator('.tema').count()));
+
+  // La vista previa dibuja un boleto de verdad, con tantos números como lleve
+  // esta rifa: cuatro.
+  await pg.waitForSelector('#vistaBoleto .boleto');
+  ok('la vista previa dibuja un boleto con sus cuatro números',
+     (await pg.locator('#vistaBoleto .boleto .num').count()) === 4,
+     String(await pg.locator('#vistaBoleto .boleto .num').count()));
+  ok('y trae su QR', await pg.isVisible('#vistaBoleto .boleto .qr svg'));
+
+  // El QR va sobre blanco pase lo que pase: es lo que lo hace legible.
+  const fondoQr = () => pg.$eval('#vistaBoleto .boleto .qr',
+    (e) => getComputedStyle(e).backgroundColor);
+  ok('el QR nace sobre blanco', (await fondoQr()) === 'rgb(255, 255, 255)', await fondoQr());
+
+  // Elegir un tema cambia los cuatro colores de golpe.
+  await pg.click('.tema[data-tema="noche"]');
+  ok('elegir «Noche» marca ese tema',
+     (await pg.getAttribute('.tema[data-tema="noche"]', 'class')).includes('elegido'));
+  ok('y le cambia el fondo al control de color',
+     (await pg.inputValue('#dsFondo')) === '#1b2432', await pg.inputValue('#dsFondo'));
+  const fondoBoleto = await pg.$eval('#vistaBoleto .boleto',
+    (e) => getComputedStyle(e).backgroundColor);
+  ok('la vista previa se pinta con el tema elegido',
+     fondoBoleto === 'rgb(27, 36, 50)', fondoBoleto);
+  ok('y AUN ASÍ el QR sigue sobre blanco, que es lo que no se negocia',
+     (await fondoQr()) === 'rgb(255, 255, 255)', await fondoQr());
+
+  // Los colores del boleto no se desparraman por el panel.
+  const fondoPanel = await pg.$eval('.tablero', (e) => getComputedStyle(e).backgroundColor);
+  ok('el tema oscuro no le pinta el fondo al panel', fondoPanel !== 'rgb(27, 36, 50)', fondoPanel);
+
+  // El aviso de contraste: letra casi del color del fondo.
+  await pg.fill('#dsTinta', '#1c2433');
+  await pg.waitForFunction(() => !document.getElementById('avisoContraste').hidden,
+                           null, { timeout: 5000 });
+  ok('avisa cuando la letra se pierde contra el fondo',
+     (await pg.textContent('#avisoContraste')).includes('letra chica'),
+     await pg.textContent('#avisoContraste'));
+  await pg.click('.tema[data-tema="feria"]');
+  await pg.waitForFunction(() => document.getElementById('avisoContraste').hidden,
+                           null, { timeout: 5000 });
+  ok('y se calla cuando el contraste vuelve a estar bien', true);
+
+  // El aviso al pie y las columnas.
+  await pg.fill('#dsAviso', 'No se aceptan cambios ni devoluciones.');
+  await pg.waitForFunction(() => {
+    const a = document.querySelector('#vistaBoleto .boleto .aviso');
+    return a && a.textContent.includes('devoluciones');
+  }, null, { timeout: 5000 });
+  ok('el aviso al pie se ve en la vista previa al escribirlo', true);
+
+  // Guardar, y que se quede guardado.
+  await pg.click('#btnGuardarDiseno');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeDiseno').textContent.includes('va a salir así'),
+    null, { timeout: 10000 });
+  ok('el diseño se guarda', true);
+
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto');
+  ok('y al volver a la pestaña sigue puesto',
+     (await pg.inputValue('#dsFondo')) === '#fff8ec' &&
+     (await pg.inputValue('#dsAviso')).includes('devoluciones'),
+     await pg.inputValue('#dsFondo'));
+
+  // Lo que de verdad importa: que la HOJA salga como la vista previa.
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  const [hojaD] = await Promise.all([
+    ctxG.waitForEvent('page'),
+    pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaD.waitForLoadState('domcontentloaded');
+  await hojaD.waitForSelector('.boleto');
+  const fondoHoja = await hojaD.$eval('.boleto', (e) => getComputedStyle(e).backgroundColor);
+  ok('la hoja impresa sale con el mismo fondo que la vista previa',
+     fondoHoja === 'rgb(255, 248, 236)', fondoHoja);
+  ok('y con el aviso que se escribió',
+     (await hojaD.textContent('.boleto .aviso')).includes('devoluciones'),
+     await hojaD.textContent('.boleto .aviso'));
+  ok('el QR de la hoja también va sobre blanco',
+     (await hojaD.$eval('.boleto .qr', (e) => getComputedStyle(e).backgroundColor))
+       === 'rgb(255, 255, 255)');
+  await hojaD.close();
+
+  // Volver al de siempre, con su confirmación.
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto');
+  await pg.click('#btnDisenoDeSiempre');
+  ok('volver al diseño de siempre pide confirmación',
+     (await pg.textContent('#btnDisenoDeSiempre')) === 'Confirmar',
+     await pg.textContent('#btnDisenoDeSiempre'));
+  await pg.click('#btnDisenoDeSiempre');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeDiseno').textContent.includes('de siempre'),
+    null, { timeout: 10000 });
+  ok('y al confirmar vuelve al clásico',
+     (await pg.inputValue('#dsFondo')) === '#ffffff' &&
+     (await pg.inputValue('#dsAviso')).includes('anulará'),
+     await pg.inputValue('#dsFondo'));
+
+  ok('sin errores de JavaScript en Diseño', errG.length === 0, errG.join(' | '));
+  await ctxG.close();
+}
+
 // ---------------------------------------------------------------- PERFIL ---
 // Aparte y con su propio navegador: esta prueba cambia la clave del servidor
 // de verdad, y si se colara en medio de las otras las dejaría fuera.

@@ -20,6 +20,7 @@
 
   var clave = '';
   var rifaActual = CFG.rifaId;   // sobre cuál rifa actúan los botones del sorteo
+  var rifasConocidas = [];       // el último historial recibido
   var ultimoEstado = null;
 
   /**
@@ -104,7 +105,7 @@
   // ------------------------------------------------------------------
   // Pestañas
   // ------------------------------------------------------------------
-  var PANES = ['paneSorteo', 'paneRifas', 'paneVerificar', 'panePerfil'];
+  var PANES = ['paneSorteo', 'paneRifas', 'paneVerificar', 'paneDiseno', 'panePerfil'];
 
   function abrirPestana(id) {
     PANES.forEach(function (p) { $(p).hidden = (p !== id); });
@@ -115,6 +116,7 @@
       b.classList.toggle('activa', b.dataset.panel === id);
     });
     if (id === 'paneRifas') { cargarRifas(); }
+    if (id === 'paneDiseno') { abrirDiseno(); }
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('.pestana'), function (b) {
@@ -437,6 +439,9 @@
   }
 
   function pintarRifas(rifas) {
+    // Se guardan tal cual llegaron: la pestaña «Diseño» saca de aquí el
+    // diseño de la rifa que se está manejando, sin volver a preguntar.
+    rifasConocidas = rifas;
     var caja = $('listaRifas');
     caja.textContent = '';
     if (!rifas.length) {
@@ -743,8 +748,155 @@
     return location.origin + location.pathname.replace(/[^/]*$/, '');
   }
 
+  // ------------------------------------------------------------------
+  // El diseño del boleto impreso
+  // ------------------------------------------------------------------
+  /*
+   * Todo lo que pinta un boleto vive aquí, y lo usan DOS pantallas: la hoja
+   * que se imprime y la vista previa de la pestaña «Diseño». A propósito es el
+   * mismo código: una vista previa que dibuja por su cuenta tarde o temprano
+   * miente, y de eso uno se entera con doscientos boletos ya impresos.
+   */
+
+  // Temas pensados para el papel, no para la pantalla. El orden es el que se
+  // ve en el panel.
+  var TEMAS = {
+    clasico: { nombre: 'Clásico', fondo: '#ffffff', tinta: '#111111', acento: '#c2185b', borde: '#333333' },
+    sobrio:  { nombre: 'Sobrio',  fondo: '#ffffff', tinta: '#000000', acento: '#000000', borde: '#000000' },
+    feria:   { nombre: 'Feria',   fondo: '#fff8ec', tinta: '#3b2a1a', acento: '#c62828', borde: '#8d6e39' },
+    menta:   { nombre: 'Menta',   fondo: '#f2fbf6', tinta: '#12301f', acento: '#00796b', borde: '#4f8f74' },
+    oro:     { nombre: 'Oro',     fondo: '#fdf6e3', tinta: '#2a2113', acento: '#9a6f0a', borde: '#b08d3a' },
+    noche:   { nombre: 'Noche',   fondo: '#1b2432', tinta: '#f2f5f9', acento: '#ffd166', borde: '#5b6b82' },
+  };
+
+  var AVISO_DE_SIEMPRE = 'El boleto se anulará si se encuentra roto, con tachones, ' +
+    'borrones o enmendaduras.';
+
+  /**
+   * Un diseño guardado, completado con lo que falte.
+   *
+   * Nulo significa «el de siempre»: por eso las rifas de antes de que esto
+   * existiera siguen imprimiéndose exactamente igual que antes.
+   */
+  function disenoCompleto(guardado) {
+    var d = guardado && typeof guardado === 'object' ? guardado : {};
+    var base = TEMAS[d.tema] || TEMAS.clasico;
+    return {
+      tema: TEMAS[d.tema] ? d.tema : 'clasico',
+      fondo: color(d.fondo) || base.fondo,
+      tinta: color(d.tinta) || base.tinta,
+      acento: color(d.acento) || base.acento,
+      borde: color(d.borde) || base.borde,
+      logo: typeof d.logo === 'string' && d.logo.indexOf('data:image/') === 0 ? d.logo : '',
+      aviso: typeof d.aviso === 'string' ? d.aviso : AVISO_DE_SIEMPRE,
+      columnas: (d.columnas === 1 || d.columnas === 3) ? d.columnas : 2,
+    };
+  }
+
+  /** Un color solo si de verdad lo es: lo que se cuela aquí va a un `style`. */
+  function color(valor) {
+    return /^#[0-9a-fA-F]{6}$/.test(String(valor || '')) ? String(valor).toLowerCase() : '';
+  }
+
+  // --- Contraste -----------------------------------------------------
+  /*
+   * En pantalla un color flojo se ve flojo. En papel, y sobre todo fotocopiado
+   * o impreso en una impresora con poca tinta, desaparece. Esto no prohíbe
+   * nada —el gusto es de quien imprime— pero avisa antes de las doscientas
+   * copias, que es cuando ya no tiene remedio.
+   */
+  function luminancia(hex) {
+    var canales = [1, 3, 5].map(function (i) {
+      var c = parseInt(hex.substr(i, 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * canales[0] + 0.7152 * canales[1] + 0.0722 * canales[2];
+  }
+
+  function contraste(a, b) {
+    var la = luminancia(a), lb = luminancia(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+
+  /** Qué habría que arreglar antes de imprimir, en palabras. */
+  function avisosDeContraste(d) {
+    var avisos = [];
+    // 4.5 es el mínimo para texto corrido; los números van grandes y aguantan 3.
+    if (contraste(d.tinta, d.fondo) < 4.5) {
+      avisos.push('la letra chica casi no se distingue del fondo');
+    }
+    if (contraste(d.acento, d.fondo) < 3) {
+      avisos.push('los números se pierden contra el fondo');
+    }
+    if (contraste(d.borde, d.fondo) < 1.6) {
+      avisos.push('el marco del boleto va a quedar invisible, y es la línea por donde se recorta');
+    }
+    return avisos;
+  }
+
+  /**
+   * El estilo de un boleto. Lo comparten la hoja y la vista previa.
+   *
+   * `sufijo` permite encerrarlo bajo un selector en la vista previa, para que
+   * los colores del boleto no se desparramen por el panel.
+   */
+  function estiloBoleto(d, prefijo) {
+    var p = prefijo || '';
+    return (
+      p + '.boleto { background: ' + d.fondo + '; color: ' + d.tinta + ';' +
+      ' border: 1px solid ' + d.borde + '; border-radius: 2mm; padding: 3mm 4mm;' +
+      ' break-inside: avoid; }' +
+      p + '.logo { display: block; max-height: 9mm; max-width: 60%; margin: 0 auto 1mm; }' +
+      p + '.marca { font-size: 13pt; font-weight: 700; text-transform: uppercase;' +
+      ' letter-spacing: 0.04em; text-align: center; margin: 0 0 1mm; }' +
+      p + '.aviso { font-size: 5.5pt; opacity: 0.75; text-align: center; margin: 0 0 2mm;' +
+      ' line-height: 1.25; }' +
+      p + '.medio { display: flex; align-items: center; justify-content: space-between; gap: 3mm; }' +
+      // Los números en rejilla de dos: así cuatro caben cuadrados y parejos,
+      // y con uno o dos la caja no se deforma.
+      p + '.numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));' +
+      ' gap: 1.5mm; flex: 1 1 auto; }' +
+      p + '.num { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14pt;' +
+      ' font-weight: 700; color: ' + d.acento + '; border: 0.4mm solid ' + d.borde + ';' +
+      ' border-radius: 1mm; padding: 0.8mm 1mm; text-align: center; letter-spacing: 0.03em; }' +
+      // El QR SIEMPRE sobre blanco y con su margen. No es negociable ni con el
+      // tema más oscuro: un QR sin contraste no lo lee ningún teléfono, y de
+      // eso uno se entera cuando los boletos ya están repartidos.
+      p + '.qr { width: 19mm; flex: 0 0 auto; background: #fff; padding: 1mm;' +
+      ' border-radius: 0.8mm; }' +
+      p + '.qr svg { width: 100%; height: auto; display: block; }' +
+      p + '.pie { display: flex; align-items: baseline; justify-content: space-between;' +
+      ' gap: 2mm; margin: 2mm 0 0; font-size: 6.5pt; opacity: 0.85; }' +
+      p + '.serial { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; }' +
+      p + '.codigo { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.1em; }' +
+      p + '.precio { font-weight: 700; font-size: 9pt; opacity: 1; }'
+    );
+  }
+
+  /** Un boleto. El mismo que va a la hoja y el que se ve en la vista previa. */
+  function boletoHtml(nombre, boleto, url, precio, d) {
+    var numeros = (boleto.folios || []).map(function (f) {
+      return '<span class="num">' + escapar(f) + '</span>';
+    }).join('');
+    return '<article class="boleto">' +
+      (d.logo ? '<img class="logo" src="' + escapar(d.logo) + '" alt="" />' : '') +
+      '<p class="marca">' + escapar(nombre) + '</p>' +
+      (d.aviso ? '<p class="aviso">' + escapar(d.aviso) + '</p>' : '') +
+      '<div class="medio">' +
+      '<div class="numeros">' + numeros + '</div>' +
+      '<div class="qr">' + qrSvg(url) + '</div>' +
+      '</div>' +
+      '<p class="pie">' +
+      '<span class="serial">' + escapar(boleto.id) + '</span>' +
+      '<span class="codigo">Código ' + escapar(boleto.codigo) + '</span>' +
+      (precio ? '<span class="precio">' + escapar(precio) + '</span>' : '') +
+      '</p>' +
+      '</article>';
+  }
+
   function hojaHtml(rifa, boletos) {
     var base = baseDelSitio();
+    var d = disenoCompleto(rifa.diseno);
     var porBoleto = (boletos[0] && boletos[0].folios ? boletos[0].folios.length : 1);
     var totalFolios = boletos.reduce(function (n, b) { return n + (b.folios || []).length; }, 0);
     var precio = (rifa.precio_boleto === null || rifa.precio_boleto === undefined)
@@ -753,52 +905,21 @@
     var trozos = boletos.map(function (b) {
       // El QR lleva el boleto, no un folio: un papel, un código.
       var url = base + '?b=' + encodeURIComponent(b.id) + '&c=' + encodeURIComponent(b.codigo);
-      var numeros = (b.folios || []).map(function (f) {
-        return '<span class="num">' + escapar(f) + '</span>';
-      }).join('');
-      return '<article class="boleto">' +
-        '<p class="marca">' + escapar(rifa.nombre) + '</p>' +
-        '<p class="aviso">El boleto se anulará si se encuentra roto, con tachones, ' +
-        'borrones o enmendaduras.</p>' +
-        '<div class="medio">' +
-        '<div class="numeros">' + numeros + '</div>' +
-        '<div class="qr">' + qrSvg(url) + '</div>' +
-        '</div>' +
-        '<p class="pie">' +
-        '<span class="serial">' + escapar(b.id) + '</span>' +
-        '<span class="codigo">Código ' + escapar(b.codigo) + '</span>' +
-        (precio ? '<span class="precio">' + escapar(precio) + '</span>' : '') +
-        '</p>' +
-        '</article>';
+      return boletoHtml(rifa.nombre, b, url, precio, d);
     });
 
     return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" />' +
       '<title>Boletos ' + escapar(rifa.serie) + ' — ' + boletos.length + '</title><style>' +
       '@page { size: letter; margin: 10mm; }' +
-      'body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #fff; color: #111; }' +
+      'body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0;' +
+      ' background: #fff; color: #111; }' +
       '.encabezado { padding: 8mm 6mm 0; }' +
       'h1 { font-size: 13pt; margin: 0 0 2mm; }' +
       '.pie-hoja { font-size: 9pt; color: #666; margin: 0 0 6mm; }' +
       'button { font: inherit; padding: 3mm 6mm; margin-bottom: 6mm; }' +
-      '.rejilla { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5mm; padding: 0 6mm 8mm; }' +
-      '.boleto { border: 1px solid #333; border-radius: 2mm; padding: 3mm 4mm; break-inside: avoid; }' +
-      '.marca { font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;' +
-      ' text-align: center; margin: 0 0 1mm; }' +
-      '.aviso { font-size: 5.5pt; color: #444; text-align: center; margin: 0 0 2mm; line-height: 1.25; }' +
-      '.medio { display: flex; align-items: center; justify-content: space-between; gap: 3mm; }' +
-      // Los números en rejilla de dos: así cuatro caben cuadrados y parejos,
-      // y con uno o dos la caja no se deforma.
-      '.numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5mm; flex: 1 1 auto; }' +
-      '.num { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14pt; font-weight: 700;' +
-      ' color: #c2185b; border: 0.4mm solid #333; border-radius: 1mm; padding: 0.8mm 1mm;' +
-      ' text-align: center; letter-spacing: 0.03em; }' +
-      '.qr { width: 19mm; flex: 0 0 auto; }' +
-      '.qr svg { width: 100%; height: auto; display: block; }' +
-      '.pie { display: flex; align-items: baseline; justify-content: space-between; gap: 2mm;' +
-      ' margin: 2mm 0 0; font-size: 6.5pt; color: #444; }' +
-      '.serial { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; }' +
-      '.codigo { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.1em; }' +
-      '.precio { font-weight: 700; font-size: 9pt; color: #111; }' +
+      '.rejilla { display: grid; grid-template-columns: repeat(' + d.columnas + ', 1fr);' +
+      ' gap: 5mm; padding: 0 6mm 8mm; }' +
+      estiloBoleto(d, '') +
       '@media print { .encabezado { display: none; } .rejilla { padding: 0; } }' +
       '</style></head><body><div class="encabezado">' +
       '<h1>' + escapar(rifa.nombre) + ' · serie ' + escapar(rifa.serie) + ' · ' +
@@ -828,6 +949,301 @@
     enlace.click();
     document.body.removeChild(enlace);
     setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+  }
+
+  // ------------------------------------------------------------------
+  // Pestaña 4: diseño del boleto impreso
+  // ------------------------------------------------------------------
+  var disenoEnEdicion = disenoCompleto(null);
+
+  // Un boleto de muestra. Los números son los de la foto que dio origen a los
+  // cuatro folios por boleto: se ve de lejos que son de ejemplo.
+  var MUESTRA = { id: '9171057830', codigo: 'R5VR', folios: ['1018', '4307', '2850', '3267'] };
+
+  function rifaConocida(id) {
+    for (var i = 0; i < rifasConocidas.length; i++) {
+      if (rifasConocidas[i].id === id) { return rifasConocidas[i]; }
+    }
+    return null;
+  }
+
+  /** Abrir la pestaña: se parte de lo que la rifa tenga guardado. */
+  function abrirDiseno() {
+    // Por si se llegó aquí por un camino que no trajo el historial: se pide y
+    // se vuelve. Más vale una consulta de más que decirle a alguien que su
+    // rifa no existe.
+    if (rifaActual && !rifaConocida(rifaActual)) {
+      return llamar('rifas')
+        .then(function (datos) { rifasConocidas = datos.rifas || []; })
+        .catch(function () { /* se pinta con lo que haya */ })
+        .then(pintarDiseno);
+    }
+    return pintarDiseno();
+  }
+
+  function pintarDiseno() {
+    var r = rifaConocida(rifaActual);
+    $('disenoDeQuien').textContent = r
+      ? 'Estás diseñando el boleto de «' + r.nombre + '», serie ' + r.serie + '.'
+      : 'Todavía no hay ninguna rifa que manejar. Crea una en la pestaña «Rifas».';
+    var puede = !!r;
+    $('btnGuardarDiseno').disabled = !puede;
+    $('btnDisenoDeSiempre').disabled = !puede;
+    disenoEnEdicion = disenoCompleto(r ? r.diseno : null);
+    escribirControles(disenoEnEdicion);
+    refrescarVista();
+  }
+
+  function pintarTemas() {
+    var caja = $('temas');
+    caja.textContent = '';
+    Object.keys(TEMAS).forEach(function (llave) {
+      var t = TEMAS[llave];
+      var boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'tema' + (llave === disenoEnEdicion.tema ? ' elegido' : '');
+      boton.dataset.tema = llave;
+
+      var muestra = document.createElement('span');
+      muestra.className = 'muestra';
+      muestra.style.background = t.fondo;
+      [t.tinta, t.acento, t.borde].forEach(function (c) {
+        var punto = document.createElement('span');
+        punto.className = 'punto';
+        punto.style.background = c;
+        muestra.appendChild(punto);
+      });
+
+      var nombre = document.createElement('span');
+      nombre.className = 'nombre';
+      nombre.textContent = t.nombre;
+
+      boton.appendChild(muestra);
+      boton.appendChild(nombre);
+      boton.addEventListener('click', function () { elegirTema(llave); });
+      caja.appendChild(boton);
+    });
+  }
+
+  /** Elegir un tema reemplaza los cuatro colores: es el punto de un tema. */
+  function elegirTema(llave) {
+    var t = TEMAS[llave];
+    disenoEnEdicion.tema = llave;
+    disenoEnEdicion.fondo = t.fondo;
+    disenoEnEdicion.tinta = t.tinta;
+    disenoEnEdicion.acento = t.acento;
+    disenoEnEdicion.borde = t.borde;
+    escribirControles(disenoEnEdicion);
+    refrescarVista();
+  }
+
+  function escribirControles(d) {
+    $('dsFondo').value = d.fondo;
+    $('dsTinta').value = d.tinta;
+    $('dsAcento').value = d.acento;
+    $('dsBorde').value = d.borde;
+    $('dsAviso').value = d.aviso;
+    $('dsColumnas').value = String(d.columnas);
+    $('btnQuitarLogo').hidden = !d.logo;
+    pintarTemas();
+  }
+
+  function leerControles() {
+    disenoEnEdicion.fondo = $('dsFondo').value;
+    disenoEnEdicion.tinta = $('dsTinta').value;
+    disenoEnEdicion.acento = $('dsAcento').value;
+    disenoEnEdicion.borde = $('dsBorde').value;
+    disenoEnEdicion.aviso = $('dsAviso').value;
+    disenoEnEdicion.columnas = Number($('dsColumnas').value);
+    refrescarVista();
+  }
+
+  ['dsFondo', 'dsTinta', 'dsAcento', 'dsBorde'].forEach(function (id) {
+    $(id).addEventListener('input', leerControles);
+  });
+  $('dsAviso').addEventListener('input', leerControles);
+  $('dsColumnas').addEventListener('change', leerControles);
+
+  /**
+   * La vista previa. Dibuja UN boleto con el mismo código que la hoja de
+   * verdad, a su tamaño real en milímetros, y luego lo encoge para que quepa.
+   */
+  function refrescarVista() {
+    var d = disenoCompleto(disenoEnEdicion);
+    var r = rifaConocida(rifaActual);
+    var nombre = r ? r.nombre : 'Nombre de la rifa';
+    var precio = (r && r.precio_boleto !== null && r.precio_boleto !== undefined)
+      ? '$' + r.precio_boleto : '';
+
+    // Tantos números como lleve de verdad un boleto de esta rifa.
+    var cuantos = (r && r.folios_por_boleto) || 4;
+    var muestra = { id: MUESTRA.id, codigo: MUESTRA.codigo, folios: [] };
+    for (var i = 0; i < cuantos; i++) {
+      muestra.folios.push(MUESTRA.folios[i % MUESTRA.folios.length]);
+    }
+
+    // El ancho real que va a tener impreso: hoja carta (216 mm) menos los
+    // márgenes de página (10 mm por lado), menos el relleno de la rejilla
+    // (6 mm por lado), menos los huecos entre columnas.
+    var anchoMm = (184 - 5 * (d.columnas - 1)) / d.columnas;
+
+    var caja = $('vistaBoleto');
+    caja.textContent = '';
+    var estilo = document.createElement('style');
+    // Los colores del boleto quedan encerrados bajo el contenedor: si no,
+    // el tema «Noche» le pintaría el fondo a medio panel.
+    estilo.textContent = estiloBoleto(d, '#vistaBoleto ');
+    var envoltura = document.createElement('div');
+    envoltura.className = 'envoltura';
+    envoltura.style.width = anchoMm + 'mm';
+    envoltura.style.fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+    envoltura.innerHTML = boletoHtml(nombre, muestra, baseDelSitio() + '?b=' + muestra.id +
+      '&c=' + muestra.codigo, precio, d);
+
+    caja.appendChild(estilo);
+    caja.appendChild(envoltura);
+    encogerVista();
+    pintarAvisoContraste(d);
+  }
+
+  /** Encoge el boleto lo justo para que quepa, sin deformarlo. */
+  function encogerVista() {
+    var caja = $('vistaBoleto');
+    var envoltura = caja.querySelector('.envoltura');
+    if (!envoltura) { return; }
+    envoltura.style.transform = '';
+    var disponible = caja.clientWidth - 20;          // el relleno de la caja
+    var real = envoltura.offsetWidth;
+    var escala = real > disponible ? disponible / real : 1;
+    envoltura.style.transform = 'scale(' + escala + ')';
+    caja.style.height = (envoltura.offsetHeight * escala) + 'px';
+  }
+
+  window.addEventListener('resize', function () {
+    if (!$('paneDiseno').hidden) { encogerVista(); }
+  });
+
+  function pintarAvisoContraste(d) {
+    var caja = $('avisoContraste');
+    var avisos = avisosDeContraste(d);
+    caja.hidden = avisos.length === 0;
+    if (avisos.length) {
+      caja.textContent = 'Ojo antes de imprimir: ' + avisos.join('; ') +
+        '. En pantalla se alcanza a ver; en papel, y más en una impresora con poca tinta, no.';
+    }
+  }
+
+  // --- El logo -------------------------------------------------------
+  /*
+   * La imagen se achica en el navegador antes de mandarla. Un logo sacado de
+   * la galería del celular pesa megabytes y va a parar a un renglón de la base
+   * que después viaja completo en cada consulta de boletos. Impreso a nueve
+   * milímetros de alto, 400 píxeles de ancho sobran.
+   */
+  var LOGO_MAX_ANCHO = 400;
+  var LOGO_MAX_BYTES = 120 * 1024;
+
+  $('dsLogo').addEventListener('change', function () {
+    var archivo = this.files && this.files[0];
+    if (!archivo) { return; }
+    mensaje('Preparando el logo…', '', 'mensajeDiseno');
+    achicarImagen(archivo)
+      .then(function (dataUrl) {
+        disenoEnEdicion.logo = dataUrl;
+        $('btnQuitarLogo').hidden = false;
+        mensaje('', '', 'mensajeDiseno');
+        refrescarVista();
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
+  });
+
+  $('btnQuitarLogo').addEventListener('click', function () {
+    disenoEnEdicion.logo = '';
+    $('dsLogo').value = '';
+    this.hidden = true;
+    refrescarVista();
+  });
+
+  function achicarImagen(archivo) {
+    return new Promise(function (resolver, rechazar) {
+      var lector = new FileReader();
+      lector.onerror = function () { rechazar(new Error('No se pudo leer esa imagen.')); };
+      lector.onload = function () {
+        var img = new Image();
+        img.onerror = function () { rechazar(new Error('Eso no parece una imagen.')); };
+        img.onload = function () {
+          // PNG conserva el fondo transparente, que es lo que un logo necesita
+          // para no salir con un rectángulo blanco encima del boleto.
+          var conAlfa = /png|webp/i.test(archivo.type);
+          var ancho = Math.min(LOGO_MAX_ANCHO, img.width);
+          for (var intento = 0; intento < 5; intento++) {
+            var lienzo = document.createElement('canvas');
+            lienzo.width = Math.round(ancho);
+            lienzo.height = Math.round(img.height * (ancho / img.width));
+            lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+            var dataUrl = conAlfa
+              ? lienzo.toDataURL('image/png')
+              : lienzo.toDataURL('image/jpeg', 0.85);
+            if (dataUrl.length * 0.75 <= LOGO_MAX_BYTES) { return resolver(dataUrl); }
+            ancho = ancho * 0.7;
+          }
+          rechazar(new Error('Esa imagen no se pudo achicar lo suficiente. ' +
+                             'Prueba con una más sencilla o con menos colores.'));
+        };
+        img.src = lector.result;
+      };
+      lector.readAsDataURL(archivo);
+    });
+  }
+
+  // --- Guardar -------------------------------------------------------
+  $('btnGuardarDiseno').addEventListener('click', function () {
+    if (!rifaActual) { return; }
+    var d = disenoCompleto(disenoEnEdicion);
+    mensaje('Guardando…', '', 'mensajeDiseno');
+    llamar('guardar_diseno', { rifa: rifaActual, diseno: d })
+      .then(function (datos) {
+        var r = rifaConocida(rifaActual);
+        if (r) { r.diseno = (datos.rifa && datos.rifa.diseno) || d; }
+        mensaje('Listo. La próxima hoja de boletos de esta rifa va a salir así.',
+                'ok', 'mensajeDiseno');
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
+  });
+
+  $('btnDisenoDeSiempre').addEventListener('click', function () {
+    if (!rifaActual) { return; }
+    confirmarDiseno('Vuelve al tema clásico y borra el logo. ¿Seguro?');
+  });
+
+  var pendienteDiseno = null;
+  function confirmarDiseno(texto) {
+    if (pendienteDiseno) { clearTimeout(pendienteDiseno); }
+    var boton = $('btnDisenoDeSiempre');
+    if (boton.dataset.confirmando === '1') {
+      boton.dataset.confirmando = '';
+      boton.textContent = 'Volver al de siempre';
+      mensaje('Guardando…', '', 'mensajeDiseno');
+      return llamar('guardar_diseno', { rifa: rifaActual, diseno: null })
+        .then(function () {
+          var r = rifaConocida(rifaActual);
+          if (r) { r.diseno = null; }
+          disenoEnEdicion = disenoCompleto(null);
+          $('dsLogo').value = '';
+          escribirControles(disenoEnEdicion);
+          refrescarVista();
+          mensaje('Volvió al diseño de siempre.', 'ok', 'mensajeDiseno');
+        })
+        .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
+    }
+    boton.dataset.confirmando = '1';
+    boton.textContent = 'Confirmar';
+    mensaje(texto, '', 'mensajeDiseno');
+    pendienteDiseno = setTimeout(function () {
+      boton.dataset.confirmando = '';
+      boton.textContent = 'Volver al de siempre';
+      mensaje('', '', 'mensajeDiseno');
+    }, 6000);
   }
 
   // ------------------------------------------------------------------
@@ -952,6 +1368,10 @@
     llamar('rifas')
       .then(function (datos) {
         var lista = datos.rifas || [];
+        // El historial ya viene aquí: se guarda de una vez. Si no, entrar y
+        // pulsar «Diseño» sin pasar por «Rifas» encontraba la lista vacía y el
+        // panel juraba que no había ninguna rifa.
+        rifasConocidas = lista;
         var activa = lista.filter(function (r) { return r.activa; })[0] || lista[0];
 
         $('vistaClave').hidden = true;

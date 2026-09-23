@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=13" />
-  <link rel="stylesheet" href="assets/panel.css?v=13" />
+  <link rel="stylesheet" href="assets/estilos.css?v=14" />
+  <link rel="stylesheet" href="assets/panel.css?v=14" />
 </head>
 <body class="panel">
   <main class="tablero">
@@ -49,6 +49,7 @@
       <button class="pestana activa" data-panel="paneSorteo">Sorteo</button>
       <button class="pestana" data-panel="paneRifas">Rifas</button>
       <button class="pestana" data-panel="paneVerificar">Verificar</button>
+      <button class="pestana" data-panel="paneDiseno">Diseño</button>
       <button class="pestana" data-panel="panePerfil">Perfil</button>
     </nav>
 
@@ -215,7 +216,76 @@
       <p class="mensaje" id="mensajeVerificar" role="status" aria-live="polite"></p>
     </section>
 
-    <!-- 4. Perfil -->
+    <!-- 4. Diseño del boleto impreso -->
+    <section id="paneDiseno" class="caja" hidden>
+      <h2 class="subtitulo-seccion">Diseño del boleto</h2>
+      <p class="nota">
+        Le da aspecto <strong>al boleto que se imprime</strong>. Se guarda en la
+        rifa que el panel está manejando, así que cada rifa puede verse
+        distinta y volver a imprimir una hoja vieja da la hoja de entonces.
+        La pantalla que ve quien escanea no cambia: esa está afinada para abrir
+        en una antena saturada y ahí cada adorno pesa.
+      </p>
+      <p class="nota" id="disenoDeQuien"></p>
+
+      <h3 class="subtitulo-menor">Tema</h3>
+      <div class="temas" id="temas"></div>
+
+      <h3 class="subtitulo-menor">Tus colores</h3>
+      <p class="nota">Parte de un tema y cámbiale lo que quieras.</p>
+      <div class="rejilla-campos">
+        <label class="campo">
+          <span>Fondo</span>
+          <input type="color" id="dsFondo" />
+        </label>
+        <label class="campo">
+          <span>Letra</span>
+          <input type="color" id="dsTinta" />
+        </label>
+        <label class="campo">
+          <span>Números</span>
+          <input type="color" id="dsAcento" />
+        </label>
+        <label class="campo">
+          <span>Marco</span>
+          <input type="color" id="dsBorde" />
+        </label>
+      </div>
+      <p class="aviso-contraste" id="avisoContraste" hidden></p>
+
+      <h3 class="subtitulo-menor">Logo</h3>
+      <div class="fila-logo">
+        <input type="file" id="dsLogo" accept="image/png,image/jpeg,image/webp" />
+        <button class="boton fantasma chico" id="btnQuitarLogo" hidden>Quitar</button>
+      </div>
+      <p class="nota">Se achica solo antes de guardarse. PNG con fondo transparente es lo que mejor imprime.</p>
+
+      <h3 class="subtitulo-menor">Letra chica y tamaño</h3>
+      <label class="campo">
+        <span>Aviso al pie del nombre</span>
+        <textarea id="dsAviso" rows="2" maxlength="200"></textarea>
+        <small class="ayuda">Déjalo vacío si no quieres ninguno.</small>
+      </label>
+      <label class="campo">
+        <span>Boletos por renglón en la hoja</span>
+        <select id="dsColumnas">
+          <option value="1">1 — boleto grande</option>
+          <option value="2">2 — el de siempre</option>
+          <option value="3">3 — boleto chico, más por hoja</option>
+        </select>
+      </label>
+
+      <h3 class="subtitulo-menor">Así va a salir impreso</h3>
+      <div class="vista-boleto" id="vistaBoleto"></div>
+
+      <div class="fila">
+        <button class="boton primario" id="btnGuardarDiseno">Guardar el diseño</button>
+        <button class="boton fantasma" id="btnDisenoDeSiempre">Volver al de siempre</button>
+      </div>
+      <p class="mensaje" id="mensajeDiseno" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- 5. Perfil -->
     <section id="panePerfil" class="caja" hidden>
       <h2 class="subtitulo-seccion">Cambiar la clave del panel</h2>
       <p class="nota">
@@ -255,9 +325,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=13"></script>
-  <script src="assets/youtube.js?v=13"></script>
+  <script src="assets/config.js?v=14"></script>
+  <script src="assets/youtube.js?v=14"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=13"></script>
+  <script src="assets/panel.js?v=14"></script>
 </body>
 </html>
