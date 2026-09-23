@@ -134,14 +134,41 @@ h1 {
   text-transform: uppercase;
   color: var(--tinta-tenue);
 }
-.folio {
+/*
+ * Los números del boleto. Con uno solo se ve como antes, grande y centrado;
+ * con cuatro se acomodan en rejilla y encogen lo justo para caber en un
+ * teléfono angosto sin que haya que hacer nada a mano.
+ */
+.folios {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
   margin: 0 0 20px;
+}
+.folio {
+  margin: 0;
   font-family: var(--mono);
-  font-size: clamp(2.1rem, 11vw, 2.9rem);
+  font-size: clamp(1.5rem, 8vw, 2.9rem);
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.1;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
+}
+/* Un solo número: se queda del tamaño de antes. */
+.folios .folio:only-child { font-size: clamp(2.1rem, 11vw, 2.9rem); }
+
+/*
+ * El número que ganó. Se marca con color Y con un subrayado grueso: el color
+ * solo no le sirve a quien no lo distingue. El subrayado hereda el color del
+ * texto, así que se acomoda solo al tema claro y al oscuro.
+ */
+.folio.folioGanador {
+  font-weight: 700;
+  color: var(--gana);
+  text-decoration: underline;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.18em;
 }
 
 .frase { margin: 0 0 4px; font-size: 1.05rem; }

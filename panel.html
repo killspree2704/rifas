@@ -151,6 +151,12 @@
             <input type="number" id="nvDigitos" min="4" max="8" value="5" />
           </label>
           <label class="campo">
+            <span>Números por boleto</span>
+            <input type="number" id="nvFoliosPorBoleto" min="1" max="10" value="4" />
+            <small class="ayuda">Cada número es una oportunidad de ganar el mismo
+              premio. Con 4, un boleto entra cuatro veces a la tómbola.</small>
+          </label>
+          <label class="campo">
             <span>Precio (opcional)</span>
             <input type="number" id="nvPrecio" min="0" step="1" placeholder="—" />
           </label>
@@ -169,15 +175,16 @@
     <!-- 3. Verificar -->
     <section id="paneVerificar" class="caja" hidden>
       <p class="nota">
-        Doble confirmación de un boleto de papel: el folio es el número grande y
-        el código son los cuatro caracteres de abajo. Los dos tienen que
-        coincidir; el código sale de una firma que solo conoce el servidor, así
-        que no se puede inventar.
+        Doble confirmación de un boleto de papel. Puedes preguntar de dos
+        maneras: por el número largo del boleto —el que lleva el QR— junto con
+        su código, o por cualquiera de sus números grandes, que es lo que sale
+        de la tómbola. El código nace de una firma que solo conoce el servidor,
+        así que no se puede inventar.
       </p>
       <div class="rejilla-campos">
         <label class="campo">
-          <span>Folio</span>
-          <input type="text" id="vfFolio" inputmode="numeric" placeholder="11052" />
+          <span>Boleto o uno de sus números</span>
+          <input type="text" id="vfFolio" inputmode="numeric" placeholder="9171057830 o 11052" />
         </label>
         <label class="campo">
           <span>Código</span>

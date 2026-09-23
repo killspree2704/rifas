@@ -313,3 +313,12 @@ input[type="url"] {
   letter-spacing: 0;
   color: var(--sello);
 }
+
+/* Una línea de ayuda bajo un campo, cuando el rótulo no alcanza a explicarlo. */
+.campo .ayuda {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--tinta-tenue);
+}

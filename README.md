@@ -1,4 +1,4 @@
-# Rifas con folio y código QR
+# Rifas con boleto de varios folios y código QR
 
 > **¿Retomando el proyecto, o desde otro equipo?** Empieza por
 > [`CONTINUIDAD.md`](CONTINUIDAD.md): direcciones, acceso al panel, cómo está
@@ -16,14 +16,19 @@ se le vendió cada boleto lo lleva el organizador a mano, en papel.
 
 ## Cómo se usa
 
+Un **boleto de papel lleva varios folios** —cuatro por omisión—, y cada uno es
+una oportunidad distinta de ganar el mismo premio. El ganador sigue siendo uno
+solo: el boleto entra cuatro veces a la tómbola, no se lleva cuatro premios.
+Un QR, un código y un precio por boleto; cuatro números impresos.
+
 **El participante** escanea el QR de su boleto y cae en
-`…/rifas/?f=11052&c=R5VR`. La página valida el boleto y le muestra:
+`…/rifas/?b=9171057830&c=R5VR`. La página valida el boleto y le muestra:
 
 | Estado | Pantalla |
 | --- | --- |
-| `espera` | Su folio, «Pronto conoceremos al ganador o la ganadora» y el cronómetro |
+| `espera` | Sus números, «Pronto conoceremos al ganador o la ganadora» y el cronómetro |
 | `en_vivo` | «La rifa se está llevando a cabo», con el botón a la transmisión si la hay — entra sola al llegar la hora |
-| `revelado` | Su folio contra el ganador: ¡Ganaste! o Suerte para la próxima |
+| `revelado` | Sus números contra el ganador: ¡Ganaste! —con el número que salió subrayado— o Suerte para la próxima |
 | `cerrado` | Igual que revelado, con la rifa terminada |
 
 Una rifa se puede **cerrar sin haber revelado a nadie** —se suspende, se
@@ -31,10 +36,10 @@ pospone—. En ese caso la pantalla dice «Rifa cerrada · se cerró sin registr
 ganador», no «no ganaste»: decirle a alguien que perdió cuando no ganó nadie
 es mentirle.
 
-Un folio inventado, o con código equivocado, ve **Boleto no válido**.
+Un boleto inventado, o con código equivocado, ve **Boleto no válido**.
 
 Cada boleto sabe a qué rifa pertenece: la pantalla no está atada a ninguna
-rifa fija, la manda el folio impreso. Un boleto de hace un año sigue abriendo
+rifa fija, la manda el boleto impreso. Un boleto de hace un año sigue abriendo
 su propio resultado, y uno recién impreso abre el sorteo que viene.
 
 **El organizador** entra a `…/panel.html` con la clave del panel. Tres
@@ -43,8 +48,8 @@ pestañas:
 | Pestaña | Para qué |
 | --- | --- |
 | **Sorteo** | Guardar el enlace de la transmisión, salir al aire, revelar al ganador (capturando el folio de la tómbola o dejando que el sistema sortee) y cerrar |
-| **Rifas** | Crear una rifa nueva con sus folios, ver el historial completo y sacar la hoja de boletos para imprimir |
-| **Verificar** | Teclear folio y código de un boleto de papel y saber si es original |
+| **Rifas** | Crear una rifa nueva —eligiendo cuántos números lleva cada boleto— ver el historial completo y sacar la hoja de boletos para imprimir |
+| **Verificar** | Teclear el número del boleto —o cualquiera de sus folios— con su código, y saber si es original |
 
 ### La transmisión en vivo
 
@@ -105,7 +110,9 @@ Y el error más fácil de cometer no es técnico, es humano: teclear `11053` en
 vez de `11052` con gente mirando y la cámara encendida. Si ese folio también
 existe, queda coronada otra persona para siempre.
 
-Por eso, al escribir el folio, el panel enseña **el folio con su código** y el
+Con cuatro números por boleto esto importa más, no menos: la bolita trae un
+número, pero lo que hay que pedir es el papel. Por eso, al escribir el folio,
+el panel enseña **de qué boleto salió, con su código y sus otros números**, y el
 botón de revelar no se enciende hasta entonces:
 
 ```
@@ -120,8 +127,9 @@ folio anula cualquier confirmación a medias.
 
 ### La doble confirmación del boleto
 
-Cada boleto lleva dos números: el **folio** (el número grande) y el **código**
-de cuatro caracteres. El código no es un número más: sale de firmar el folio
+Cada boleto lleva sus **folios** (los números grandes), su **número de boleto**
+—el largo, el que va en el QR— y un **código** de cuatro caracteres, uno solo
+para todo el papel. El código no es un número más: sale de firmar el boleto
 con una llave que solo conoce el servidor —HMAC-SHA256, recortado a cuatro
 caracteres en base32 de Crockford, sin I, L, O ni U para que nadie confunda un
 1 con una I al teclearlo—. Sin esa llave no se puede calcular, así que un
@@ -183,9 +191,9 @@ publicarlos permitiría fabricar URLs válidas.
 ## Seguridad
 
 - El público solo puede leer el estado de la rifa. No hay escritura pública en
-  ninguna tabla, y la tabla `boletos` no tiene ni una política: los códigos no
-  salen de la base. Para saber de qué rifa es un boleto hay que traer folio y
-  código ya escritos: `rifa_de_folio` solo contesta cuando los dos coinciden,
+  ninguna tabla, y `boletos` y `folios` no tienen ni una política: ni los
+  códigos ni los números salen de la base. Para saber de qué rifa es un boleto hay que traer boleto y
+  código ya escritos: `rifa_de_boleto` solo contesta cuando los dos coinciden,
   y nunca devuelve el código.
 - La llave que firma los códigos vive en `llave_firma`, una tabla **sin
   ninguna política**: solo la alcanza la función de borde. Si saliera de ahí,
@@ -227,7 +235,7 @@ eso no arruine el sorteo:
   teléfono, que es justo lo que pasa a la hora del sorteo.
 
 Al cambiar archivos del sitio hay que subir la versión del caché en `sw.js`
-(`CACHE = 'rifa-v6'`, etc.) para que los teléfonos tomen la versión nueva.
+(`CACHE = 'rifa-v11'`, etc.) para que los teléfonos tomen la versión nueva.
 
 ## Qué aguanta, medido
 
@@ -336,6 +344,8 @@ caso de la base viva con el panel caído— y del panel contra una base vacía.
 `?ensayo=1` corre la pantalla del participante contra el reloj, sin servidor:
 
 ```
-?f=11052&c=R5VR&ensayo=1                 → espera / en vivo según la hora
-?f=11052&c=R5VR&ensayo=1&ganador=11052   → fuerza la pantalla de ganador
+?b=9171057830&c=R5VR&ensayo=1&folios=1018,4307,2850,3267
+                                         → espera / en vivo según la hora
+?b=9171057830&c=R5VR&ensayo=1&folios=1018,4307&ganador=4307
+                                         → fuerza la pantalla de ganador
 ```

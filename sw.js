@@ -7,7 +7,7 @@
  * permiso a la red**. Lo único que necesita conexión es consultar el estado
  * de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v10';
+const CACHE = 'rifa-v11';
 
 // Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
 // propósito: son 215 KB, y pedirlos en una red mala haría fallar la
@@ -84,7 +84,7 @@ self.addEventListener('fetch', (evento) => {
     const esBoleto = url.pathname === '/' || url.pathname.endsWith('/index.html');
 
     // --- La pantalla del boleto ---
-    // Copia primero. El folio viaja en la dirección (?f=...), no en el HTML,
+    // Copia primero. El boleto viaja en la dirección (?b=...), no en el HTML,
     // así que la misma copia sirve para todos los boletos: quien ya la abrió
     // una vez la vuelve a abrir al instante, sin depender de la red.
     if (esBoleto) {

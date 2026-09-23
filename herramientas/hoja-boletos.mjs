@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * Arma la hoja imprimible de boletos: folio, código y QR de cada uno.
+ * Arma la hoja imprimible de boletos: sus números, su código y su QR.
+ *
+ * Un boleto lleva varios números —cada uno es una oportunidad de ganar el
+ * mismo premio— y un solo QR, que apunta al boleto entero.
  *
  *   node herramientas/hoja-boletos.mjs lote.json "https://killspree2704.github.io/rifas/" hoja.html
  *
@@ -49,16 +52,20 @@ function qrSvg(texto) {
 }
 
 const separador = base.includes('?') ? '&' : '?';
+const porBoleto = lote.folios_por_boleto || (lote.boletos[0]?.folios?.length ?? 1);
+const totalFolios = lote.boletos.reduce((n, b) => n + (b.folios || []).length, 0);
+
 const boletos = lote.boletos.map((b) => {
-  const url = `${base}${separador}f=${b.folio}&c=${b.codigo}`;
+  const url = `${base}${separador}b=${b.boleto}&c=${b.codigo}`;
+  const numeros = (b.folios || []).map((f) => `<span class="num">${f}</span>`).join('');
   return `<article class="boleto">
-    <div class="datos">
-      <p class="marca">${lote.nombre || 'Rifa'}</p>
-      <p class="rotulo">Folio</p>
-      <p class="folio">${b.serie}-${b.folio}</p>
-      <p class="codigo">Código ${b.codigo}</p>
+    <p class="marca">${lote.nombre || 'Rifa'}</p>
+    <p class="aviso">El boleto se anulará si se encuentra roto, con tachones, borrones o enmendaduras.</p>
+    <div class="medio">
+      <div class="numeros">${numeros}</div>
+      <div class="qr">${qrSvg(url)}</div>
     </div>
-    <div class="qr">${qrSvg(url)}</div>
+    <p class="pie"><span class="serial">${b.boleto}</span><span class="codigo">Código ${b.codigo}</span></p>
   </article>`;
 }).join('\n');
 
@@ -69,26 +76,33 @@ writeFileSync(salida, `<!DOCTYPE html>
   @page { size: letter; margin: 12mm; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #fff; color: #111; }
   h1 { font-size: 14pt; margin: 0 0 8mm; }
-  .rejilla { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6mm; }
-  .boleto {
-    display: flex; align-items: center; justify-content: space-between; gap: 4mm;
-    border: 1px dashed #999; border-radius: 3mm; padding: 4mm 5mm; break-inside: avoid;
+  .rejilla { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5mm; }
+  .boleto { border: 1px solid #333; border-radius: 2mm; padding: 3mm 4mm; break-inside: avoid; }
+  .marca { font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; text-align: center; margin: 0 0 1mm; }
+  .aviso { font-size: 5.5pt; color: #444; text-align: center; margin: 0 0 2mm; line-height: 1.25; }
+  .medio { display: flex; align-items: center; justify-content: space-between; gap: 3mm; }
+  /* En rejilla de dos: cuatro números quedan cuadrados, y con uno o dos la
+     caja no se deforma. */
+  .numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5mm; flex: 1 1 auto; }
+  .num {
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14pt; font-weight: 700;
+    color: #c2185b; border: 0.4mm solid #333; border-radius: 1mm; padding: 0.8mm 1mm;
+    text-align: center; letter-spacing: 0.03em;
   }
-  .marca { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.12em; color: #666; margin: 0 0 2mm; }
-  .rotulo { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.16em; color: #888; margin: 0; }
-  .folio { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 17pt; font-weight: 600; margin: 0; letter-spacing: 0.04em; }
-  .codigo { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9pt; color: #444; margin: 1mm 0 0; letter-spacing: 0.1em; }
-  .qr { width: 26mm; flex: 0 0 auto; }
+  .pie { display: flex; align-items: baseline; justify-content: space-between; gap: 2mm; margin: 2mm 0 0; font-size: 6.5pt; color: #444; }
+  .serial { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; }
+  .codigo { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.1em; }
+  .qr { width: 19mm; flex: 0 0 auto; }
   .qr svg { width: 100%; height: auto; display: block; }
   @media print { h1 { display: none; } }
 </style></head>
 <body>
-  <h1>${lote.boletos.length} boletos · serie ${lote.serie} · ${base}</h1>
+  <h1>${lote.boletos.length} boletos · ${totalFolios} números (${porBoleto} por boleto) · serie ${lote.serie} · ${base}</h1>
   <div class="rejilla">
 ${boletos}
   </div>
 </body></html>
 `);
 
-console.log(`Hoja con ${lote.boletos.length} boletos: ${salida}`);
+console.log(`Hoja con ${lote.boletos.length} boletos (${totalFolios} números): ${salida}`);
 console.log(`URL base: ${base}`);

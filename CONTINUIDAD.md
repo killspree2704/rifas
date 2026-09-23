@@ -4,7 +4,7 @@
 > funcionó— ver [`BITACORA.md`](BITACORA.md).
 
 Para retomar el proyecto desde cualquier computadora o teléfono, sin depender
-de esta máquina ni de esta conversación. Última revisión: 14 de septiembre de
+de esta máquina ni de esta conversación. Última revisión: 23 de septiembre de
 2026.
 
 ## Lo primero: qué es durable y qué no
@@ -111,7 +111,7 @@ node pruebas/panel.mjs
 ```
 
 Publicar es `git push`: Cloudflare recompila solo. **Si tocas archivos del
-sitio, sube el número de versión en `sw.js`** (`CACHE = 'rifa-v6'` → `v7`) o
+sitio, sube el número de versión en `sw.js`** (`CACHE = 'rifa-v10'` → `v11`) o
 los teléfonos que ya abrieron la página seguirán viendo la vieja.
 
 ## Cómo está armado
@@ -119,11 +119,11 @@ los teléfonos que ya abrieron la página seguirán viendo la vieja.
 ```
 El boleto de papel                El teléfono                    El panel
 ┌──────────────┐                 ┌──────────────┐              ┌──────────────┐
-│ Folio A-11052│   escanea QR    │ index.html   │              │ panel.html   │
-│ Código  R5VR │ ──────────────► │ + app.js     │              │ + panel.js   │
-│    [QR]      │  ?f=…&c=…       └──────┬───────┘              └──────┬───────┘
+│ 1018   4307  │   escanea QR    │ index.html   │              │ panel.html   │
+│ 2850   3267  │ ──────────────► │ + app.js     │              │ + panel.js   │
+│ [QR]  R5VR   │  ?b=…&c=…       └──────┬───────┘              └──────┬───────┘
 └──────────────┘                        │                             │
-                                 rifa_de_folio()            función de borde
+                                rifa_de_boleto()            función de borde
                                  (solo lee)                 `sorteo` (escribe)
                                         │                             │
                                         └────────► Supabase ◄─────────┘
@@ -132,27 +132,32 @@ El boleto de papel                El teléfono                    El panel
 - El teléfono **solo lee**. Nunca puede escribir nada.
 - El panel **tampoco escribe directo**: todo pasa por la función `sorteo`, que
   pide la clave en cada llamada.
-- La rifa que ve cada boleto la decide **el folio impreso**, no una
+- La rifa que ve cada boleto la decide **el boleto impreso**, no una
   configuración. Por eso una rifa nueva no necesita publicar el sitio otra vez.
+- **Un boleto lleva varios folios** —cuatro por omisión—, y cada uno es una
+  oportunidad de ganar. El ganador es **uno solo**: el boleto entra cuatro
+  veces a la tómbola, no se lleva cuatro premios. Cuántos números lleva cada
+  boleto se elige al crear la rifa.
 
 ### En la base de datos
 
 | Tabla | Qué guarda |
 | --- | --- |
 | `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión y desde qué aparato salió |
-| `boletos` | Folio (único de por vida) y su código. **Sin políticas: nadie las lee desde fuera** |
+| `boletos` | El boleto de papel: su número (el del QR) y su código, uno para todo el papel. **Sin políticas: nadie lo lee desde fuera** |
+| `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas. **Sin políticas** |
 | `sorteo_log` | Cada acción del panel con su hora |
 | `panel_clave` | El hash de la clave. Sin políticas |
 | `llave_firma` | La llave HMAC. Sin políticas |
 
 | Función | Qué hace |
 | --- | --- |
-| `rifa_de_folio(folio, codigo)` | Devuelve la rifa de un boleto, y solo si los dos coinciden |
-| `validar_boleto(rifa, folio, codigo)` | Verdadero o falso. Quedó de antes |
+| `rifa_de_boleto(boleto, codigo)` | Devuelve la rifa de un boleto **y sus folios**, y solo si los dos coinciden |
 | `proteger_ganador` (disparador) | Impide escribir el ganador antes de revelar y cambiarlo después. **Ni con la llave de servicio** |
 
 Migraciones aplicadas, en orden: `esquema_rifas`, `realtime_rifas`,
-`endurecer_trigger`, `rifa_activa_y_llave`, `rifa_de_folio`.
+`endurecer_trigger`, `rifa_activa_y_llave`, `rifa_de_folio`, `transmision`,
+`rifa_de_folio_con_transmision`, `boleto_con_varios_folios`.
 
 **Aquí no hay ni un dato personal.** Ni nombres, ni teléfonos, ni correos. Solo
 números. Quién compró cada boleto lo lleva el vendedor en su libreta, y ese es
@@ -173,9 +178,10 @@ el diseño, no una omisión.
    traen el botón **Ver la transmisión aquí**, que mete el reproductor en la
    propia pantalla del boleto. Debajo queda «o ábrela en YouTube» por si algo
    falla. **Quien la ve no necesita cuenta de nada.**
-4. Sacar el folio de la tómbola y teclearlo. El panel enseña el folio con su
-   código: **compáralo con el talón que traes en la mano** antes de tocar
-   Revelar, que no se enciende hasta entonces. Luego pide confirmar dos veces.
+4. Sacar el folio de la tómbola y teclearlo. El panel enseña **de qué boleto
+   salió ese número, con su código y sus otros tres números**:
+   **compáralo con el talón que traes en la mano** antes de tocar Revelar, que
+   no se enciende hasta entonces. Luego pide confirmar dos veces.
    **Es irreversible**: ni tú ni nadie puede cambiar el ganador después.
 5. **Cerrar**. El resultado sigue viéndose para quien escanee, para siempre.
 
@@ -187,21 +193,63 @@ necesita señal es enterarse del ganador.
 
 Todo desde el panel, sin tocar código ni publicar nada:
 
-1. **Rifas → Nueva rifa**: nombre, serie, día y hora, cuántos boletos, dígitos
-   y precio si quieres llevar la cuenta.
+1. **Rifas → Nueva rifa**: nombre, serie, día y hora, cuántos boletos,
+   **cuántos números lleva cada boleto** (4 de omisión), dígitos del folio y
+   precio si quieres llevar la cuenta. Ojo con el tope: lo que tiene que caber
+   en los dígitos son los *números*, no los boletos. Con 4 por boleto y 5
+   dígitos caben 6,750 boletos; el panel te lo dice antes de generar nada.
 2. Se abre la hoja: **Imprimir → Guardar como PDF**, y de ahí a la imprenta.
 3. **Manejar esta** para que el panel opere esa rifa.
 
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
-## Estado al 10 de septiembre de 2026
+## Estado al 23 de septiembre de 2026
 
-- Una sola rifa: `mm-2026-09`, «Rifa El Muerde Manos», serie A, 10 boletos de
-  prueba, sorteo el **domingo 13 de septiembre a las 18:00** (hora de Ciudad de
-  México). Sin ganador todavía.
-- El panel y el boleto están probados de punta a punta (`pruebas/panel.mjs`,
-  41 comprobaciones).
+Comprobado consultando Supabase, no de memoria.
+
+**El cambio de los cuatro folios ya corrió contra el servidor de verdad.** Hay
+una rifa creada desde el panel:
+
+| | |
+| --- | --- |
+| Rifa | `el-muerde-manos-20260922` · «El muerde manos» |
+| Serie | A · $30 · 4 números por boleto |
+| Tamaño | **10 boletos, 40 folios** |
+| Estado | En espera, y es la que el panel maneja |
+| Ganador | Todavía ninguno |
+
+Ojo con la fecha: quedó puesta el **22 de septiembre a las 22:40 UTC**, que ya
+pasó. Por eso la pantalla del participante entra sola en «La rifa se está
+llevando a cabo» aunque el panel siga en espera —el boleto se guía por el
+reloj cuando la hora llegó—. Si esa rifa es solo un ensayo, no importa; si va
+en serio, cámbiale la fecha antes de repartir nada.
+
+### Lo que se comprobó de ese lote, contra la base real
+
+- **10 boletos, 40 folios, y los 40 distintos.** Cada boleto tiene exactamente
+  cuatro, ninguno suelto sin dueño.
+- **Los 10 identificadores son de 10 dígitos** y los 10 códigos son distintos.
+- **Los 10 códigos son firmas válidas**: se recalcularon dentro de la base con
+  la misma llave y coinciden uno por uno. Si esto fallara, todos los QR dirían
+  «Boleto no válido».
+- **Los 10 boletos resuelven por `rifa_de_boleto`** con su código, **rechazan**
+  un código inventado, y devuelven sus cuatro números tal como están guardados.
+
+Con eso queda cerrado el hueco que se había anotado: el camino panel → función
+de borde → base sí se ejercitó de punta a punta. Lo único que no se pudo hacer
+desde aquí fue *llamar* a la función —este entorno no alcanza `supabase.co`,
+lo bloquea la política de egreso de la organización—, pero el lote que dejó en
+la base se revisó entero.
+
+### El resto del sistema
+
+- Las **8 migraciones** aplicadas; la función de borde `sorteo` en su
+  **versión 7**; la clave del panel y la llave de firma en su lugar.
+- `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
+  respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
+- El panel y el boleto pasan **108 comprobaciones** automáticas
+  (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
 

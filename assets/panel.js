@@ -109,8 +109,12 @@
     ultimoEstado = datos.rifa;
     rifaActual = datos.rifa.id;
     $('tituloRifa').textContent = datos.rifa.nombre;
-    $('subtitulo').textContent = 'Serie ' + datos.rifa.serie + ' · ' + datos.folios.length +
-      ' boletos · ' + fecha(datos.rifa.fecha_sorteo);
+    // Boletos y números son dos cuentas distintas ahora: la tómbola lleva
+    // números, pero lo que se entrega es un boleto.
+    var porBoleto = datos.rifa.folios_por_boleto || 1;
+    var cuantosBoletos = Math.round(datos.folios.length / porBoleto);
+    $('subtitulo').textContent = 'Serie ' + datos.rifa.serie + ' · ' + cuantosBoletos +
+      ' boletos · ' + datos.folios.length + ' números · ' + fecha(datos.rifa.fecha_sorteo);
     $('estadoTexto').textContent = ETIQUETAS[datos.rifa.estado] || datos.rifa.estado;
     $('conteoFolios').textContent = datos.folios.length;
     $('listaFolios').textContent = datos.folios.join(' ');
@@ -273,12 +277,14 @@
   // persona para siempre. Así que antes de confirmar se enseña el folio con
   // su código, para compararlo con el boleto que se trae en la mano.
   // ------------------------------------------------------------------
-  var mapaCodigos = null;      // folio -> código, de la rifa que se maneja
+  // De un folio al boleto de papel que lo lleva. Cada boleto trae varios
+  // números, así que de la bolita hay que llegar al papel, no al revés.
+  var mapaCodigos = null;      // folio -> { boleto, codigo, folios }
   var rifaDelMapa = null;
   var pidiendoCodigos = null;
   var folioCotejado = null;    // el folio que ya se comprobó y está a la vista
 
-  /** Trae los códigos una sola vez, y solo cuando de verdad hacen falta. */
+  /** Trae los boletos una sola vez, y solo cuando de verdad hacen falta. */
   function asegurarCodigos() {
     if (mapaCodigos && rifaDelMapa === rifaActual) { return Promise.resolve(mapaCodigos); }
     if (pidiendoCodigos) { return pidiendoCodigos; }
@@ -286,7 +292,11 @@
     pidiendoCodigos = llamar('boletos', { rifa: deQuien })
       .then(function (datos) {
         var mapa = {};
-        (datos.boletos || []).forEach(function (b) { mapa[b.folio] = b.codigo; });
+        (datos.boletos || []).forEach(function (b) {
+          (b.folios || []).forEach(function (f) {
+            mapa[f] = { boleto: b.id, codigo: b.codigo, folios: b.folios || [] };
+          });
+        });
         mapaCodigos = mapa;
         rifaDelMapa = deQuien;
         pidiendoCodigos = null;
@@ -301,7 +311,7 @@
     return $('folioGanador').value.trim().replace(/^[A-Za-z]+-/, '');
   }
 
-  function pintarCotejo(estado, folio, codigo) {
+  function pintarCotejo(estado, folio, ficha) {
     var caja = $('cotejoFolio');
     if (estado === 'nada') {
       caja.hidden = true;
@@ -322,10 +332,15 @@
       $('cotejoCodigo').textContent = 'Revísalo antes de revelar.';
       folioCotejado = null;
     } else {
+      var serie = (ultimoEstado && ultimoEstado.serie) ? ultimoEstado.serie + '-' : '';
       $('cotejoRotulo').textContent = 'Compara con el talón que traes en la mano';
-      $('cotejoNumero').textContent = (ultimoEstado && ultimoEstado.serie
-        ? ultimoEstado.serie + '-' : '') + folio;
-      $('cotejoCodigo').textContent = 'código ' + codigo;
+      $('cotejoNumero').textContent = serie + folio;
+      // El talón trae los cuatro números y un solo código: se enseñan los dos
+      // para que el cotejo sea contra el papel entero y no contra un número
+      // suelto que podría estar en otro boleto parecido.
+      var otros = (ficha.folios || []).filter(function (f) { return f !== folio; });
+      $('cotejoCodigo').textContent = 'boleto ' + ficha.boleto + ' · código ' + ficha.codigo +
+        (otros.length ? ' · sus otros números: ' + otros.map(function (f) { return serie + f; }).join(' ') : '');
       folioCotejado = folio;
     }
     mandarBotones();
@@ -499,28 +514,40 @@
    * los números se vuelven adivinables, así que el servidor lo rechaza. Más
    * vale enterarse aquí que después de esperar la generación.
    */
+  function foliosPorBoleto() {
+    var n = parseInt($('nvFoliosPorBoleto').value, 10);
+    return (n >= 1 && n <= 10) ? n : 4;
+  }
+
   function resumenNueva() {
     var cantidad = parseInt($('nvCantidad').value, 10);
     var digitos = parseInt($('nvDigitos').value, 10) || 5;
+    var porBoleto = foliosPorBoleto();
     var tope = Math.floor((Math.pow(10, digitos) - Math.pow(10, digitos - 1)) * 0.3);
+    // Lo que tiene que caber en los dígitos son los NÚMEROS, no los boletos:
+    // con 4 por boleto, 500 boletos son 2000 folios.
+    var topeBoletos = Math.floor(tope / porBoleto);
     var caja = $('cuentaNueva');
 
     if (!(cantidad > 0)) {
-      caja.textContent = 'Con ' + digitos + ' dígitos caben hasta ' +
-        tope.toLocaleString('es-MX') + ' boletos.';
+      caja.textContent = 'Con ' + digitos + ' dígitos y ' + porBoleto +
+        ' números por boleto caben hasta ' + topeBoletos.toLocaleString('es-MX') + ' boletos.';
       caja.className = 'nota';
       return;
     }
-    if (cantidad > tope) {
-      caja.textContent = cantidad.toLocaleString('es-MX') + ' boletos no caben en ' +
+    var totalFolios = cantidad * porBoleto;
+    if (totalFolios > tope) {
+      caja.textContent = cantidad.toLocaleString('es-MX') + ' boletos de ' + porBoleto +
+        ' números son ' + totalFolios.toLocaleString('es-MX') + ' folios, y no caben en ' +
         digitos + ' dígitos (el tope es ' + tope.toLocaleString('es-MX') +
-        '). Sube los dígitos del folio.';
+        '). Sube los dígitos del folio o baja los números por boleto.';
       caja.className = 'mensaje error';
       return;
     }
     var precio = parseFloat($('nvPrecio').value);
     var texto = 'Se van a generar ' + cantidad.toLocaleString('es-MX') +
-      ' boletos de ' + digitos + ' dígitos';
+      ' boletos con ' + porBoleto + ' números cada uno: ' +
+      totalFolios.toLocaleString('es-MX') + ' folios de ' + digitos + ' dígitos';
     if (precio > 0) {
       texto += ', que a $' + precio + ' suman $' +
         (precio * cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 });
@@ -529,7 +556,7 @@
     caja.className = 'nota';
   }
 
-  ['nvCantidad', 'nvDigitos', 'nvPrecio'].forEach(function (id) {
+  ['nvCantidad', 'nvDigitos', 'nvPrecio', 'nvFoliosPorBoleto'].forEach(function (id) {
     $(id).addEventListener('input', resumenNueva);
   });
   resumenNueva();
@@ -548,9 +575,11 @@
       return mensaje('Escribe cuántos boletos quieres, de 1 a 5000.', 'error', 'mensajeNueva');
     }
 
-    if (!confirmarNueva(cantidad + ' boletos nuevos para «' + nombre + '».')) { return; }
+    var porBoleto = foliosPorBoleto();
+    if (!confirmarNueva(cantidad + ' boletos nuevos para «' + nombre + '», con ' +
+        porBoleto + ' números cada uno.')) { return; }
 
-    mensaje('Generando ' + cantidad + ' folios… puede tardar unos segundos.', '', 'mensajeNueva');
+    mensaje('Generando ' + (cantidad * porBoleto) + ' folios… puede tardar unos segundos.', '', 'mensajeNueva');
     $('btnCrear').disabled = true;
 
     llamar('crear_rifa', {
@@ -561,11 +590,13 @@
       fecha_sorteo: conZona(fechaLocal),
       cantidad: cantidad,
       digitos: digitos,
+      folios_por_boleto: porBoleto,
       precio: precio === '' ? null : Number(precio),
     })
       .then(function (datos) {
         $('btnCrear').disabled = false;
-        mensaje('Lista: ' + datos.boletos.length + ' boletos. Abriendo la hoja para imprimir…', 'ok', 'mensajeNueva');
+        mensaje('Lista: ' + datos.boletos.length + ' boletos (' + datos.rifa.folios +
+          ' números). Abriendo la hoja para imprimir…', 'ok', 'mensajeNueva');
         abrirHoja(datos.rifa, datos.boletos);
 
         // Y el panel se pasa solo a la rifa recién creada. Antes se quedaba
@@ -594,6 +625,7 @@
       $(id).value = '';
     });
     $('nvDigitos').value = '5';
+    $('nvFoliosPorBoleto').value = '4';
     resumenNueva();
     mensaje('', '', 'mensajeNueva');
     $('cajaNueva').open = false;
@@ -694,37 +726,67 @@
 
   function hojaHtml(rifa, boletos) {
     var base = baseDelSitio();
+    var porBoleto = (boletos[0] && boletos[0].folios ? boletos[0].folios.length : 1);
+    var totalFolios = boletos.reduce(function (n, b) { return n + (b.folios || []).length; }, 0);
+    var precio = (rifa.precio_boleto === null || rifa.precio_boleto === undefined)
+      ? '' : '$' + rifa.precio_boleto;
+
     var trozos = boletos.map(function (b) {
-      var url = base + '?f=' + encodeURIComponent(b.folio) + '&c=' + encodeURIComponent(b.codigo);
-      return '<article class="boleto"><div class="datos">' +
+      // El QR lleva el boleto, no un folio: un papel, un código.
+      var url = base + '?b=' + encodeURIComponent(b.id) + '&c=' + encodeURIComponent(b.codigo);
+      var numeros = (b.folios || []).map(function (f) {
+        return '<span class="num">' + escapar(f) + '</span>';
+      }).join('');
+      return '<article class="boleto">' +
         '<p class="marca">' + escapar(rifa.nombre) + '</p>' +
-        '<p class="rotulo">Folio</p>' +
-        '<p class="folio">' + escapar(rifa.serie) + '-' + escapar(b.folio) + '</p>' +
-        '<p class="codigo">Código ' + escapar(b.codigo) + '</p>' +
-        '</div><div class="qr">' + qrSvg(url) + '</div></article>';
+        '<p class="aviso">El boleto se anulará si se encuentra roto, con tachones, ' +
+        'borrones o enmendaduras.</p>' +
+        '<div class="medio">' +
+        '<div class="numeros">' + numeros + '</div>' +
+        '<div class="qr">' + qrSvg(url) + '</div>' +
+        '</div>' +
+        '<p class="pie">' +
+        '<span class="serial">' + escapar(b.id) + '</span>' +
+        '<span class="codigo">Código ' + escapar(b.codigo) + '</span>' +
+        (precio ? '<span class="precio">' + escapar(precio) + '</span>' : '') +
+        '</p>' +
+        '</article>';
     });
+
     return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" />' +
       '<title>Boletos ' + escapar(rifa.serie) + ' — ' + boletos.length + '</title><style>' +
-      '@page { size: letter; margin: 12mm; }' +
+      '@page { size: letter; margin: 10mm; }' +
       'body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #fff; color: #111; }' +
       '.encabezado { padding: 8mm 6mm 0; }' +
       'h1 { font-size: 13pt; margin: 0 0 2mm; }' +
       '.pie-hoja { font-size: 9pt; color: #666; margin: 0 0 6mm; }' +
       'button { font: inherit; padding: 3mm 6mm; margin-bottom: 6mm; }' +
-      '.rejilla { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6mm; padding: 0 6mm 8mm; }' +
-      '.boleto { display: flex; align-items: center; justify-content: space-between; gap: 4mm;' +
-      ' border: 1px dashed #999; border-radius: 3mm; padding: 4mm 5mm; break-inside: avoid; }' +
-      '.marca { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.12em; color: #666; margin: 0 0 2mm; }' +
-      '.rotulo { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.16em; color: #888; margin: 0; }' +
-      '.folio { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 17pt; font-weight: 600; margin: 0; letter-spacing: 0.04em; }' +
-      '.codigo { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9pt; color: #444; margin: 1mm 0 0; letter-spacing: 0.1em; }' +
-      '.qr { width: 26mm; flex: 0 0 auto; }' +
+      '.rejilla { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5mm; padding: 0 6mm 8mm; }' +
+      '.boleto { border: 1px solid #333; border-radius: 2mm; padding: 3mm 4mm; break-inside: avoid; }' +
+      '.marca { font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;' +
+      ' text-align: center; margin: 0 0 1mm; }' +
+      '.aviso { font-size: 5.5pt; color: #444; text-align: center; margin: 0 0 2mm; line-height: 1.25; }' +
+      '.medio { display: flex; align-items: center; justify-content: space-between; gap: 3mm; }' +
+      // Los números en rejilla de dos: así cuatro caben cuadrados y parejos,
+      // y con uno o dos la caja no se deforma.
+      '.numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5mm; flex: 1 1 auto; }' +
+      '.num { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14pt; font-weight: 700;' +
+      ' color: #c2185b; border: 0.4mm solid #333; border-radius: 1mm; padding: 0.8mm 1mm;' +
+      ' text-align: center; letter-spacing: 0.03em; }' +
+      '.qr { width: 19mm; flex: 0 0 auto; }' +
       '.qr svg { width: 100%; height: auto; display: block; }' +
+      '.pie { display: flex; align-items: baseline; justify-content: space-between; gap: 2mm;' +
+      ' margin: 2mm 0 0; font-size: 6.5pt; color: #444; }' +
+      '.serial { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; }' +
+      '.codigo { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.1em; }' +
+      '.precio { font-weight: 700; font-size: 9pt; color: #111; }' +
       '@media print { .encabezado { display: none; } .rejilla { padding: 0; } }' +
       '</style></head><body><div class="encabezado">' +
-      '<h1>' + escapar(rifa.nombre) + ' · serie ' + escapar(rifa.serie) + ' · ' + boletos.length + ' boletos</h1>' +
-      '<p class="pie-hoja">Cada boleto lleva su folio, su código de verificación y el QR que apunta a ' +
-      escapar(base) + '. Imprime esta hoja o guárdala como PDF desde el mismo diálogo de impresión.</p>' +
+      '<h1>' + escapar(rifa.nombre) + ' · serie ' + escapar(rifa.serie) + ' · ' +
+      boletos.length + ' boletos · ' + totalFolios + ' números (' + porBoleto + ' por boleto)</h1>' +
+      '<p class="pie-hoja">Cada boleto lleva sus ' + porBoleto + ' números, un código de verificación ' +
+      'y el QR que apunta a ' + escapar(base) + '. Cualquiera de sus números puede ser el ganador. ' +
+      'Imprime esta hoja o guárdala como PDF desde el mismo diálogo de impresión.</p>' +
       '<button onclick="window.print()">Imprimir o guardar como PDF</button></div>' +
       '<div class="rejilla">' + trozos.join('') + '</div></body></html>';
   }
@@ -758,14 +820,24 @@
   });
 
   function verificar() {
-    var folio = $('vfFolio').value.trim().replace(/^[A-Za-z]+-/, '');
+    var escrito = $('vfFolio').value.trim().replace(/^[A-Za-z]+-/, '');
     var codigo = $('vfCodigo').value.trim().toUpperCase();
     var caja = $('resultadoVerificar');
     caja.hidden = true;
-    if (!folio || !codigo) { return mensaje('Faltan el folio o el código.', 'error', 'mensajeVerificar'); }
+    if (!escrito || !codigo) {
+      return mensaje('Faltan el número del boleto y su código.', 'error', 'mensajeVerificar');
+    }
+
+    // Un identificador de boleto es largo; un folio es corto. Se manda como lo
+    // uno o lo otro, y el servidor llega al mismo papel por los dos caminos.
+    // El código va siempre: es lo único que prueba que el papel es original.
+    var esBoleto = escrito.length >= 8;
+    var peticion = esBoleto
+      ? { boleto: escrito, codigo: codigo, rifa: rifaActual }
+      : { folio: escrito, codigo: codigo, rifa: rifaActual };
 
     mensaje('Comprobando…', '', 'mensajeVerificar');
-    llamar('verificar', { folio: folio, codigo: codigo, rifa: rifaActual })
+    llamar('verificar', peticion)
       .then(function (datos) {
         mensaje('', '', 'mensajeVerificar');
         caja.hidden = false;
@@ -779,11 +851,17 @@
         var detalle = document.createElement('p');
         detalle.className = 'nota';
         if (!datos.valido) {
-          detalle.textContent = 'Ese folio y ese código no van juntos en ninguna rifa. ' +
+          detalle.textContent = 'Ese número y ese código no van juntos en ninguna rifa. ' +
             'O está mal tecleado, o el boleto no salió de aquí.';
         } else {
-          detalle.textContent = 'Folio ' + datos.rifa.serie + '-' + datos.folio + ' · ' +
-            datos.rifa.nombre + ' · ' + fecha(datos.rifa.fecha_sorteo) +
+          var serie = datos.rifa.serie + '-';
+          var numeros = (datos.folios || []).map(function (f) {
+            // Se marca cuál de los números ganó: con cuatro por boleto,
+            // buscarlo a ojo es justo donde se cuelan los errores.
+            return serie + f + (f === datos.folio_ganador ? ' ←' : '');
+          }).join('  ');
+          detalle.textContent = 'Boleto ' + datos.boleto + ' · código ' + datos.codigo +
+            ' · ' + numeros + ' · ' + datos.rifa.nombre + ' · ' + fecha(datos.rifa.fecha_sorteo) +
             (datos.ganador ? ' · ES EL BOLETO GANADOR'
                            : (datos.rifa.folio_ganador ? ' · no fue el ganador' : ' · sorteo pendiente'));
         }

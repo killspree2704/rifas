@@ -19,10 +19,12 @@
     <div class="troquel" aria-hidden="true"><span></span></div>
 
     <div class="cuerpo">
-      <!-- Folio: visible en todos los estados que tienen boleto -->
+      <!-- Los números del boleto: visibles en todos los estados que tienen
+           boleto. Son varios porque un boleto de papel lleva varias
+           oportunidades de ganar el mismo premio. -->
       <div id="bloqueFolio" hidden>
-        <p class="rotulo">Folio</p>
-        <p class="folio" id="folio">—</p>
+        <p class="rotulo" id="rotuloFolios">Tus números</p>
+        <div class="folios" id="folios"></div>
       </div>
 
       <!-- Cargando -->
@@ -89,7 +91,7 @@
 
       <!-- Sin folio en la URL -->
       <section id="vistaSinFolio" class="vista" hidden>
-        <p class="frase">Escanea el QR de tu boleto para ver tu folio.</p>
+        <p class="frase">Escanea el QR de tu boleto para ver tus números.</p>
         <div class="cronometro" id="cronometro2" aria-hidden="true">
           <div><span id="c2Dias">00</span><small>días</small></div>
           <div><span id="c2Horas">00</span><small>hrs</small></div>

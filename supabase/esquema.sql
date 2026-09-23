@@ -1,5 +1,6 @@
 -- Esquema de la base de rifas (aplicado con las migraciones esquema_rifas,
--- realtime_rifas y endurecer_trigger).
+-- realtime_rifas, endurecer_trigger, rifa_activa_y_llave, rifa_de_folio,
+-- transmision, rifa_de_folio_con_transmision y boleto_con_varios_folios).
 --
 -- Regla del proyecto: aquí NO se guarda ningún dato personal. Solo folios,
 -- códigos de verificación y el estado de la rifa. Quién compró cada boleto
@@ -10,7 +11,13 @@
 --               `transmision_url` es el enlace público al directo de YouTube
 --               y `transmite_desde` anota qué aparato lo prendió, para que no
 --               se prenda dos veces desde dos lados
---   boletos     folio (único global e histórico) y su código impreso
+--   boletos     el boleto de papel: un identificador —el que va en el QR— y
+--               un código impreso, uno solo para todo el papel
+--   folios      una fila por número impreso en un boleto. El folio es la
+--               llave primaria: único global e histórico. Un boleto lleva
+--               varios —cuatro por omisión, `rifas.folios_por_boleto`— y cada
+--               uno es una oportunidad de ganar EL MISMO premio: el ganador
+--               sigue siendo uno solo
 --   sorteo_log  bitácora de cada acción del panel
 --   panel_clave hash de la clave del panel; sin políticas, nadie lo lee
 --   llave_firma llave HMAC con la que se firman los códigos; sin políticas,
@@ -18,12 +25,13 @@
 --
 -- Garantías:
 --   * El público solo puede LEER `rifas`. No hay escritura pública en ninguna
---     tabla, y `boletos` no tiene ninguna política: sus códigos no salen.
---   * `validar_boleto` responde únicamente verdadero/falso.
---   * `rifa_de_folio(folio, codigo)` devuelve la rifa de un boleto y solo si
---     los dos coinciden. Nunca devuelve el código, así que no sirve para
---     adivinarlo: hay que traerlo ya escrito. Es lo que deja que la pantalla
---     del participante no dependa de ninguna rifa fija. Devuelve también el
---     enlace de la transmisión, que es público: es el mismo que se reparte.
+--     tabla, y ni `boletos` ni `folios` tienen políticas: no salen ni los
+--     códigos ni los números. Comprobado consultando como `anon`.
+--   * `rifa_de_boleto(boleto, codigo)` devuelve la rifa de un boleto, con sus
+--     folios, y solo si los dos coinciden. Nunca devuelve el código, así que
+--     no sirve para adivinarlo: hay que traerlo ya escrito. Es lo que deja que
+--     la pantalla del participante no dependa de ninguna rifa fija. Devuelve
+--     también el enlace de la transmisión, que es público: es el mismo que se
+--     reparte.
 --   * El disparador `proteger_ganador` impide escribir el ganador antes de
 --     revelar y cambiarlo después. Ni con llave de servicio.

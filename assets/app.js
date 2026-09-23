@@ -16,9 +16,13 @@
  *   3. Consulta inmediata cuando vuelve la red o cuando la persona desbloquea
  *      el teléfono, que es justo lo que pasa a la hora del sorteo.
  *
+ * Un boleto de papel lleva VARIOS folios: cada número impreso es una
+ * oportunidad distinta de ganar el mismo premio. El QR trae el identificador
+ * del boleto, no un folio, y el servidor devuelve los folios que le tocaron.
+ *
  * Modo ensayo (sin servidor), para probar el guion antes del evento:
- *   ?f=11052&c=R5VR&ensayo=1               -> espera / en vivo según el reloj
- *   ?f=11052&c=R5VR&ensayo=1&ganador=11052 -> fuerza el resultado
+ *   ?b=9171057830&c=R5VR&ensayo=1&folios=1018,4307,2850,3267
+ *   ?b=9171057830&c=R5VR&ensayo=1&folios=1018,4307&ganador=4307
  */
 (function () {
   'use strict';
@@ -27,19 +31,27 @@
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
-  var folio = (params.get('f') || params.get('folio') || '').trim();
+  var boleto = (params.get('b') || params.get('boleto') || '').trim();
   var codigo = (params.get('c') || params.get('codigo') || '').trim().toUpperCase();
   var ensayo = params.get('ensayo') === '1';
 
-  // La rifa NO está fija en el código: la manda el folio impreso en el boleto.
-  // El servidor dice a cuál pertenece, y con eso quedan bien tanto un boleto
-  // recién impreso como uno de una rifa de hace un año. Lo de aquí abajo es
-  // solo lo que se pinta mientras el servidor contesta —o si nunca contesta,
-  // porque el teléfono está sin señal.
+  // Los folios de este boleto. Los manda el servidor; en ensayo se pasan a
+  // mano por la dirección para poder probar el guion sin base de datos.
+  var folios = (params.get('folios') || '')
+    .split(',').map(function (f) { return f.trim(); }).filter(Boolean);
+
+  // La rifa NO está fija en el código: la manda el boleto impreso. El servidor
+  // dice a cuál pertenece, y con eso quedan bien tanto un boleto recién
+  // impreso como uno de una rifa de hace un año. Lo de aquí abajo es solo lo
+  // que se pinta mientras el servidor contesta —o si nunca contesta, porque
+  // el teléfono está sin señal.
   var rifaId = CFG.rifaId;
   var nombreRifa = CFG.nombre || 'Rifa';
   var serieRifa = CFG.serie || 'A';
-  var fechaSorteo = new Date(CFG.fechaSorteo);
+  // Sin fecha de respaldo se deja inválida a propósito: así el cronómetro no
+  // se pinta y la pantalla espera, en vez de arrancar en vivo por creer que
+  // la hora ya pasó (una fecha nula se leería como 1970).
+  var fechaSorteo = new Date(CFG.fechaSorteo || NaN);
 
   // Ritmos del sondeo, en milisegundos. Ver el comentario de arriba.
   var SONDEO_CANAL_SANO = CFG.sondeoCanalSanoMs || 30000;
@@ -125,7 +137,9 @@
       // a alguien cuando no ganó nadie es mentirle, y enseñarle el hueco donde
       // iría el folio es peor.
       var hayGanador = !!estado.folio_ganador;
-      var gano = hayGanador && String(estado.folio_ganador) === folio;
+      var ganador = hayGanador ? String(estado.folio_ganador) : '';
+      // El boleto lleva varios números: gana si CUALQUIERA de ellos salió.
+      var gano = hayGanador && folios.indexOf(ganador) >= 0;
 
       if (!hayGanador) {
         $('veredicto').textContent = 'Rifa cerrada';
@@ -135,11 +149,15 @@
       } else {
         $('veredicto').textContent = gano ? '¡Ganaste!' : 'No ganaste';
         $('veredicto').className = 'veredicto' + (gano ? ' gana' : '');
-        $('fraseResultado').textContent = gano ? 'Tu folio es el ganador.' : 'Suerte para la próxima.';
+        $('fraseResultado').textContent = gano
+          ? (folios.length > 1 ? 'Uno de tus números es el ganador.' : 'Tu folio es el ganador.')
+          : 'Suerte para la próxima.';
         $('notaResultado').textContent = gano
           ? 'Presenta tu boleto físico para reclamar el premio.'
-          : 'Folio ganador: ' + estado.folio_ganador;
+          : 'Folio ganador: ' + ganador;
       }
+      // Se marca cuál de los números fue, para que no haya que cotejar a ojo.
+      pintarFolios(hayGanador ? ganador : '');
       // El video se apaga al llegar el resultado. Si se quedara puesto,
       // seguiría sonando detrás de esta pantalla.
       quitarVideo();
@@ -245,8 +263,40 @@
     return { estado: Date.now() >= fechaSorteo.getTime() ? 'en_vivo' : 'espera', folio_ganador: null };
   }
 
+  /**
+   * ¿Se le puede preguntar algo al servidor?
+   *
+   * Para resolver a qué rifa pertenece el boleto todavía no sabemos cuál es
+   * —eso es justo lo que se va a preguntar—, así que esa consulta solo
+   * necesita la conexión. Seguir el estado sí necesita la rifa ya resuelta.
+   */
+  function hayRed() {
+    return !ensayo && !!CFG.supabaseUrl && !!CFG.supabaseKey && !!cliente;
+  }
+
   function hayServidor() {
-    return !ensayo && CFG.supabaseUrl && CFG.supabaseKey && rifaId && !!cliente;
+    return hayRed() && !!rifaId;
+  }
+
+  /**
+   * Pinta los números del boleto, y resalta el ganador si ya salió.
+   *
+   * Son varios porque un boleto de papel lleva varias oportunidades. Se
+   * enseñan todos siempre: quien lo escanea antes del sorteo quiere verlos,
+   * y quien lo escanea después quiere saber cuál de ellos fue.
+   */
+  function pintarFolios(ganador) {
+    var caja = $('folios');
+    if (!caja) { return; }
+    caja.textContent = '';
+    folios.forEach(function (f) {
+      var el = document.createElement('span');
+      el.className = 'folio' + (ganador && f === ganador ? ' folioGanador' : '');
+      el.textContent = serieRifa + '-' + f;
+      caja.appendChild(el);
+    });
+    $('rotuloFolios').textContent = folios.length === 1 ? 'Folio' : 'Tus números';
+    $('bloqueFolio').hidden = folios.length === 0;
   }
 
   /**
@@ -480,20 +530,20 @@
   // Validación del boleto
   // ------------------------------------------------------------------
   function resolverRifa() {
-    if (!hayServidor()) {
+    if (!hayRed()) {
       // En ensayo no se puede comprobar la firma: se acepta cualquier folio.
       return Promise.resolve(true);
     }
     var consulta = cliente
-      .rpc('rifa_de_folio', { p_folio: folio, p_codigo: codigo })
+      .rpc('rifa_de_boleto', { p_boleto: boleto, p_codigo: codigo })
       .then(function (r) {
         // Hay que distinguir dos cosas muy distintas: que el servidor diga que
-        // el folio NO existe, y que no hayamos podido preguntarle. Sin red,
+        // el boleto NO existe, y que no hayamos podido preguntarle. Sin red,
         // `r.error` viene lleno; tratar eso como boleto falso sería acusar a
         // alguien por tener mala señal.
         if (r.error) { throw r.error; }
         var rifa = (r.data || [])[0];
-        if (!rifa) { return false; }   // folio y código no van juntos: falso
+        if (!rifa) { return false; }   // boleto y código no van juntos: falso
         adoptarRifa(rifa);
         return true;
       });
@@ -507,6 +557,9 @@
     rifaId = rifa.id;
     nombreRifa = rifa.nombre || nombreRifa;
     serieRifa = rifa.serie || serieRifa;
+    // Los números de verdad los manda el servidor. Lo que venía en la
+    // dirección era solo para el ensayo.
+    if (rifa.folios && rifa.folios.length) { folios = rifa.folios.slice(); }
     if (rifa.fecha_sorteo) { fechaSorteo = new Date(rifa.fecha_sorteo); }
     pintarEncabezado();
     pintarCronometro();
@@ -522,7 +575,7 @@
     $('serieTexto').textContent = 'Serie ' + serieRifa;
     $('fechaTexto').textContent = formatearFecha();
     $('fechaTexto2').textContent = formatearFecha();
-    if (folio) { $('folio').textContent = serieRifa + '-' + folio; }
+    pintarFolios('');
   }
 
   function iniciar() {
@@ -537,13 +590,12 @@
       }
     }, 1000);
 
-    if (!folio) {
+    if (!boleto) {
       mostrar('vistaSinFolio');
       return;
     }
 
-    $('folio').textContent = serieRifa + '-' + folio;
-    $('bloqueFolio').hidden = false;
+    pintarFolios('');
 
     if ($('verAqui')) {
       $('verAqui').addEventListener('click', meterVideo);
