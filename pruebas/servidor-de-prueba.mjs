@@ -98,6 +98,24 @@ function sorteo(cuerpo) {
       ...r, boletos: (boletos[r.id] || []).length, folios: foliosDe(r.id).length,
     })) }];
   }
+  if (a === 'guardar_diseno') {
+    const r = rifaDe(cuerpo.rifa);
+    if (!r) return [404, { error: 'rifa no encontrada' }];
+    const d = cuerpo.diseno;
+    if (d) {
+      if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche'].includes(d.tema)) {
+        return [400, { error: 'ese tema no existe' }];
+      }
+      for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
+                                   ['acento', 'números'], ['borde', 'marco']]) {
+        if (!/^#[0-9a-fA-F]{6}$/.test(String(d[campo]))) {
+          return [400, { error: `el color de ${cual} no es válido` }];
+        }
+      }
+    }
+    r.diseno = d || null;
+    return [200, { rifa: { id: r.id, diseno: r.diseno } }];
+  }
   if (a === 'boletos') {
     const r = rifaDe(cuerpo.rifa);
     if (!r) return [404, { error: 'rifa no encontrada' }];

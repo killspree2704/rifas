@@ -189,6 +189,60 @@ function repartir<T>(lista: T[], porGrupo: number): T[][] {
 }
 
 // ---------------------------------------------------------------------------
+// Diseño del boleto impreso
+// ---------------------------------------------------------------------------
+/*
+ * Lo que llega aquí termina dentro de una hoja de estilos que el panel arma
+ * en el navegador del operador. Un color no es un dato cualquiera: se escribe
+ * tal cual en un `style`, así que se admite exactamente la forma de un color
+ * y nada más. El panel ya filtra igual; esto es lo que manda, porque una
+ * comprobación que solo vive en el navegador no comprueba nada.
+ */
+const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche"];
+const COLOR = /^#[0-9a-fA-F]{6}$/;
+const LOGO_MAX = 200 * 1024;
+
+function limpiarDiseno(entrada: unknown) {
+  // Nulo es legítimo: significa «el tema de siempre».
+  if (entrada === null || entrada === undefined) return null;
+  if (typeof entrada !== "object") throw new Error("el diseño no es válido");
+  const d = entrada as Record<string, unknown>;
+
+  const tema = String(d.tema ?? "clasico");
+  if (!TEMAS_VALIDOS.includes(tema)) throw new Error("ese tema no existe");
+
+  const color = (valor: unknown, cual: string) => {
+    const texto = String(valor ?? "");
+    if (!COLOR.test(texto)) throw new Error(`el color de ${cual} no es válido`);
+    return texto.toLowerCase();
+  };
+
+  const logo = String(d.logo ?? "");
+  if (logo) {
+    if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo)) {
+      throw new Error("el logo no es una imagen válida");
+    }
+    if (logo.length > LOGO_MAX) throw new Error("el logo pesa demasiado");
+  }
+
+  const columnas = Number(d.columnas ?? 2);
+  if (columnas !== 1 && columnas !== 2 && columnas !== 3) {
+    throw new Error("los boletos por renglón deben ser 1, 2 o 3");
+  }
+
+  return {
+    tema,
+    fondo: color(d.fondo, "fondo"),
+    tinta: color(d.tinta, "letra"),
+    acento: color(d.acento, "números"),
+    borde: color(d.borde, "marco"),
+    logo,
+    aviso: String(d.aviso ?? "").slice(0, 200),
+    columnas,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Transmisión
 // ---------------------------------------------------------------------------
 /**
@@ -325,7 +379,7 @@ Deno.serve(async (req) => {
   if (accion === "rifas") {
     const { data: rifas } = await db
       .from("rifas")
-      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, revelado_en, creada_en, precio_boleto, transmision_url, folios_por_boleto")
+      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, revelado_en, creada_en, precio_boleto, transmision_url, folios_por_boleto, diseno")
       .order("fecha_sorteo", { ascending: false });
     const { data: boletos } = await db.from("boletos").select("rifa_id");
     const { data: folios } = await db.from("folios").select("rifa_id");
@@ -347,7 +401,7 @@ Deno.serve(async (req) => {
     const rifaPedida = String(cuerpo.rifa ?? "");
     if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
     const { data: ficha } = await db
-      .from("rifas").select("id, nombre, serie, fecha_sorteo, precio_boleto, folios_por_boleto")
+      .from("rifas").select("id, nombre, serie, fecha_sorteo, precio_boleto, folios_por_boleto, diseno")
       .eq("id", rifaPedida).maybeSingle();
     if (!ficha) return responder({ error: "rifa no encontrada" }, 404);
     const { data: lote } = await db
@@ -516,6 +570,37 @@ Deno.serve(async (req) => {
       },
       boletos,
     });
+  }
+
+  /**
+   * Guardar el diseño del boleto impreso de una rifa.
+   *
+   * Va aquí y no entre las acciones sobre una rifa a propósito: aquellas se
+   * bloquean en cuanto hay ganador, y con razón —el sorteo ya no se toca—,
+   * pero el aspecto de la hoja sí se puede seguir corrigiendo después para
+   * reimprimir. El diseño no cambia ni un número ni un código.
+   */
+  if (accion === "guardar_diseno") {
+    const rifaPedida = String(cuerpo.rifa ?? "");
+    if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
+
+    let limpio: ReturnType<typeof limpiarDiseno>;
+    try {
+      limpio = limpiarDiseno(cuerpo.diseno);
+    } catch (e) {
+      return responder({ error: (e as Error).message }, 400);
+    }
+
+    const { data, error } = await db
+      .from("rifas").update({ diseno: limpio }).eq("id", rifaPedida)
+      .select("id, diseno").maybeSingle();
+    if (error) return responder({ error: error.message }, 400);
+    if (!data) return responder({ error: "rifa no encontrada" }, 404);
+
+    // En la bitácora va el tema y si lleva logo, no el logo: son cien kilos de
+    // base64 que no le sirven a nadie dentro de un registro de auditoría.
+    await anotar(rifaPedida, "diseno", { tema: limpio?.tema ?? null, logo: !!limpio?.logo });
+    return responder({ rifa: data });
   }
 
   /** Cuál rifa maneja el panel por omisión. Solo puede haber una. */

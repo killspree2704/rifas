@@ -170,7 +170,7 @@ El boleto de papel                El teléfono                    El panel
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión y desde qué aparato salió |
+| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió y el **diseño del boleto impreso** |
 | `boletos` | El boleto de papel: su número (el del QR) y su código, uno para todo el papel. **Sin políticas: nadie lo lee desde fuera** |
 | `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas. **Sin políticas** |
 | `sorteo_log` | Cada acción del panel con su hora |
@@ -184,7 +184,8 @@ El boleto de papel                El teléfono                    El panel
 
 Migraciones aplicadas, en orden: `esquema_rifas`, `realtime_rifas`,
 `endurecer_trigger`, `rifa_activa_y_llave`, `rifa_de_folio`, `transmision`,
-`rifa_de_folio_con_transmision`, `boleto_con_varios_folios`.
+`rifa_de_folio_con_transmision`, `boleto_con_varios_folios`,
+`diseno_del_boleto`.
 
 **Aquí no hay ni un dato personal.** Ni nombres, ni teléfonos, ni correos. Solo
 números. Quién compró cada boleto lo lleva el vendedor en su libreta, y ese es
@@ -227,6 +228,13 @@ Todo desde el panel, sin tocar código ni publicar nada:
    dígitos caben 6,750 boletos; el panel te lo dice antes de generar nada.
 2. Se abre la hoja: **Imprimir → Guardar como PDF**, y de ahí a la imprenta.
 3. **Manejar esta** para que el panel opere esa rifa.
+4. Si quieres darle aspecto, **pestaña «Diseño»**: seis temas listos, tus
+   colores encima, logo y el aviso de letra chica. Se guarda **en esa rifa**,
+   así que cada una puede verse distinta y reimprimir una hoja vieja da la hoja
+   de entonces. Solo toca el papel; la pantalla del participante no cambia.
+   El QR va siempre sobre blanco, pase lo que pase con el tema: uno sin
+   contraste no lo lee ningún teléfono, y de eso uno se entera cuando los
+   boletos ya se repartieron.
 
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
@@ -283,13 +291,13 @@ número uno es el caché del navegador, no la base.
 
 ### El resto del sistema
 
-- Las **8 migraciones** aplicadas; la función de borde `sorteo` en su
-  **versión 7**; la clave del panel y la llave de firma en su lugar.
-- El trabajador de servicio va en **`rifa-v13`**, a la par del `?v=13` de
+- Las **9 migraciones** aplicadas; la función de borde `sorteo` en su
+  **versión 9**; la clave del panel y la llave de firma en su lugar.
+- El trabajador de servicio va en **`rifa-v14`**, a la par del `?v=14` de
   `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **126 comprobaciones** automáticas
+- El panel y el boleto pasan **148 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
