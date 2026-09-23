@@ -7,7 +7,7 @@
  * permiso a la red**. Lo único que necesita conexión es consultar el estado
  * de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v11';
+const CACHE = 'rifa-v12';
 
 // Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
 // propósito: son 215 KB, y pedirlos en una red mala haría fallar la
@@ -122,7 +122,28 @@ self.addEventListener('fetch', (evento) => {
     return;
   }
 
+  // --- Los archivos del panel: siempre de la red, nunca de la copia ---
+  //
+  // La página del panel ya se pide a la red, pero sus archivos se servían de
+  // la copia guardada. Así quedaba el HTML nuevo ejecutando JavaScript viejo,
+  // que es exactamente lo que pasó al estrenar los cuatro folios por boleto:
+  // el panel pedía un campo que el servidor ya no mandaba y la hoja salía con
+  // «undefined». Servirle al operador una versión vieja es peor que hacerlo
+  // esperar unos segundos; si no hay red, la copia sigue ahí de respaldo.
+  if (/\/panel\.(js|css)$/.test(new URL(peticion.url).pathname)) {
+    evento.respondWith(
+      conLimite(peticion, 8000)
+        .then((r) => guardar(peticion, r))
+        .catch(() => caches.match(peticion).then((r) => r || Response.error()))
+    );
+    return;
+  }
+
   // --- Lo demás: copia al instante, actualización por detrás ---
+  //
+  // Esto es para el boleto, y es deliberado: en una antena saturada, abrir al
+  // instante vale más que abrir lo último. La versión nueva entra al subir
+  // CACHE arriba, que borra la copia vieja al activarse.
   evento.respondWith(
     caches.match(peticion).then((guardada) => {
       const desdeRed = fetch(peticion).then((r) => guardar(peticion, r)).catch(() => guardada);

@@ -5,8 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Panel de sorteo</title>
   <meta name="robots" content="noindex, nofollow" />
-  <link rel="stylesheet" href="assets/estilos.css" />
-  <link rel="stylesheet" href="assets/panel.css" />
+  <!--
+    El ?v= no es adorno: sube cada vez que cambian estos archivos, y debe ir a
+    la par de CACHE en sw.js. La página del panel siempre se pide a la red,
+    pero sus archivos se servían de la copia guardada: así quedaba el HTML
+    nuevo corriendo JavaScript viejo, que fue lo que sacó «undefined» en las
+    hojas al estrenar los cuatro folios por boleto. Con una dirección que la
+    copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
+    red, aunque siga activo el trabajador de servicio anterior.
+  -->
+  <link rel="stylesheet" href="assets/estilos.css?v=12" />
+  <link rel="stylesheet" href="assets/panel.css?v=12" />
 </head>
 <body class="panel">
   <main class="tablero">
@@ -197,9 +206,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js"></script>
-  <script src="assets/youtube.js"></script>
+  <script src="assets/config.js?v=12"></script>
+  <script src="assets/youtube.js?v=12"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js"></script>
+  <script src="assets/panel.js?v=12"></script>
 </body>
 </html>
