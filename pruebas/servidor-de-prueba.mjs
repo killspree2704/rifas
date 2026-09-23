@@ -17,6 +17,9 @@ const RAIZ = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 // necesita ver que el cambio surte efecto de verdad.
 let clavePanel = 'secreta';
 
+// El diseño que heredará la próxima rifa creada, como `panel_ajustes`.
+let disenoNuevo = null;
+
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
 
@@ -94,17 +97,21 @@ function sorteo(cuerpo) {
   }
 
   if (a === 'rifas') {
-    return [200, { rifas: rifas.map((r) => ({
-      ...r, boletos: (boletos[r.id] || []).length, folios: foliosDe(r.id).length,
-    })) }];
+    return [200, {
+      rifas: rifas.map((r) => ({
+        ...r, boletos: (boletos[r.id] || []).length, folios: foliosDe(r.id).length,
+      })),
+      diseno_nuevo: disenoNuevo,
+    }];
   }
   if (a === 'guardar_diseno') {
-    const r = rifaDe(cuerpo.rifa);
-    if (!r) return [404, { error: 'rifa no encontrada' }];
     const d = cuerpo.diseno;
     if (d) {
       if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche'].includes(d.tema)) {
         return [400, { error: 'ese tema no existe' }];
+      }
+      if (!['ninguna', 'lineas', 'puntos', 'rejilla', 'cruzado', 'zigzag'].includes(d.trama)) {
+        return [400, { error: 'esa trama no existe' }];
       }
       for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
                                    ['acento', 'números'], ['borde', 'marco']]) {
@@ -113,6 +120,13 @@ function sorteo(cuerpo) {
         }
       }
     }
+    // Sin rifa: es el diseño que heredará la próxima que se cree.
+    if (!cuerpo.rifa) {
+      disenoNuevo = d || null;
+      return [200, { diseno_nuevo: disenoNuevo }];
+    }
+    const r = rifaDe(cuerpo.rifa);
+    if (!r) return [404, { error: 'rifa no encontrada' }];
     r.diseno = d || null;
     return [200, { rifa: { id: r.id, diseno: r.diseno } }];
   }
@@ -149,7 +163,9 @@ function sorteo(cuerpo) {
     const porBoleto = cuerpo.folios_por_boleto || 4;
     const nueva = { id, nombre: cuerpo.nombre, serie: cuerpo.serie, estado: 'espera', activa: false,
       folio_ganador: null, fecha_sorteo: cuerpo.fecha_sorteo, precio_boleto: cuerpo.precio,
-      folios_por_boleto: porBoleto };
+      folios_por_boleto: porBoleto,
+      // El diseño se copia, no se referencia: igual que en el servidor real.
+      diseno: disenoNuevo };
     rifas.unshift(nueva);
     const lote = [];
     let siguiente = 70000 + contadorNuevas * 1000;

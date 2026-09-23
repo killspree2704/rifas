@@ -21,6 +21,7 @@
   var clave = '';
   var rifaActual = CFG.rifaId;   // sobre cuál rifa actúan los botones del sorteo
   var rifasConocidas = [];       // el último historial recibido
+  var disenoPorOmision = null;   // el que heredará la próxima rifa que se cree
   var ultimoEstado = null;
 
   /**
@@ -432,6 +433,7 @@
     mensaje('Cargando…', '', 'mensajeRifas');
     return llamar('rifas')
       .then(function (datos) {
+        disenoPorOmision = datos.diseno_nuevo || null;
         pintarRifas(datos.rifas || []);
         mensaje(aviso || '', aviso ? 'ok' : '', 'mensajeRifas');
       })
@@ -769,6 +771,69 @@
     noche:   { nombre: 'Noche',   fondo: '#1b2432', tinta: '#f2f5f9', acento: '#ffd166', borde: '#5b6b82' },
   };
 
+  /*
+   * Tramas de fondo, al estilo del papel de seguridad. Se dibujan con
+   * degradados de CSS y no con imágenes: pesan cero, salen nítidas a
+   * cualquier resolución de impresora, y sobre todo, lo que se guarda en la
+   * base es el NOMBRE de la trama, no el dibujo. Así nadie puede colar algo
+   * raro dentro de la hoja de estilos del boleto.
+   *
+   * Las medidas van en milímetros porque esto es papel, no pantalla: una
+   * línea de 0.35 mm se ve igual impresa salga de donde salga.
+   */
+  var TRAMAS = {
+    ninguna: { nombre: 'Ninguna', css: function () { return ''; } },
+    lineas: {
+      nombre: 'Líneas',
+      css: function (c) {
+        return 'background-image: repeating-linear-gradient(45deg,' +
+               c + ' 0 0.35mm, transparent 0.35mm 2mm);';
+      },
+    },
+    puntos: {
+      nombre: 'Puntos',
+      css: function (c) {
+        return 'background-image: radial-gradient(' + c + ' 0.25mm, transparent 0.26mm);' +
+               ' background-size: 2mm 2mm;';
+      },
+    },
+    rejilla: {
+      nombre: 'Rejilla',
+      css: function (c) {
+        return 'background-image: repeating-linear-gradient(0deg,' +
+               c + ' 0 0.2mm, transparent 0.2mm 2.5mm),' +
+               ' repeating-linear-gradient(90deg,' + c + ' 0 0.2mm, transparent 0.2mm 2.5mm);';
+      },
+    },
+    cruzado: {
+      nombre: 'Cruzado',
+      css: function (c) {
+        return 'background-image: repeating-linear-gradient(45deg,' +
+               c + ' 0 0.25mm, transparent 0.25mm 2mm),' +
+               ' repeating-linear-gradient(-45deg,' + c + ' 0 0.25mm, transparent 0.25mm 2mm);';
+      },
+    },
+    zigzag: {
+      nombre: 'Zigzag',
+      css: function (c) {
+        return 'background-image: linear-gradient(135deg,' + c + ' 25%, transparent 25%),' +
+               ' linear-gradient(225deg,' + c + ' 25%, transparent 25%);' +
+               ' background-size: 3mm 3mm;';
+      },
+    },
+  };
+
+  // Qué tan marcada va la trama. Suave de omisión: una trama que compite con
+  // los números deja de ser fondo y estorba.
+  var INTENSIDADES = { suave: 0.07, media: 0.14, marcada: 0.24 };
+
+  /** El color de la trama: el del marco, rebajado. */
+  function conAlfa(hex, alfa) {
+    return 'rgba(' + parseInt(hex.substr(1, 2), 16) + ',' +
+           parseInt(hex.substr(3, 2), 16) + ',' +
+           parseInt(hex.substr(5, 2), 16) + ',' + alfa + ')';
+  }
+
   var AVISO_DE_SIEMPRE = 'El boleto se anulará si se encuentra roto, con tachones, ' +
     'borrones o enmendaduras.';
 
@@ -790,6 +855,8 @@
       logo: typeof d.logo === 'string' && d.logo.indexOf('data:image/') === 0 ? d.logo : '',
       aviso: typeof d.aviso === 'string' ? d.aviso : AVISO_DE_SIEMPRE,
       columnas: (d.columnas === 1 || d.columnas === 3) ? d.columnas : 2,
+      trama: TRAMAS[d.trama] ? d.trama : 'ninguna',
+      intensidad: INTENSIDADES[d.intensidad] ? d.intensidad : 'suave',
     };
   }
 
@@ -843,9 +910,12 @@
   function estiloBoleto(d, prefijo) {
     var p = prefijo || '';
     return (
-      p + '.boleto { background: ' + d.fondo + '; color: ' + d.tinta + ';' +
+      // El color va por separado de la imagen: `background` a secas borraría
+      // la trama que viene justo después.
+      p + '.boleto { background-color: ' + d.fondo + '; color: ' + d.tinta + ';' +
       ' border: 1px solid ' + d.borde + '; border-radius: 2mm; padding: 3mm 4mm;' +
-      ' break-inside: avoid; }' +
+      ' break-inside: avoid; ' +
+      TRAMAS[d.trama].css(conAlfa(d.borde, INTENSIDADES[d.intensidad])) + ' }' +
       p + '.logo { display: block; max-height: 9mm; max-width: 60%; margin: 0 auto 1mm; }' +
       p + '.marca { font-size: 13pt; font-weight: 700; text-transform: uppercase;' +
       ' letter-spacing: 0.04em; text-align: center; margin: 0 0 1mm; }' +
@@ -856,8 +926,11 @@
       // y con uno o dos la caja no se deforma.
       p + '.numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));' +
       ' gap: 1.5mm; flex: 1 1 auto; }' +
+      // Con fondo propio: los números son lo único que de verdad hay que poder
+      // leer de lejos, y una trama por debajo se los come.
       p + '.num { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14pt;' +
-      ' font-weight: 700; color: ' + d.acento + '; border: 0.4mm solid ' + d.borde + ';' +
+      ' font-weight: 700; color: ' + d.acento + '; background: ' + d.fondo + ';' +
+      ' border: 0.4mm solid ' + d.borde + ';' +
       ' border-radius: 1mm; padding: 0.8mm 1mm; text-align: center; letter-spacing: 0.03em; }' +
       // El QR SIEMPRE sobre blanco y con su margen. No es negociable ni con el
       // tema más oscuro: un QR sin contraste no lo lee ningún teléfono, y de
@@ -972,9 +1045,12 @@
     // Por si se llegó aquí por un camino que no trajo el historial: se pide y
     // se vuelve. Más vale una consulta de más que decirle a alguien que su
     // rifa no existe.
-    if (rifaActual && !rifaConocida(rifaActual)) {
+    if (!rifasConocidas.length || (rifaActual && !rifaConocida(rifaActual))) {
       return llamar('rifas')
-        .then(function (datos) { rifasConocidas = datos.rifas || []; })
+        .then(function (datos) {
+          rifasConocidas = datos.rifas || [];
+          disenoPorOmision = datos.diseno_nuevo || null;
+        })
         .catch(function () { /* se pinta con lo que haya */ })
         .then(pintarDiseno);
     }
@@ -983,13 +1059,19 @@
 
   function pintarDiseno() {
     var r = rifaConocida(rifaActual);
+    // Sin rifa esto NO es un callejón sin salida: lo natural es decidir cómo
+    // se va a ver el boleto y después mandar a hacer el lote, no al revés.
+    // Lo que se guarde aquí se le copia a la próxima rifa al crearla.
     $('disenoDeQuien').textContent = r
       ? 'Estás diseñando el boleto de «' + r.nombre + '», serie ' + r.serie + '.'
-      : 'Todavía no hay ninguna rifa que manejar. Crea una en la pestaña «Rifas».';
-    var puede = !!r;
-    $('btnGuardarDiseno').disabled = !puede;
-    $('btnDisenoDeSiempre').disabled = !puede;
-    disenoEnEdicion = disenoCompleto(r ? r.diseno : null);
+      : 'Todavía no hay ninguna rifa, así que esto se va a guardar para la ' +
+        'próxima que crees. Al crearla, el diseño pasa a ser suyo: cambiarlo ' +
+        'después no toca las hojas que ya se imprimieron.';
+    $('btnGuardarDiseno').textContent = r
+      ? 'Guardar el diseño' : 'Guardar para la próxima rifa';
+    $('btnGuardarDiseno').disabled = false;
+    $('btnDisenoDeSiempre').disabled = false;
+    disenoEnEdicion = disenoCompleto(r ? r.diseno : disenoPorOmision);
     escribirControles(disenoEnEdicion);
     refrescarVista();
   }
@@ -1025,6 +1107,41 @@
     });
   }
 
+  function pintarTramas() {
+    var caja = $('tramas');
+    caja.textContent = '';
+    var d = disenoCompleto(disenoEnEdicion);
+    var tinte = conAlfa(d.borde, INTENSIDADES[d.intensidad]);
+    Object.keys(TRAMAS).forEach(function (llave) {
+      var boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'tema' + (llave === d.trama ? ' elegido' : '');
+      boton.dataset.trama = llave;
+
+      // La muestra se pinta con los colores que el boleto tiene ahora mismo,
+      // no con unos de catálogo: así se elige viendo cómo va a quedar.
+      var muestra = document.createElement('span');
+      muestra.className = 'muestra';
+      muestra.style.cssText = 'background-color:' + d.fondo + ';' +
+        TRAMAS[llave].css(tinte);
+
+      var nombre = document.createElement('span');
+      nombre.className = 'nombre';
+      nombre.textContent = TRAMAS[llave].nombre;
+
+      boton.appendChild(muestra);
+      boton.appendChild(nombre);
+      boton.addEventListener('click', function () {
+        disenoEnEdicion.trama = llave;
+        escribirControles(disenoEnEdicion);
+        refrescarVista();
+      });
+      caja.appendChild(boton);
+    });
+    // Sin trama no hay nada que graduar.
+    $('campoIntensidad').hidden = d.trama === 'ninguna';
+  }
+
   /** Elegir un tema reemplaza los cuatro colores: es el punto de un tema. */
   function elegirTema(llave) {
     var t = TEMAS[llave];
@@ -1044,8 +1161,10 @@
     $('dsBorde').value = d.borde;
     $('dsAviso').value = d.aviso;
     $('dsColumnas').value = String(d.columnas);
+    $('dsIntensidad').value = d.intensidad;
     $('btnQuitarLogo').hidden = !d.logo;
     pintarTemas();
+    pintarTramas();
   }
 
   function leerControles() {
@@ -1055,6 +1174,10 @@
     disenoEnEdicion.borde = $('dsBorde').value;
     disenoEnEdicion.aviso = $('dsAviso').value;
     disenoEnEdicion.columnas = Number($('dsColumnas').value);
+    disenoEnEdicion.intensidad = $('dsIntensidad').value;
+    // Las muestras de trama llevan los colores de ahora: al moverlos, se
+    // vuelven a pintar o enseñarían unos que ya no son.
+    pintarTramas();
     refrescarVista();
   }
 
@@ -1063,6 +1186,7 @@
   });
   $('dsAviso').addEventListener('input', leerControles);
   $('dsColumnas').addEventListener('change', leerControles);
+  $('dsIntensidad').addEventListener('change', leerControles);
 
   /**
    * La vista previa. Dibuja UN boleto con el mismo código que la hoja de
@@ -1198,22 +1322,27 @@
 
   // --- Guardar -------------------------------------------------------
   $('btnGuardarDiseno').addEventListener('click', function () {
-    if (!rifaActual) { return; }
     var d = disenoCompleto(disenoEnEdicion);
+    var hayRifa = !!rifaConocida(rifaActual);
     mensaje('Guardando…', '', 'mensajeDiseno');
-    llamar('guardar_diseno', { rifa: rifaActual, diseno: d })
+    llamar('guardar_diseno', { rifa: hayRifa ? rifaActual : null, diseno: d })
       .then(function (datos) {
-        var r = rifaConocida(rifaActual);
-        if (r) { r.diseno = (datos.rifa && datos.rifa.diseno) || d; }
-        mensaje('Listo. La próxima hoja de boletos de esta rifa va a salir así.',
-                'ok', 'mensajeDiseno');
+        if (hayRifa) {
+          var r = rifaConocida(rifaActual);
+          if (r) { r.diseno = (datos.rifa && datos.rifa.diseno) || d; }
+          mensaje('Listo. La próxima hoja de boletos de esta rifa va a salir así.',
+                  'ok', 'mensajeDiseno');
+        } else {
+          disenoPorOmision = d;
+          mensaje('Listo. La próxima rifa que crees va a nacer con este diseño.',
+                  'ok', 'mensajeDiseno');
+        }
       })
       .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
   });
 
   $('btnDisenoDeSiempre').addEventListener('click', function () {
-    if (!rifaActual) { return; }
-    confirmarDiseno('Vuelve al tema clásico y borra el logo. ¿Seguro?');
+    confirmarDiseno('Vuelve al tema clásico, sin trama y sin logo. ¿Seguro?');
   });
 
   var pendienteDiseno = null;
@@ -1224,10 +1353,11 @@
       boton.dataset.confirmando = '';
       boton.textContent = 'Volver al de siempre';
       mensaje('Guardando…', '', 'mensajeDiseno');
-      return llamar('guardar_diseno', { rifa: rifaActual, diseno: null })
+      var hayRifa = !!rifaConocida(rifaActual);
+      return llamar('guardar_diseno', { rifa: hayRifa ? rifaActual : null, diseno: null })
         .then(function () {
           var r = rifaConocida(rifaActual);
-          if (r) { r.diseno = null; }
+          if (r) { r.diseno = null; } else { disenoPorOmision = null; }
           disenoEnEdicion = disenoCompleto(null);
           $('dsLogo').value = '';
           escribirControles(disenoEnEdicion);
@@ -1372,6 +1502,7 @@
         // pulsar «Diseño» sin pasar por «Rifas» encontraba la lista vacía y el
         // panel juraba que no había ninguna rifa.
         rifasConocidas = lista;
+        disenoPorOmision = datos.diseno_nuevo || null;
         var activa = lista.filter(function (r) { return r.activa; })[0] || lista[0];
 
         $('vistaClave').hidden = true;

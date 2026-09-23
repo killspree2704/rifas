@@ -199,6 +199,10 @@ function repartir<T>(lista: T[], porGrupo: number): T[][] {
  * comprobación que solo vive en el navegador no comprueba nada.
  */
 const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche"];
+// Solo el NOMBRE de la trama viaja y se guarda; el dibujo lo arma el panel a
+// partir de él. Por eso aquí no hay forma de colar nada dentro del estilo.
+const TRAMAS_VALIDAS = ["ninguna", "lineas", "puntos", "rejilla", "cruzado", "zigzag"];
+const INTENSIDADES_VALIDAS = ["suave", "media", "marcada"];
 const COLOR = /^#[0-9a-fA-F]{6}$/;
 const LOGO_MAX = 200 * 1024;
 
@@ -230,6 +234,14 @@ function limpiarDiseno(entrada: unknown) {
     throw new Error("los boletos por renglón deben ser 1, 2 o 3");
   }
 
+  const trama = String(d.trama ?? "ninguna");
+  if (!TRAMAS_VALIDAS.includes(trama)) throw new Error("esa trama no existe");
+
+  const intensidad = String(d.intensidad ?? "suave");
+  if (!INTENSIDADES_VALIDAS.includes(intensidad)) {
+    throw new Error("esa intensidad no existe");
+  }
+
   return {
     tema,
     fondo: color(d.fondo, "fondo"),
@@ -239,6 +251,8 @@ function limpiarDiseno(entrada: unknown) {
     logo,
     aviso: String(d.aviso ?? "").slice(0, 200),
     columnas,
+    trama,
+    intensidad,
   };
 }
 
@@ -387,12 +401,18 @@ Deno.serve(async (req) => {
     for (const b of boletos ?? []) conteo[b.rifa_id] = (conteo[b.rifa_id] ?? 0) + 1;
     const conteoFolios: Record<string, number> = {};
     for (const f of folios ?? []) conteoFolios[f.rifa_id] = (conteoFolios[f.rifa_id] ?? 0) + 1;
+    // Y el diseño que heredará la próxima rifa: el panel lo necesita para que
+    // la pestaña «Diseño» sirva aunque todavía no exista ninguna rifa.
+    const { data: ajustes } = await db
+      .from("panel_ajustes").select("diseno").eq("id", 1).maybeSingle();
+
     return responder({
       rifas: (rifas ?? []).map((r) => ({
         ...r,
         boletos: conteo[r.id] ?? 0,
         folios: conteoFolios[r.id] ?? 0,
       })),
+      diseno_nuevo: ajustes?.diseno ?? null,
     });
   }
 
@@ -519,10 +539,16 @@ Deno.serve(async (req) => {
       [folios[i], folios[j]] = [folios[j], folios[i]];
     }
 
+    // El diseño se COPIA, no se referencia: a partir de aquí es de esta rifa y
+    // cambiar el de omisión no reescribe ninguna hoja ya impresa.
+    const { data: ajustes } = await db
+      .from("panel_ajustes").select("diseno").eq("id", 1).maybeSingle();
+
     const id = idDeRifa(nombre, fecha, idsUsados);
     const { error: errorRifa } = await db.from("rifas").insert({
       id, nombre, serie, fecha_sorteo: fecha, estado: "espera", activa: false,
       precio_boleto: precio, folios_por_boleto: porBoleto,
+      diseno: ajustes?.diseno ?? null,
     });
     if (errorRifa) return responder({ error: errorRifa.message }, 400);
 
@@ -582,13 +608,24 @@ Deno.serve(async (req) => {
    */
   if (accion === "guardar_diseno") {
     const rifaPedida = String(cuerpo.rifa ?? "");
-    if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
 
     let limpio: ReturnType<typeof limpiarDiseno>;
     try {
       limpio = limpiarDiseno(cuerpo.diseno);
     } catch (e) {
       return responder({ error: (e as Error).message }, 400);
+    }
+
+    // Sin rifa no es un error: es el diseño que heredará la próxima que se
+    // cree. Lo natural es decidir cómo se va a ver el boleto y después mandar
+    // a hacer el lote, no al revés.
+    if (!rifaPedida) {
+      const { error } = await db
+        .from("panel_ajustes")
+        .update({ diseno: limpio, actualizado_en: new Date().toISOString() })
+        .eq("id", 1);
+      if (error) return responder({ error: error.message }, 400);
+      return responder({ diseno_nuevo: limpio });
     }
 
     const { data, error } = await db

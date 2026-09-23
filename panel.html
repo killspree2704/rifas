@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=14" />
-  <link rel="stylesheet" href="assets/panel.css?v=14" />
+  <link rel="stylesheet" href="assets/estilos.css?v=15" />
+  <link rel="stylesheet" href="assets/panel.css?v=15" />
 </head>
 <body class="panel">
   <main class="tablero">
@@ -253,6 +253,22 @@
       </div>
       <p class="aviso-contraste" id="avisoContraste" hidden></p>
 
+      <h3 class="subtitulo-menor">Trama de fondo</h3>
+      <p class="nota">
+        Como el papel de seguridad: da textura y hace más trabajoso copiar un
+        boleto a mano. Va detrás de todo; los números llevan su propio fondo
+        para que la trama no se los coma.
+      </p>
+      <div class="temas" id="tramas"></div>
+      <label class="campo" id="campoIntensidad">
+        <span>Qué tan marcada</span>
+        <select id="dsIntensidad">
+          <option value="suave">Suave — apenas se nota</option>
+          <option value="media">Media</option>
+          <option value="marcada">Marcada</option>
+        </select>
+      </label>
+
       <h3 class="subtitulo-menor">Logo</h3>
       <div class="fila-logo">
         <input type="file" id="dsLogo" accept="image/png,image/jpeg,image/webp" />
@@ -325,9 +341,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=14"></script>
-  <script src="assets/youtube.js?v=14"></script>
+  <script src="assets/config.js?v=15"></script>
+  <script src="assets/youtube.js?v=15"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=14"></script>
+  <script src="assets/panel.js?v=15"></script>
 </body>
 </html>

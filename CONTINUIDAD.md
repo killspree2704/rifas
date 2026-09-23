@@ -175,6 +175,7 @@ El boleto de papel                El teléfono                    El panel
 | `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas. **Sin políticas** |
 | `sorteo_log` | Cada acción del panel con su hora |
 | `panel_clave` | El hash de la clave. Sin políticas |
+| `panel_ajustes` | Lo que no cuelga de una rifa: hoy, el diseño que heredará la próxima. Sin políticas |
 | `llave_firma` | La llave HMAC. Sin políticas |
 
 | Función | Qué hace |
@@ -185,7 +186,7 @@ El boleto de papel                El teléfono                    El panel
 Migraciones aplicadas, en orden: `esquema_rifas`, `realtime_rifas`,
 `endurecer_trigger`, `rifa_activa_y_llave`, `rifa_de_folio`, `transmision`,
 `rifa_de_folio_con_transmision`, `boleto_con_varios_folios`,
-`diseno_del_boleto`.
+`diseno_del_boleto`, `ajustes_del_panel`.
 
 **Aquí no hay ni un dato personal.** Ni nombres, ni teléfonos, ni correos. Solo
 números. Quién compró cada boleto lo lleva el vendedor en su libreta, y ese es
@@ -229,7 +230,9 @@ Todo desde el panel, sin tocar código ni publicar nada:
 2. Se abre la hoja: **Imprimir → Guardar como PDF**, y de ahí a la imprenta.
 3. **Manejar esta** para que el panel opere esa rifa.
 4. Si quieres darle aspecto, **pestaña «Diseño»**: seis temas listos, tus
-   colores encima, logo y el aviso de letra chica. Se guarda **en esa rifa**,
+   colores encima, seis tramas de fondo al estilo del papel de seguridad,
+   logo y el aviso de letra chica. **Se puede diseñar antes de crear la
+   rifa**: sin ninguna, lo que guardes se le copia a la próxima al nacer. Se guarda **en esa rifa**,
    así que cada una puede verse distinta y reimprimir una hoja vieja da la hoja
    de entonces. Solo toca el papel; la pantalla del participante no cambia.
    El QR va siempre sobre blanco, pase lo que pase con el tema: uno sin
@@ -291,13 +294,13 @@ número uno es el caché del navegador, no la base.
 
 ### El resto del sistema
 
-- Las **9 migraciones** aplicadas; la función de borde `sorteo` en su
-  **versión 9**; la clave del panel y la llave de firma en su lugar.
-- El trabajador de servicio va en **`rifa-v14`**, a la par del `?v=14` de
+- Las **10 migraciones** aplicadas; la función de borde `sorteo` en su
+  **versión 10**; la clave del panel y la llave de firma en su lugar.
+- El trabajador de servicio va en **`rifa-v15`**, a la par del `?v=15` de
   `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **148 comprobaciones** automáticas
+- El panel y el boleto pasan **159 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

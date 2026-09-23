@@ -86,6 +86,25 @@ pagina.on('request', (r) => {
   ok('la pestaña Sorteo avisa que no hay nada que manejar',
      (await p0.textContent('#mensaje')).includes('Crea una'),
      await p0.textContent('#mensaje'));
+  // Diseñar SIN ninguna rifa. Es el caso real de una base recién vaciada, y
+  // era un callejón sin salida: el botón de guardar nacía deshabilitado.
+  await p0.click('.pestana[data-panel="paneDiseno"]');
+  await p0.waitForSelector('#vistaBoleto .boleto');
+  ok('la pestaña Diseño sirve aunque no haya ninguna rifa',
+     !(await p0.isDisabled('#btnGuardarDiseno')));
+  ok('y el botón dice para qué va a servir lo que se guarde',
+     (await p0.textContent('#btnGuardarDiseno')) === 'Guardar para la próxima rifa',
+     await p0.textContent('#btnGuardarDiseno'));
+  ok('y lo explica arriba, sin dejar a nadie adivinando',
+     (await p0.textContent('#disenoDeQuien')).includes('próxima que crees'),
+     await p0.textContent('#disenoDeQuien'));
+  await p0.click('#temas .tema[data-tema="menta"]');
+  await p0.click('#btnGuardarDiseno');
+  await p0.waitForFunction(() =>
+    document.getElementById('mensajeDiseno').textContent.includes('va a nacer'),
+    null, { timeout: 10000 });
+  ok('se guarda para la próxima rifa', true);
+
   ok('sin errores de JavaScript con la base vacía', err0.length === 0, err0.join(' | '));
   await ctx0.close();
 }
@@ -596,8 +615,10 @@ await ctxD.close();
      (await pg.textContent('#disenoDeQuien')).includes('Rifa El Muerde Manos'),
      await pg.textContent('#disenoDeQuien'));
 
-  ok('ofrece los seis temas', (await pg.locator('.tema').count()) === 6,
-     String(await pg.locator('.tema').count()));
+  ok('ofrece los seis temas', (await pg.locator('#temas .tema').count()) === 6,
+     String(await pg.locator('#temas .tema').count()));
+  ok('y las seis tramas de fondo', (await pg.locator('#tramas .tema').count()) === 6,
+     String(await pg.locator('#tramas .tema').count()));
 
   // La vista previa dibuja un boleto de verdad, con tantos números como lleve
   // esta rifa: cuatro.
@@ -641,6 +662,23 @@ await ctxD.close();
                            null, { timeout: 5000 });
   ok('y se calla cuando el contraste vuelve a estar bien', true);
 
+  // La trama de fondo.
+  ok('sin trama, el mando de intensidad está escondido',
+     await pg.isHidden('#campoIntensidad'));
+  const fondoImagen = () => pg.$eval('#vistaBoleto .boleto',
+    (e) => getComputedStyle(e).backgroundImage);
+  ok('y el boleto no trae ninguna imagen de fondo', (await fondoImagen()) === 'none',
+     await fondoImagen());
+  await pg.click('#tramas .tema[data-trama="lineas"]');
+  ok('al elegir una trama aparece el mando de intensidad',
+     await pg.isVisible('#campoIntensidad'));
+  ok('y el boleto ya trae la trama dibujada',
+     (await fondoImagen()).includes('gradient'), await fondoImagen());
+  ok('los números llevan su propio fondo, para que la trama no se los coma',
+     (await pg.$eval('#vistaBoleto .boleto .num',
+        (e) => getComputedStyle(e).backgroundColor)) !== 'rgba(0, 0, 0, 0)',
+     await pg.$eval('#vistaBoleto .boleto .num', (e) => getComputedStyle(e).backgroundColor));
+
   // El aviso al pie y las columnas.
   await pg.fill('#dsAviso', 'No se aceptan cambios ni devoluciones.');
   await pg.waitForFunction(() => {
@@ -682,6 +720,9 @@ await ctxD.close();
   ok('el QR de la hoja también va sobre blanco',
      (await hojaD.$eval('.boleto .qr', (e) => getComputedStyle(e).backgroundColor))
        === 'rgb(255, 255, 255)');
+  ok('y la trama también llegó al papel',
+     (await hojaD.$eval('.boleto', (e) => getComputedStyle(e).backgroundImage)).includes('gradient'),
+     await hojaD.$eval('.boleto', (e) => getComputedStyle(e).backgroundImage));
   await hojaD.close();
 
   // Volver al de siempre, con su confirmación.
