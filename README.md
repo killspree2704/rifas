@@ -235,7 +235,7 @@ eso no arruine el sorteo:
   teléfono, que es justo lo que pasa a la hora del sorteo.
 
 Al cambiar archivos del sitio hay que subir la versión del caché en `sw.js`
-(`CACHE = 'rifa-v14'`, etc.) para que los teléfonos tomen la versión nueva. Los
+(`CACHE = 'rifa-v15'`, etc.) para que los teléfonos tomen la versión nueva. Los
 archivos del panel son la excepción a la regla de «copia primero»: se piden
 siempre a la red, y sus etiquetas en `panel.html` llevan un `?v=` que sube al
 mismo tiempo, porque al operador servirle una versión vieja es peor que hacerlo
