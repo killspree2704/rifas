@@ -111,8 +111,16 @@ node pruebas/panel.mjs
 ```
 
 Publicar es `git push`: Cloudflare recompila solo. **Si tocas archivos del
-sitio, sube el número de versión en `sw.js`** (`CACHE = 'rifa-v10'` → `v11`) o
-los teléfonos que ya abrieron la página seguirán viendo la vieja.
+sitio, sube el número de versión en `sw.js`** (`CACHE = 'rifa-v11'` → `v12`) o
+los teléfonos que ya abrieron la página seguirán viendo la vieja. **Y si lo que
+tocaste fue el panel, sube también el `?v=` de las etiquetas en `panel.html`**,
+al mismo número: eso es lo único que alcanza al operador que ya tiene instalado
+el trabajador de servicio anterior, porque una dirección que su copia nunca vio
+lo obliga a ir a la red.
+
+Y un orden que no se negocia: **si cambia la función `sorteo`, el sitio se
+publica antes o al mismo tiempo, nunca después**. Al revés el panel le pide al
+servidor campos que ya no existen y la hoja sale con «undefined».
 
 ## Cómo está armado
 
