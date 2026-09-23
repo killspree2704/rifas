@@ -216,40 +216,40 @@ propio resultado.
 
 Comprobado consultando Supabase, no de memoria.
 
-**Cuatro rifas en la base, las cuatro de ensayo.** Ninguna tiene ganador
-revelado, y las cuatro llevan **4 números por boleto**:
+**La base está vacía de rifas, a propósito.** Se borraron las cuatro de
+ensayo —«El muerde manos», PRUEBA 2, RIFA PRUEBA 3 y PABLO TEST1— con sus 95
+boletos, sus 380 folios y su bitácora. Ninguna había repartido nada ni tenía
+ganador revelado.
 
-| Rifa | Serie | Tamaño | Estado |
-| --- | --- | --- | --- |
-| `el-muerde-manos-20260922` · El muerde manos | A | 10 boletos · 40 folios | Cerrada |
-| `prueba-2-20261001` · PRUEBA 2 | B | 25 boletos · 100 folios | Cerrada |
-| `rifa-prueba-3-20261001` · RIFA PRUEBA 3 | C | 50 boletos · 200 folios | Cerrada |
-| `pablo-test1-20261001` · PABLO TEST1 | D | 10 boletos · 40 folios | **En espera, y es la que el panel maneja** |
+| Tabla | Filas |
+| --- | --- |
+| `rifas` | 0 |
+| `boletos` | 0 |
+| `folios` | 0 |
+| `sorteo_log` | 0 |
+| `llave_firma` | 1 — intacta |
+| `panel_clave` | 1 — intacta |
 
-En total **95 boletos y 380 folios**.
+Qué significa en la práctica:
 
-### Lo que se comprobó, contra la base real
+- **Todos los números volvieron a estar libres.** La regla de «un folio no se
+  repite jamás» se hace comparando contra la tabla `folios`; vacía la tabla, el
+  espacio entero vuelve a estar disponible.
+- **Los boletos que se hayan impreso de esas cuatro rifas ya no sirven.** Quien
+  escanee uno va a ver «Boleto no válido», porque el boleto que respalda ese QR
+  ya no existe. Eran todos de prueba.
+- **La clave del panel y la llave de firma no se tocaron**: entrar al panel y
+  crear una rifa nueva funciona igual.
 
-- **Los 380 folios son distintos** entre las cuatro rifas, y ninguno quedó
-  suelto sin boleto. 95 boletos con 95 códigos distintos.
-- De `PABLO TEST1` —la primera creada *después* del arreglo del panel—: los 10
-  boletos llevan exactamente cuatro números, los 10 identificadores son de 10
-  dígitos, y **los 10 códigos son firmas válidas**, recalculadas dentro de la
-  base con la misma llave. Si esto fallara, todos los QR dirían «Boleto no
-  válido».
-
-El camino panel → función de borde → base está ejercitado de punta a punta. Lo
-único que no se puede hacer desde el entorno donde se escribe este código es
-*llamar* a la función o abrir el sitio publicado: la política de egreso de la
-organización bloquea `supabase.co` y `workers.dev`. Lo que esas rifas dejaron
-en la base sí se revisó entero, con SQL.
+La primera rifa que se cree desde aquí empieza de cero, y conviene que sea con
+serie `A` otra vez si se quiere el orden limpio.
 
 ### El «undefined» de las hojas: qué fue
 
-Las hojas de `PRUEBA 2` y `RIFA PRUEBA 3` salieron con `C-undefined` donde iba
-el código. **No fue la base**: los datos de las dos están completos y bien
-firmados. Fueron dos errores encadenados, los dos ya corregidos y anotados en
-la bitácora:
+Queda anotado porque la causa sigue importando, aunque esas rifas ya se
+borraron. Las hojas de `PRUEBA 2` y `RIFA PRUEBA 3` salieron con `C-undefined`
+donde iba el código. **No fue la base**: los datos de las dos estaban completos
+y bien firmados. Fueron dos errores encadenados, los dos ya corregidos:
 
 1. La función `sorteo` se publicó antes que el sitio. El panel viejo pedía
    `boleto.folio`, campo que la función nueva ya no manda.
@@ -258,9 +258,9 @@ la bitácora:
    Ahora los archivos del panel van a la red primero y sus etiquetas llevan
    `?v=`, que sube a la par de `CACHE`.
 
-**Las hojas ya impresas de esas dos rifas hay que volver a generarlas** desde
-Rifas → Hoja de boletos. No hace falta recrear las rifas: lo que salió mal fue
-el dibujo de la hoja, no lo que está guardado.
+De ahí salen las dos reglas de publicación que están arriba, en «Retomar desde
+otro equipo». Si vuelve a aparecer un «undefined» en la hoja, el sospechoso
+número uno es el caché del navegador, no la base.
 
 ### El resto del sistema
 
@@ -301,10 +301,5 @@ el dibujo de la hoja, no lo que está guardado.
 - **Borrar la rama vieja** `claude/qr-code-raffle-ticket-ks2mxd` en el
   repositorio de Koppert. Su PR está cerrado y `main` quedó intacto, pero la
   rama sigue ahí.
-- **Cambiar el nombre** «El Muerde Manos» cuando toque: ya no está escrito en
-  ninguna dirección, solo es el nombre de esa rifa en la base.
-- **Volver a generar las hojas** de `PRUEBA 2` y `RIFA PRUEBA 3`, las que
-  salieron con «undefined». Los datos están intactos; se rehacen desde
-  Rifas → Hoja de boletos.
-- **Limpiar las rifas de ensayo** cuando vaya a entrar una de verdad. Las
-  cuatro que hay son pruebas; ninguna se repartió.
+- **Crear la primera rifa de verdad.** La base quedó vacía a propósito; el
+  siguiente paso es Rifas → Nueva rifa, con cuidado en la fecha y la hora.
