@@ -617,7 +617,8 @@ await ctxD.close();
 
   ok('ofrece los seis temas', (await pg.locator('#temas .tema').count()) === 6,
      String(await pg.locator('#temas .tema').count()));
-  ok('y las seis tramas de fondo', (await pg.locator('#tramas .tema').count()) === 6,
+  ok('y los doce fondos: seis de línea y seis de figura',
+     (await pg.locator('#tramas .tema').count()) === 12,
      String(await pg.locator('#tramas .tema').count()));
 
   // La vista previa dibuja un boleto de verdad, con tantos números como lleve
@@ -674,6 +675,59 @@ await ctxD.close();
      await pg.isVisible('#campoIntensidad'));
   ok('y el boleto ya trae la trama dibujada',
      (await fondoImagen()).includes('gradient'), await fondoImagen());
+
+  // Las de figura son otra cosa: un SVG diminuto que se repite, con sus
+  // propios colores. Es lo que hace que el boleto se vea de rifa.
+  await pg.click('#tramas .tema[data-trama="estrellas"]');
+  const conEstrellas = await fondoImagen();
+  ok('las estrellas se dibujan con un SVG, no con degradados',
+     conEstrellas.includes('data:image/svg+xml') && conEstrellas.includes('path'),
+     conEstrellas.slice(0, 90));
+  ok('y traen sus colores de fiesta, no el del marco',
+     conEstrellas.includes(encodeURIComponent('#ef9ebc')),
+     'busca %23ef9ebc');
+  ok('el SVG va escapado: no quedan < ni > sueltos dentro del estilo',
+     conEstrellas.indexOf('<svg') === -1 && conEstrellas.includes('%3Csvg'));
+
+  // Subir la intensidad cambia la opacidad de las figuras, no otra cosa.
+  await pg.selectOption('#dsIntensidad', 'marcada');
+  ok('subir la intensidad marca más las figuras',
+     (await fondoImagen()).includes('fill-opacity%3D%220.9%22'),
+     (await fondoImagen()).slice(0, 90));
+  await pg.selectOption('#dsIntensidad', 'suave');
+  await pg.click('#tramas .tema[data-trama="lineas"]');
+  /*
+   * Y ahora la que de verdad importa: MIRAR el resultado, no leer el CSS.
+   * Las estrellas salieron en blanco una vez con todas las comprobaciones en
+   * verde, porque todas leían el texto del estilo y el texto estaba perfecto.
+   *
+   * Tampoco basta con contar píxeles de color: el primer intento de esta
+   * prueba daba 84 % con el fondo ROTO A PROPÓSITO, porque el papel color
+   * crema del tema ya contaba como color. Lo que se compara son dos fotos del
+   * mismo boleto, con y sin figuras: si el fondo no dibuja nada, salen
+   * idénticas, y eso es exactamente lo que hay que cachar.
+   */
+  const fotoDelBoleto = () => pg.locator('#vistaBoleto .boleto').screenshot();
+  await pg.click('#tramas .tema[data-trama="ninguna"]');
+  const sinFiguras = PNG.sync.read(await fotoDelBoleto());
+  await pg.click('#tramas .tema[data-trama="estrellas"]');
+  await pg.selectOption('#dsIntensidad', 'marcada');
+  const conFiguras = PNG.sync.read(await fotoDelBoleto());
+
+  let distintos = 0;
+  const hasta = Math.min(sinFiguras.data.length, conFiguras.data.length);
+  for (let i = 0; i < hasta; i += 4) {
+    if (Math.abs(sinFiguras.data[i] - conFiguras.data[i]) > 12 ||
+        Math.abs(sinFiguras.data[i + 1] - conFiguras.data[i + 1]) > 12 ||
+        Math.abs(sinFiguras.data[i + 2] - conFiguras.data[i + 2]) > 12) { distintos++; }
+  }
+  const totalPix = hasta / 4;
+  ok('las estrellas SE DIBUJAN de verdad, no solo en el texto del estilo',
+     distintos > totalPix * 0.05,
+     (distintos * 100 / totalPix).toFixed(1) + '% del boleto cambió al ponerlas');
+  await pg.selectOption('#dsIntensidad', 'suave');
+  await pg.click('#tramas .tema[data-trama="lineas"]');
+
   ok('los números llevan su propio fondo, para que la trama no se los coma',
      (await pg.$eval('#vistaBoleto .boleto .num',
         (e) => getComputedStyle(e).backgroundColor)) !== 'rgba(0, 0, 0, 0)',

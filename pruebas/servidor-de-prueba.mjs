@@ -110,8 +110,9 @@ function sorteo(cuerpo) {
       if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche'].includes(d.tema)) {
         return [400, { error: 'ese tema no existe' }];
       }
-      if (!['ninguna', 'lineas', 'puntos', 'rejilla', 'cruzado', 'zigzag'].includes(d.trama)) {
-        return [400, { error: 'esa trama no existe' }];
+      // La forma, no el catálogo: igual que el servidor de verdad.
+      if (!/^[a-z]{3,20}$/.test(String(d.trama))) {
+        return [400, { error: 'esa trama no es válida' }];
       }
       for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
                                    ['acento', 'números'], ['borde', 'marco']]) {
