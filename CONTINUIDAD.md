@@ -16,11 +16,12 @@ de esta máquina ni de esta conversación. Última revisión: 23 de septiembre d
 | Rifas, folios, códigos, ganadores | Supabase, proyecto `fgwavuaolmrwagaymgos` | No |
 | La función `sorteo` | Desplegada en Supabase (Edge Functions) | No |
 | La llave que firma los códigos | Tabla `llave_firma` en Supabase | No |
-| **La clave del panel** | En el gestor de contraseñas del dueño; su **hash** en `panel_clave` | No. Y si se pierde, se reemplaza desde Supabase |
+| **La clave del panel** | Aquí abajo, y su **hash** en `panel_clave` | No. Y si se pierde, se reemplaza desde Supabase sin necesitar la anterior |
 
-Todo el código está en el repositorio; **la clave del panel ya no**. De ella la
-base solo conserva un hash, así que no se «recupera»: se reemplaza, y eso se
-hace desde Supabase sin necesitar la anterior (ver abajo).
+Todo está en el repositorio, **incluida la clave del panel** — por eso el repo
+es privado y tiene que seguir siéndolo. De ella la base solo conserva un hash,
+así que no se «recupera»: se reemplaza, y eso se hace desde Supabase sin
+necesitar la anterior (ver abajo).
 
 ## Acceso al panel
 
@@ -28,25 +29,28 @@ hace desde Supabase sin necesitar la anterior (ver abajo).
 | --- | --- |
 | Dirección | https://rifas.el-original.workers.dev/panel.html |
 | Usuario | No hay. Solo la clave |
-| Clave | **No está aquí.** La cambió el dueño desde el panel el 23 de septiembre de 2026; vive en su gestor de contraseñas |
+| Clave | `JrIEng7X3lSz` |
 
-> ### La clave ya no vive en este repositorio, y así debe seguir
+> ### ⚠️ Este repositorio tiene que seguir siendo PRIVADO
 >
-> Hasta el 23 de septiembre de 2026 estaba escrita en esta misma tabla, y por
-> eso el repositorio tenía que ser privado. Ya no: se cambió desde la pestaña
-> «Perfil» del panel y el valor nuevo nunca se escribió aquí.
+> Esa clave es el control del sorteo: quien la tenga puede crear rifas y
+> revelar un ganador. Está escrita aquí porque el repositorio es privado
+> —comprobado: un visitante anónimo recibe 404—, y además **ya vivía en el
+> historial de git desde antes**, así que esconderla de este archivo no la
+> quitaría de ningún lado.
 >
-> **No la vuelvas a escribir en este archivo.** Git conserva para siempre lo
-> que se le entrega: una clave escrita hoy sigue ahí dentro del historial
-> aunque mañana se borre del archivo, y volver público el repositorio la
-> publicaría entera.
+> El 23 de septiembre de 2026 se cambió desde el panel y se volvió a dejar
+> esta misma el mismo día, a petición del dueño.
 >
-> Ojo: la clave **vieja** sí sigue en el historial de git. No sirve para nada
-> —la base ya no la reconoce, comprobado—, pero es una razón más para no
-> repetir la costumbre.
+> **Si algún día lo vuelves público, o agregas colaboradores, cambia la clave
+> ANTES.** Git conserva para siempre lo que se le entrega: esta línea y todo
+> el historial saldrían juntos, aunque para entonces ya la hubieras borrado
+> del archivo. Y esta clave en concreto ya está ahí dentro, así que borrarla
+> del archivo no serviría: hay que **cambiarla**.
 
 En la base solo vive su **hash** SHA-256, en `panel_clave`, que nadie puede
-revertir. Guárdala en un gestor de contraseñas: ese es su lugar.
+revertir. Guárdala también en un gestor de contraseñas: un repositorio no es
+buen único lugar para un secreto.
 
 ### Cómo cambiarla
 
@@ -55,10 +59,9 @@ pantalla trae guardada, para que un panel abierto y sin dueño no sirva para
 dejar al dueño fuera—, la nueva dos veces, y ocho caracteres o más. La pantalla
 que la cambió sigue trabajando; las demás tienen que volver a entrar.
 
-> ⚠️ **Al cambiarla, guárdala en el gestor de contraseñas y no aquí.** Si este
-> documento se queda con una clave vieja escrita, va a mentirle a quien lo lea
-> buscando entrar; y si se queda con la nueva, el secreto vuelve a vivir en el
-> repositorio, que es justo de donde acaba de salir.
+> ⚠️ **Al cambiarla desde el panel, actualiza también la línea de arriba**, o
+> este documento le va a mentir a quien lo lea buscando entrar. Ya pasó una
+> vez: se cambió la clave y el archivo siguió anunciando la anterior.
 
 ### Si se pierde
 
@@ -263,8 +266,9 @@ ganador revelado.
 | `boletos` | 0 |
 | `folios` | 0 |
 | `sorteo_log` | 0 |
+| `panel_ajustes` | 1, sin diseño guardado: la próxima rifa nace con el clásico |
 | `llave_firma` | 1 — intacta |
-| `panel_clave` | 1 — intacta |
+| `panel_clave` | 1 — con la clave de arriba |
 
 Qué significa en la práctica:
 
@@ -274,11 +278,15 @@ Qué significa en la práctica:
 - **Los boletos que se hayan impreso de esas cuatro rifas ya no sirven.** Quien
   escanee uno va a ver «Boleto no válido», porque el boleto que respalda ese QR
   ya no existe. Eran todos de prueba.
-- **La clave del panel y la llave de firma no se tocaron**: entrar al panel y
-  crear una rifa nueva funciona igual.
+- **La llave de firma no se tocó**, así que crear una rifa nueva funciona
+  igual. La clave del panel sí se movió dos veces el mismo día —se cambió
+  desde «Perfil» y se devolvió a la de siempre—, y la que vale es la de la
+  tabla de arriba.
 
 La primera rifa que se cree desde aquí empieza de cero, y conviene que sea con
-serie `A` otra vez si se quiere el orden limpio.
+serie `A` otra vez si se quiere el orden limpio. Si quieres darle aspecto,
+puedes dejar el diseño listo en la pestaña «Diseño» **antes** de crearla: se le
+copia al nacer.
 
 ### El «undefined» de las hojas: qué fue
 
