@@ -37,6 +37,18 @@ después. **Ni con la llave de servicio.** Es la única acción irreversible del
 sistema, y por eso el panel obliga a cotejar el folio con su código contra el
 talón de papel antes de encender el botón.
 
+*Reforzado el 28 de septiembre de 2026:* la inquietud era qué pasa si un
+papelito que cae de la tómbola física no es de los que esta rifa imprimió
+—ajeno, mal tecleado, o metido de mala fe—. Ya se rechazaba: `revelar` compara
+el número contra `folios` de esa rifa y responde 400 si no está, sin
+excepción y sin depender de que el panel se porte bien (la comprobación vive
+en la función de borde, no en el navegador). Lo que faltaba era la prueba de
+que pasó: un rechazo que no queda escrito es un rechazo que nadie puede
+enseñar después. Ahora cada intento rechazado se anota en `sorteo_log` como
+`intento_rechazado` con el número tecleado, antes de responder el error. La
+bitácora del sorteo ya no solo cuenta lo que ganó: también cuenta lo que se
+intentó y no pudo.
+
 **5. La página no transmite ni reproduce video de arranque.**
 Transmitir es trabajo de la app de YouTube. Un navegador no puede mandar video
 a YouTube —no habla RTMP— y hacerlo pediría un servidor propio de por medio.
