@@ -494,8 +494,16 @@
       var hoja = document.createElement('button');
       hoja.className = 'boton';
       hoja.textContent = 'Hoja de boletos';
-      hoja.addEventListener('click', function () { pedirHoja(r.id, hoja); });
+      hoja.addEventListener('click', function () { pedirHoja(r.id, hoja, abrirHoja); });
       acciones.appendChild(hoja);
+
+      var papelitos = document.createElement('button');
+      papelitos.className = 'boton';
+      papelitos.textContent = 'Papelitos de tómbola';
+      papelitos.addEventListener('click', function () {
+        pedirHoja(r.id, papelitos, abrirPapelitos);
+      });
+      acciones.appendChild(papelitos);
 
       fila.appendChild(acciones);
       caja.appendChild(fila);
@@ -696,7 +704,14 @@
   // ------------------------------------------------------------------
   // Hoja de boletos para imprimir
   // ------------------------------------------------------------------
-  function pedirHoja(id, boton) {
+  /**
+   * Trae los boletos de una rifa y arma con ellos la hoja que se pida.
+   *
+   * La hoja de boletos y los papelitos de la tómbola salen de ESTA consulta,
+   * la misma para las dos. Es lo que hace imposible que un papelito traiga un
+   * número que no esté impreso en ningún boleto.
+   */
+  function pedirHoja(id, boton, armar) {
     var antes = boton.textContent;
     boton.textContent = 'Armando…';
     boton.disabled = true;
@@ -704,7 +719,7 @@
       .then(function (datos) {
         boton.textContent = antes;
         boton.disabled = false;
-        abrirHoja(datos.rifa, datos.boletos);
+        armar(datos.rifa, datos.boletos);
       })
       .catch(function (e) {
         boton.textContent = antes;
@@ -1105,8 +1120,105 @@
       '<div class="rejilla">' + trozos.join('') + '</div></body></html>';
   }
 
+  // ------------------------------------------------------------------
+  // Los papelitos de la tómbola
+  // ------------------------------------------------------------------
+  /*
+   * El eslabón que faltaba entre la app y el mundo físico.
+   *
+   * La app imprime boletos con números repartidos al azar por todo el espacio
+   * de cinco dígitos. Eso es bueno contra la falsificación y malo para una
+   * tómbola: no existe la bolsa de bolitas que los traiga, y escribir
+   * ochocientos papelitos a mano es una tarde entera y un dedazo esperando a
+   * pasar. Un papelito mal escrito es un número que la app va a rechazar el
+   * día del sorteo, delante de todos.
+   *
+   * Así que los papelitos salen de la MISMA consulta que la hoja de boletos.
+   * Si un número está en un papelito, está en un boleto; si está en un boleto,
+   * tiene su papelito. No hay forma de que se desincronicen.
+   *
+   * En el papelito va el número y nada más. NO va de qué boleto salió: quien
+   * mete la mano en la tómbola no tiene por qué poder ver a quién le toca.
+   */
+  var POR_RENGLON = 6;
+  var RENGLONES = 12;
+  var POR_HOJA = POR_RENGLON * RENGLONES;
+
+  function papelitosHtml(rifa, boletos) {
+    // Todos los números de la rifa, ordenados. En orden y no revueltos a
+    // propósito: así se pueden contar y cotejar de un vistazo antes de
+    // echarlos a la tómbola. Revolverlos es trabajo de la tómbola, no de la
+    // impresora.
+    var folios = [];
+    boletos.forEach(function (b) {
+      (b.folios || []).forEach(function (f) { folios.push(f); });
+    });
+    folios.sort();
+
+    var serie = rifa.serie ? escapar(rifa.serie) + '-' : '';
+    var hojas = Math.ceil(folios.length / POR_HOJA);
+
+    var cuerpo = '';
+    for (var h = 0; h < hojas; h++) {
+      var tanda = folios.slice(h * POR_HOJA, (h + 1) * POR_HOJA);
+      cuerpo += '<section class="hoja"><div class="rejilla">' +
+        tanda.map(function (f) {
+          return '<div class="papelito"><span class="numero">' + serie + escapar(f) +
+            '</span><span class="dedonde">' + escapar(rifa.nombre) + '</span></div>';
+        }).join('') +
+        '</div><p class="pieHoja">Hoja ' + (h + 1) + ' de ' + hojas + ' · ' +
+        escapar(rifa.nombre) + ' · ' + folios.length + ' papelitos en total</p></section>';
+    }
+
+    return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" />' +
+      '<title>Papelitos para la tómbola — ' + escapar(rifa.nombre) + '</title><style>' +
+      '@page { size: letter; margin: 8mm; }' +
+      'body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;' +
+      ' margin: 0; background: #fff; color: #000; }' +
+      '.encabezado { padding: 8mm 6mm 0; }' +
+      'h1 { font-size: 14pt; margin: 0 0 3mm; }' +
+      '.guia { font-size: 10pt; line-height: 1.5; color: #333; margin: 0 0 4mm; max-width: 150mm; }' +
+      '.guia strong { color: #000; }' +
+      'button { font: inherit; padding: 3mm 6mm; margin-bottom: 6mm; }' +
+      '.hoja { break-after: page; }' +
+      '.hoja:last-child { break-after: auto; }' +
+      '.rejilla { display: grid; grid-template-columns: repeat(' + POR_RENGLON + ', 1fr); }' +
+      // Sin hueco entre papelitos y con el borde punteado compartido: se corta
+      // de un solo tijeretazo por renglón, no recuadro por recuadro.
+      '.papelito { border: 0.3mm dashed #999; margin: -0.15mm; height: 20mm;' +
+      ' display: flex; flex-direction: column; align-items: center;' +
+      ' justify-content: center; gap: 1mm; break-inside: avoid; }' +
+      '.numero { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15pt;' +
+      ' font-weight: 700; letter-spacing: 0.06em; }' +
+      '.dedonde { font-size: 5pt; color: #666; text-transform: uppercase;' +
+      ' letter-spacing: 0.08em; max-width: 90%; overflow: hidden;' +
+      ' text-overflow: ellipsis; white-space: nowrap; }' +
+      '.pieHoja { font-size: 8pt; color: #555; text-align: center; margin: 3mm 0 0; }' +
+      '@media print { .encabezado { display: none; } }' +
+      '</style></head><body><div class="encabezado">' +
+      '<h1>Papelitos para la tómbola · ' + escapar(rifa.nombre) + '</h1>' +
+      '<p class="guia">' +
+      'Un papelito por cada número de la rifa: <strong>' + folios.length + ' en total</strong>, ' +
+      'repartidos en <strong>' + hojas + ' hoja' + (hojas === 1 ? '' : 's') + '</strong>. ' +
+      'Salen de los mismos boletos que ya se imprimieron, así que no puede sobrar ni faltar ninguno.<br />' +
+      '<strong>Antes de echarlos a la tómbola, comprueba que tienes las ' + hojas + ' hojas</strong> ' +
+      '—cada una lo dice en su pie—. Una hoja que no se imprimió es un boleto que nunca podría ganar, ' +
+      'y una hoja impresa dos veces es un boleto con el doble de suerte.' +
+      '</p>' +
+      '<button onclick="window.print()">Imprimir o guardar como PDF</button></div>' +
+      cuerpo + '</body></html>';
+  }
+
   function abrirHoja(rifa, boletos) {
-    var html = hojaHtml(rifa, boletos);
+    abrirEnVentana(hojaHtml(rifa, boletos), 'boletos-' + rifa.id + '.html');
+  }
+
+  function abrirPapelitos(rifa, boletos) {
+    abrirEnVentana(papelitosHtml(rifa, boletos), 'papelitos-' + rifa.id + '.html');
+  }
+
+  /** Abre una hoja lista para imprimir, o la descarga si hay bloqueador. */
+  function abrirEnVentana(html, nombreArchivo) {
     var ventana = window.open('', '_blank');
     if (ventana && ventana.document) {
       ventana.document.open();
@@ -1118,7 +1230,7 @@
     var url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     var enlace = document.createElement('a');
     enlace.href = url;
-    enlace.download = 'boletos-' + rifa.id + '.html';
+    enlace.download = nombreArchivo;
     document.body.appendChild(enlace);
     enlace.click();
     document.body.removeChild(enlace);
