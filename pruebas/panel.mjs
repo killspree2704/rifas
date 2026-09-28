@@ -586,6 +586,120 @@ ok('y el veredicto YA NO dice que todo está en orden',
 ok('sin errores de JavaScript en el diagnóstico', errD.length === 0, errD.join(' | '));
 await ctxD.close();
 
+// ------------------------------------------------------- PAPELITOS --------
+// El eslabón entre la app y la tómbola. Lo que se comprueba aquí no es que la
+// hoja se vea bonita: es que los papelitos y los boletos digan EXACTAMENTE los
+// mismos números. Un papelito de más es un boleto con doble suerte; uno de
+// menos es un boleto que nunca podría ganar.
+{
+  console.log('\n== Papelitos para la tómbola ==');
+  const ctxT = await navegador.newContext({ serviceWorkers: 'block' });
+  const pt = await ctxT.newPage();
+  const errT = [];
+  pt.on('pageerror', (e) => errT.push(String(e)));
+  await pt.goto(BASE + '/panel.html');
+  await pt.fill('#clave', 'secreta');
+  await pt.click('#btnEntrar');
+  await pt.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pt.click('.pestana[data-panel="paneRifas"]');
+  await pt.waitForSelector('#listaRifas .rifa');
+
+  const fila = pt.locator('.rifa', { hasText: 'Rifa El Muerde Manos' });
+  ok('cada rifa ofrece sus papelitos de tómbola',
+     await fila.getByText('Papelitos de tómbola').isVisible());
+
+  // Los números impresos en los BOLETOS, que son la verdad contra la que hay
+  // que comparar.
+  const [hojaB] = await Promise.all([
+    ctxT.waitForEvent('page'),
+    fila.getByText('Hoja de boletos').click(),
+  ]);
+  await hojaB.waitForSelector('.boleto .num');
+  const enBoletos = await hojaB.$$eval('.boleto .num', (n) => n.map((e) => e.textContent.trim()));
+  await hojaB.close();
+
+  const [hojaP] = await Promise.all([
+    ctxT.waitForEvent('page'),
+    fila.getByText('Papelitos de tómbola').click(),
+  ]);
+  await hojaP.waitForSelector('.papelito');
+  const enPapelitos = await hojaP.$$eval('.papelito .numero',
+    (n) => n.map((e) => e.textContent.trim().replace(/^[A-Z]+-/, '')));
+
+  ok('hay un papelito por cada número impreso, ni uno más ni uno menos',
+     enPapelitos.length === enBoletos.length,
+     enPapelitos.length + ' papelitos contra ' + enBoletos.length + ' números');
+  ok('y son exactamente los mismos números',
+     enPapelitos.slice().sort().join(',') === enBoletos.slice().sort().join(','),
+     enPapelitos.slice().sort().join(' '));
+  ok('sin repetidos: un número repetido sería un boleto con doble suerte',
+     new Set(enPapelitos).size === enPapelitos.length,
+     enPapelitos.length - new Set(enPapelitos).size + ' repetidos');
+
+  // Quien mete la mano en la tómbola no debe poder ver a quién le toca.
+  const textoPapelitos = await hojaP.$eval('body', (e) => e.textContent);
+  ok('el papelito no dice de qué boleto salió',
+     !textoPapelitos.includes('9000001052') && !/[Cc]ódigo/.test(textoPapelitos),
+     textoPapelitos.slice(0, 80).replace(/\s+/g, ' '));
+
+  ok('y avisa cuántos deben quedar, para poder contarlos',
+     (await hojaP.textContent('.guia')).includes(enBoletos.length + ' en total'),
+     (await hojaP.textContent('.guia')).replace(/\s+/g, ' ').slice(0, 90));
+  await hojaP.close();
+
+  // Un lote grande, para que la paginación entre en juego: una hoja que no se
+  // imprimió es un boleto que jamás podría ganar, así que cada hoja tiene que
+  // decir cuál es y cuántas son.
+  await pt.click('#cajaNueva > summary');
+  await pt.fill('#nvNombre', 'Rifa con tombola');
+  await pt.fill('#nvSerie', 'T');
+  await pt.fill('#nvFecha', '2026-12-31T20:00');
+  await pt.fill('#nvCantidad', '25');
+  await pt.fill('#nvFoliosPorBoleto', '4');
+  await pt.click('#btnCrear');
+  await pt.waitForFunction(() =>
+    document.getElementById('mensajeNueva').textContent.includes('confirmar'));
+  const [hojaNueva] = await Promise.all([
+    ctxT.waitForEvent('page'),
+    pt.click('#btnCrear'),
+  ]);
+  await hojaNueva.waitForSelector('.boleto');
+  await hojaNueva.close();
+
+  await pt.click('.pestana[data-panel="paneRifas"]');
+  await pt.waitForSelector('#listaRifas .rifa');
+  const filaT = pt.locator('.rifa', { hasText: 'Rifa con tombola' });
+  const [hojaT] = await Promise.all([
+    ctxT.waitForEvent('page'),
+    filaT.getByText('Papelitos de tómbola').click(),
+  ]);
+  await hojaT.waitForSelector('.papelito');
+  ok('un lote de 25 boletos de 4 números da 100 papelitos',
+     (await hojaT.locator('.papelito').count()) === 100,
+     String(await hojaT.locator('.papelito').count()));
+  ok('repartidos en dos hojas, porque en una no caben',
+     (await hojaT.locator('.hoja').count()) === 2,
+     String(await hojaT.locator('.hoja').count()));
+  const pies = await hojaT.$$eval('.pieHoja', (n) => n.map((e) => e.textContent.trim()));
+  ok('y cada hoja dice cuál es y cuántas son, para cachar una que falte',
+     pies[0].startsWith('Hoja 1 de 2') && pies[1].startsWith('Hoja 2 de 2') &&
+     pies.every((t) => t.includes('100 papelitos en total')),
+     pies.join(' | '));
+
+  // Y que ese «de 2» sea verdad AL IMPRIMIR, no solo en la pantalla: el corte
+  // de página lo decide el motor de impresión, no el DOM. Si un día se rompe,
+  // la hoja seguiría anunciando dos páginas y saldrían tres, que es
+  // exactamente la clase de mentira que hace que falten papelitos.
+  const pdf = await hojaT.pdf({ format: 'Letter' });
+  const paginas = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+  ok('y al imprimirlo de verdad salen esas dos páginas, ni una más',
+     paginas === 2, paginas + ' páginas en el PDF');
+  await hojaT.close();
+
+  ok('sin errores de JavaScript en los papelitos', errT.length === 0, errT.join(' | '));
+  await ctxT.close();
+}
+
 // --------------------------------------------------------------- DISEÑO ----
 // Aparte y con su propio navegador: guarda un diseño en el servidor de prueba
 // y eso cambiaría la hoja que revisan las demás.

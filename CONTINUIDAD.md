@@ -214,7 +214,10 @@ el diseño, no una omisión.
    traen el botón **Ver la transmisión aquí**, que mete el reproductor en la
    propia pantalla del boleto. Debajo queda «o ábrela en YouTube» por si algo
    falla. **Quien la ve no necesita cuenta de nada.**
-4. Sacar el folio de la tómbola y teclearlo. El panel enseña **de qué boleto
+4. Sacar el papelito de la tómbola y teclear su número. **El ganador lo
+   decide la tómbola, no la app**: «Revelar» solo registra lo que ya salió, y
+   el servidor rechaza cualquier número que no pertenezca a la rifa.
+   («Sortear al azar» es el otro botón, para cuando no hay sorteo físico.) El panel enseña **de qué boleto
    salió ese número, con su código y sus otros tres números**:
    **compáralo con el talón que traes en la mano** antes de tocar Revelar, que
    no se enciende hasta entonces. Luego pide confirmar dos veces.
@@ -235,8 +238,13 @@ Todo desde el panel, sin tocar código ni publicar nada:
    en los dígitos son los *números*, no los boletos. Con 4 por boleto y 5
    dígitos caben 6,750 boletos; el panel te lo dice antes de generar nada.
 2. Se abre la hoja: **Imprimir → Guardar como PDF**, y de ahí a la imprenta.
-3. **Manejar esta** para que el panel opere esa rifa.
-4. Si quieres darle aspecto, **pestaña «Diseño»**: seis temas listos, tus
+3. **Papelitos de tómbola**, en la misma fila del historial: un papelito por
+   cada número, listos para recortar y echar al bombo. Salen de la misma
+   consulta que los boletos, así que no puede sobrar ni faltar ninguno.
+   **Cuenta las hojas antes de echarlos**: cada una dice cuál es y cuántas
+   son, y una hoja que no se imprimió es un boleto que jamás podría ganar.
+4. **Manejar esta** para que el panel opere esa rifa.
+5. Si quieres darle aspecto, **pestaña «Diseño»**: seis temas listos, tus
    colores encima, **doce fondos** —seis de línea, al estilo del papel de
    seguridad, y seis de figura: estrellas, confeti, burbujas, corazones,
    tréboles y fiesta, con sus propios colores—, logo y el aviso de letra
@@ -310,11 +318,11 @@ número uno es el caché del navegador, no la base.
 
 - Las **10 migraciones** aplicadas; la función de borde `sorteo` en su
   **versión 11**; la clave del panel y la llave de firma en su lugar.
-- El trabajador de servicio va en **`rifa-v16`**, a la par del `?v=16` de
+- El trabajador de servicio va en **`rifa-v17`**, a la par del `?v=17` de
   `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **164 comprobaciones** automáticas
+- El panel y el boleto pasan **175 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
