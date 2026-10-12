@@ -199,6 +199,37 @@ Migraciones aplicadas, en orden: `esquema_rifas`, `realtime_rifas`,
 números. Quién compró cada boleto lo lleva el vendedor en su libreta, y ese es
 el diseño, no una omisión.
 
+## ⚠️ El plan gratis PAUSA el proyecto a los 7 días sin actividad
+
+Pasó el 12 de octubre de 2026: el panel daba «Failed to fetch» y la causa era
+que Supabase había pausado el proyecto por inactividad desde el 28 de
+septiembre. No era la clave ni el sitio: la base estaba apagada.
+
+**Qué se siente:** «Failed to fetch» en el panel, y la pantalla del boleto sin
+poder resolver nada. Ojo con el diagnóstico equivocado: una clave mala NO da
+ese mensaje, da «clave incorrecta».
+
+**Cómo se arregla:** entrar al [panel de Supabase](https://supabase.com/dashboard/project/fgwavuaolmrwagaymgos),
+pulsar **Resume project** y esperar. Tarda unos minutos y pasa por `COMING_UP`
+→ `RESTORING` → `ACTIVE_HEALTHY`. **Durante `COMING_UP` el esquema se ve vacío
+y parece que se perdió todo: no es cierto**, los datos se cargan en
+`RESTORING`. No hagas nada hasta ver `ACTIVE_HEALTHY`.
+
+**Cómo se evita**, que es lo que importa:
+
+- **Lo barato:** abrir el panel o `diagnostico.html` un par de veces por semana.
+  Según la documentación de Supabase, «unas pocas peticiones al día a lo largo
+  de la semana» bastan para que no se pause.
+- **Lo seguro, y lo que yo haría para el mes del evento:** pasar a Pro. **Los
+  proyectos de pago no se pausan nunca.** Ya había una razón para pagar ese mes
+  —las 500 conexiones en vivo—; esta es más grave, porque un proyecto pausado
+  el día del sorteo deja todo muerto hasta que alguien lo despierte, y tarda
+  minutos.
+
+Supabase manda **dos correos** al dueño: un aviso una semana antes y otro al
+pausarse. No los ignores. Y hay **90 días** para restaurar un proyecto pausado;
+pasados esos, solo queda descargar un respaldo.
+
 ## El día de la rifa
 
 1. Llegar a la sede y abrir `diagnostico.html` con la red del lugar y con
@@ -345,11 +376,16 @@ número uno es el caché del navegador, no la base.
 
 ### Pendientes
 
-- **Supabase Pro para el mes del evento.** El plan gratis da 200 conexiones
-  simultáneas de Realtime y ustedes esperan 500 teléfonos. Con Pro (~25 USD el
-  mes) sobra. Sin Pro tampoco se rompe: el sondeo de respaldo cubre a los que
-  no alcancen canal, y está medido —500 pantallas proyectan 167 consultas por
-  segundo y todas ven el resultado—, solo que tardan unos segundos más.
+- **Supabase Pro para el mes del evento, por DOS razones.** La primera y más
+  grave: **el plan gratis pausa el proyecto a los 7 días sin actividad** —ya
+  pasó una vez— y los de pago no se pausan nunca; un proyecto pausado el día
+  del sorteo deja todo muerto hasta que alguien lo despierte. La segunda: el
+  plan gratis da 200 conexiones simultáneas de Realtime y ustedes esperan 500
+  teléfonos. Con Pro (~25 USD el mes, cancelable después) se resuelven las dos.
+  Lo de las conexiones solo no se rompe —el sondeo de respaldo cubre a los que
+  no alcancen canal, y está medido: 500 pantallas proyectan 167 consultas por
+  segundo y todas ven el resultado, solo que tardan unos segundos más—. Lo de
+  la pausa sí rompe.
 - **Borrar la rama vieja** `claude/qr-code-raffle-ticket-ks2mxd` en el
   repositorio de Koppert. Su PR está cerrado y `main` quedó intacto, pero la
   rama sigue ahí.
