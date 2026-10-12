@@ -749,6 +749,11 @@ Deno.serve(async (req) => {
     let modo = "capturado";
     if (ganador) {
       if (!folios.includes(ganador)) {
+        // Que quede escrito, no solo rechazado: si algún papelito que cae de
+        // la tómbola no es de los que esta rifa imprimió —ajeno, mal tecleado
+        // o de mala fe—, la bitácora tiene que poder probar después que pasó
+        // y que el sistema lo paró, aunque en el momento nadie lo mirara.
+        await anotar(rifa, "intento_rechazado", { folio: ganador, folios: folios.length });
         return responder({ error: `el folio ${ganador} no pertenece a esta rifa` }, 400);
       }
     } else {
