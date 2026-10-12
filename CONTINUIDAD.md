@@ -275,11 +275,26 @@ Todo desde el panel, sin tocar código ni publicar nada:
    **Cuenta las hojas antes de echarlos**: cada una dice cuál es y cuántas
    son, y una hoja que no se imprimió es un boleto que jamás podría ganar.
 4. **Manejar esta** para que el panel opere esa rifa.
-5. Si quieres darle aspecto, **pestaña «Diseño»**: seis temas listos, tus
-   colores encima, **doce fondos** —seis de línea, al estilo del papel de
-   seguridad, y seis de figura: estrellas, confeti, burbujas, corazones,
-   tréboles y fiesta, con sus propios colores—, logo y el aviso de letra
-   chica. **Se puede diseñar antes de crear la
+5. Si quieres darle aspecto, **pestaña «Diseño»**. Lo primero que se elige
+   ahí es la **disposición**, que es la plantilla entera:
+   - **Clásica**: horizontal y sobria, la de siempre.
+   - **Suertudito**: vertical, con marco verde doble, tréboles, rana, el
+     nombre de la rifa en cursiva a dos renglones, los cuatro números en sus
+     recuadros, el QR al centro, el logo a un lado y la caducidad y la fecha
+     de emisión impresas de canto. Reproduce el boleto que trajo el dueño.
+     Al elegirla, los boletos por renglón saltan a 3, que es el tamaño del
+     original.
+
+   Encima van seis temas listos, tus colores, **doce fondos** —seis de línea,
+   al estilo del papel de seguridad, y seis de figura: estrellas, confeti,
+   burbujas, corazones, tréboles y fiesta, con sus propios colores—, logo y
+   el aviso de letra chica.
+
+   > **Ojo con la cursiva del título.** Se pide `Segoe Script`, `Brush Script
+   > MT`, `Lucida Handwriting` o `Apple Chancery`, lo que la computadora que
+   > imprime tenga. Si no tiene ninguna, el título sale en la cursiva de
+   > sistema: legible, pero con otra letra. Imprime una hoja de prueba desde
+   > la máquina que vaya a hacer el tiraje antes de mandar el lote. **Se puede diseñar antes de crear la
    rifa**: sin ninguna, lo que guardes se le copia a la próxima al nacer. Se guarda **en esa rifa**,
    así que cada una puede verse distinta y reimprimir una hoja vieja da la hoja
    de entonces. Solo toca el papel; la pantalla del participante no cambia.
@@ -348,12 +363,12 @@ número uno es el caché del navegador, no la base.
 ### El resto del sistema
 
 - Las **10 migraciones** aplicadas; la función de borde `sorteo` en su
-  **versión 11**; la clave del panel y la llave de firma en su lugar.
-- El trabajador de servicio va en **`rifa-v17`**, a la par del `?v=17` de
+  **versión 13**; la clave del panel y la llave de firma en su lugar.
+- El trabajador de servicio va en **`rifa-v18`**, a la par del `?v=18` de
   `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **175 comprobaciones** automáticas
+- El panel y el boleto pasan **187 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

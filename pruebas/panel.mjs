@@ -731,6 +731,9 @@ await ctxD.close();
 
   ok('ofrece los seis temas', (await pg.locator('#temas .tema').count()) === 6,
      String(await pg.locator('#temas .tema').count()));
+  ok('ofrece las dos disposiciones',
+     (await pg.locator('#disposiciones .tema').count()) === 2,
+     String(await pg.locator('#disposiciones .tema').count()));
   ok('y los doce fondos: seis de línea y seis de figura',
      (await pg.locator('#tramas .tema').count()) === 12,
      String(await pg.locator('#tramas .tema').count()));
@@ -892,6 +895,68 @@ await ctxD.close();
      (await hojaD.$eval('.boleto', (e) => getComputedStyle(e).backgroundImage)).includes('gradient'),
      await hojaD.$eval('.boleto', (e) => getComputedStyle(e).backgroundImage));
   await hojaD.close();
+
+  // --- La disposición vertical «Suertudito» -------------------------
+  // Es una plantilla entera, no un color: lo que hay que comprobar es que los
+  // cuatro números caigan en sus recuadros y que lo que se ve en la vista
+  // previa sea lo que sale impreso.
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto');
+  ok('la caducidad está escondida mientras la disposición es la clásica',
+     await pg.isHidden('#campoCaducidad'));
+
+  await pg.click('#disposiciones .tema[data-disposicion="suertudito"]');
+  await pg.waitForSelector('#vistaBoleto .boleto .titulo');
+  ok('el boleto vertical trae su marco doble, su rana y su título',
+     (await pg.locator('#vistaBoleto .marco').count()) === 1 &&
+     (await pg.locator('#vistaBoleto .rana').count()) === 1 &&
+     (await pg.locator('#vistaBoleto .titulo').count()) === 1);
+  ok('con los cuatro números en sus cuatro recuadros',
+     (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim())))
+       .join(',') === '1018,4307,2850,3267',
+     (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim()))).join(','));
+  ok('el QR sigue sobre blanco también en el boleto vertical',
+     (await pg.$eval('#vistaBoleto .qr', (e) => getComputedStyle(e).backgroundColor))
+       === 'rgb(255, 255, 255)');
+  ok('y el papel queda vertical, no horizontal',
+     await pg.$eval('#vistaBoleto .boleto', (e) => e.offsetHeight > e.offsetWidth * 1.3),
+     await pg.$eval('#vistaBoleto .boleto', (e) => e.offsetWidth + '×' + e.offsetHeight));
+  ok('ahora sí aparece la caducidad, que solo existe en esta disposición',
+     await pg.isVisible('#campoCaducidad'));
+  ok('y los boletos por renglón saltan a 3, que es el tamaño del original',
+     (await pg.inputValue('#dsColumnas')) === '3', await pg.inputValue('#dsColumnas'));
+
+  await pg.fill('#dsCaducidad', '2 días');
+  await pg.waitForFunction(() => {
+    const f = document.querySelector('#vistaBoleto .fechas');
+    return f && f.textContent.includes('2 días');
+  }, null, { timeout: 5000 });
+  ok('la caducidad escrita se ve en el boleto', true);
+
+  // Lo que importa: que la hoja impresa salga vertical igual que la vista.
+  await pg.click('#btnGuardarDiseno');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeDiseno').textContent.includes('va a salir así'),
+    null, { timeout: 10000 });
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  const [hojaV] = await Promise.all([
+    ctxG.waitForEvent('page'),
+    pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaV.waitForLoadState('domcontentloaded');
+  await hojaV.waitForSelector('.boleto .titulo');
+  ok('la hoja impresa sale con el boleto vertical, no con el clásico',
+     (await hojaV.locator('.boleto .rana').count()) > 0 &&
+     (await hojaV.locator('.boleto .caja').count()) === 8,
+     (await hojaV.locator('.boleto .caja').count()) + ' recuadros en 2 boletos');
+  ok('y con la caducidad que se escribió',
+     (await hojaV.textContent('.boleto .fechas')).includes('2 días'),
+     (await hojaV.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
+  ok('la fecha de emisión sale con guiones, igual en cualquier navegador',
+     /\d{2}-[a-z]{3}-\d{4}/.test(await hojaV.textContent('.boleto .fechas')),
+     (await hojaV.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
+  await hojaV.close();
 
   // Volver al de siempre, con su confirmación.
   await pg.click('.pestana[data-panel="paneDiseno"]');

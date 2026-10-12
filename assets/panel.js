@@ -974,6 +974,8 @@
       columnas: (d.columnas === 1 || d.columnas === 3) ? d.columnas : 2,
       trama: TRAMAS[d.trama] ? d.trama : 'ninguna',
       intensidad: INTENSIDADES[d.intensidad] ? d.intensidad : 'suave',
+      disposicion: d.disposicion === 'suertudito' ? 'suertudito' : 'clasica',
+      caducidad: typeof d.caducidad === 'string' ? d.caducidad : '1 día',
     };
   }
 
@@ -1018,6 +1020,168 @@
     return avisos;
   }
 
+  // ------------------------------------------------------------------
+  // Disposición «Suertudito»: el boleto vertical
+  // ------------------------------------------------------------------
+  /*
+   * Una reproducción del boleto que trajo el dueño: marco verde doble,
+   * tréboles, la rana, el título en cursiva, cuatro recuadros para los
+   * números y el QR al centro.
+   *
+   * Todo el adorno va dibujado en SVG aquí mismo, no como imágenes: pesa
+   * cero, sale nítido a cualquier resolución de impresora y se imprime igual
+   * sin red. Lo único que viene de fuera es el logo, que se sube desde el
+   * panel y vive en el mismo campo `logo` de siempre.
+   *
+   * Las medidas van en porcentaje del boleto, tomadas del original midiendo
+   * la imagen. Así el boleto se puede imprimir a uno, dos o tres por renglón
+   * y conserva sus proporciones.
+   */
+  var HOJA_TREBOL =
+    'M50,50 C33,36 23,15 35,8 C45,2 50,12 50,22 C50,12 55,2 65,8 C77,15 67,36 50,50 Z';
+
+  function trebolSvg(color) {
+    return '<svg class="trebol" viewBox="0 0 100 100">' +
+      [0, 90, 180, 270].map(function (g) {
+        return '<path d="' + HOJA_TREBOL + '" transform="rotate(' + g + ' 50 50)" fill="' + color + '"/>';
+      }).join('') +
+      '<path d="M54,56 C62,70 64,84 59,97" fill="none" stroke="' + color +
+      '" stroke-width="4.5" stroke-linecap="round"/></svg>';
+  }
+
+  function ranaSvg(color) {
+    return '<svg class="rana" viewBox="0 0 120 100">' +
+      '<g fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" ' +
+      'stroke-linejoin="round">' +
+      '<circle cx="48" cy="13" r="8.5"/><circle cx="72" cy="13" r="8.5"/>' +
+      '<path d="M40,19 C41,35 52,43 60,43 C68,43 79,35 80,19"/>' +
+      '<path d="M42,29 C22,33 7,48 6,66 C5,80 16,86 24,79 C30,74 31,65 29,58"/>' +
+      '<path d="M78,29 C98,33 113,48 114,66 C115,80 104,86 96,79 C90,74 89,65 91,58"/>' +
+      '<path d="M24,79 C19,85 12,88 5,87"/><path d="M96,79 C101,85 108,88 115,87"/></g>' +
+      '<circle cx="48" cy="13" r="2.6" fill="' + color + '"/>' +
+      '<circle cx="72" cy="13" r="2.6" fill="' + color + '"/></svg>';
+  }
+
+  function monedaSvg(color) {
+    return '<svg class="moneda" viewBox="0 0 100 100">' +
+      '<circle cx="50" cy="50" r="45" fill="none" stroke="' + color + '" stroke-width="6"/>' +
+      '<circle cx="50" cy="50" r="34" fill="none" stroke="' + color + '" stroke-width="3.5"/>' +
+      '<text x="50" y="70" text-anchor="middle" font-family="Georgia,serif" font-size="54" ' +
+      'font-weight="700" fill="' + color + '">$</text></svg>';
+  }
+
+  /**
+   * El estilo del boleto vertical.
+   *
+   * `aspect-ratio` en vez de una altura fija: así la hoja puede imprimirlo a
+   * uno, dos o tres por renglón y el boleto conserva su forma en los tres
+   * casos, en vez de estirarse.
+   */
+  function estiloSuerte(d, p) {
+    var tenue = conAlfa(d.borde, 0.55);
+    return (
+      p + '.boleto { position: relative; aspect-ratio: 60 / 84.7; box-sizing: border-box;' +
+      ' background-color: ' + d.fondo + '; color: ' + d.tinta + '; overflow: hidden;' +
+      ' break-inside: avoid; ' + fondoDe(d) + ' }' +
+      p + '.marco { position: absolute; inset: 1.9%; border: 0.75mm solid ' + d.borde + '; }' +
+      p + '.marco2 { position: absolute; inset: 3.6%; border: 0.18mm solid ' + tenue + '; }' +
+      // El nombre de la rifa, en cursiva y a dos renglones como el original.
+      // Si la máquina que imprime no tiene ninguna cursiva, cae en la de
+      // sistema: se ve distinto, pero nunca se queda sin título.
+      p + '.titulo { position: absolute; left: 6%; right: 6%; top: 7.5%; text-align: center;' +
+      ' line-height: 0.95; font-family: "Segoe Script", "Brush Script MT", "Lucida Handwriting",' +
+      ' "Apple Chancery", cursive; font-size: 7.2mm; font-weight: 700; font-style: italic;' +
+      ' color: ' + d.tinta + '; }' +
+      p + '.titulo span { display: block; }' +
+      p + '.titulo span + span { margin-left: 1.5mm; }' +
+      p + '.caja { position: absolute; width: 26.6%; height: 7.1%; border: 0.22mm solid ' +
+      d.borde + '; border-radius: 1mm; display: flex; align-items: center;' +
+      ' justify-content: center; background: ' + d.fondo + ';' +
+      ' font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700;' +
+      ' font-size: 3.3mm; color: ' + d.acento + '; }' +
+      p + '.n1 { left: 7.2%; top: 39.6%; } ' + p + '.n2 { left: 66.2%; top: 39.6%; }' +
+      p + '.n3 { left: 7.2%; top: 76.6%; } ' + p + '.n4 { left: 66.2%; top: 76.6%; }' +
+      p + '.rana { position: absolute; left: 38.5%; width: 23%; top: 35.5%; }' +
+      // El QR, siempre sobre blanco y con su margen: no se negocia ni aquí.
+      p + '.qr { position: absolute; left: 36.5%; width: 27%; top: 50%; background: #fff;' +
+      ' padding: 0.6mm; border-radius: 0.5mm; }' +
+      p + '.qr svg { width: 100%; height: auto; display: block; }' +
+      p + '.sello { position: absolute; left: 71.5%; width: 19%; top: 52.5%; }' +
+      p + '.trebol { position: absolute; }' +
+      p + '.tr1 { left: 3.5%; top: 4%; width: 13%; }' +
+      p + '.tr2 { left: 75%; top: 14%; width: 17%; }' +
+      p + '.tr3 { left: 2.5%; top: 87.5%; width: 9%; }' +
+      p + '.moneda { position: absolute; width: 7.4%; }' +
+      p + '.mo1 { left: 5.5%; top: 31.5%; } ' + p + '.mo2 { left: 88%; top: 68.5%; }' +
+      p + '.fechas { position: absolute; left: 6.2%; top: 47.5%; height: 28%;' +
+      ' writing-mode: vertical-rl; font-size: 1.75mm; font-weight: 600; line-height: 1.45;' +
+      ' white-space: nowrap; opacity: 0.9; }' +
+      p + '.precio { position: absolute; left: 33.4%; width: 33.2%; top: 76.6%; height: 7.1%;' +
+      ' display: flex; align-items: center; justify-content: center; font-size: 6mm;' +
+      ' font-weight: 900; font-style: italic; color: ' + d.acento + ';' +
+      ' text-shadow: 0.25mm 0.25mm 0 ' + d.borde + ', 0.5mm 0.5mm 0.2mm rgba(0,0,0,.3); }' +
+      p + '.aviso { position: absolute; left: 12%; right: 6%; top: 86.5%; text-align: center;' +
+      ' font-size: 2.05mm; font-weight: 700; line-height: 1.3; }'
+    );
+  }
+
+  /** El nombre partido en dos renglones, como el original. */
+  function tituloEnDos(nombre) {
+    var texto = String(nombre || '').trim();
+    var corte = texto.lastIndexOf(' ');
+    if (corte < 1) { return '<span>' + escapar(texto) + '</span>'; }
+    return '<span>' + escapar(texto.slice(0, corte)) + '</span>' +
+           '<span>' + escapar(texto.slice(corte + 1)) + '</span>';
+  }
+
+  var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+               'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  /**
+   * Una fecha corta para el boleto: 30-sep-2026.
+   *
+   * Armada a mano y no con `toLocaleDateString`: esa devuelve «30 sept 2026»
+   * o «30 sep 2026» según la versión del navegador que imprima, y un lote de
+   * boletos no puede salir distinto según la computadora que lo mandó.
+   */
+  function fechaCorta(iso) {
+    if (!iso) { return ''; }
+    var f = new Date(iso);
+    if (isNaN(f.getTime())) { return ''; }
+    // En la zona del evento, no en la del navegador que imprime.
+    var partes = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      timeZone: CFG.zonaHoraria || undefined,
+    }).format(f).split('-');
+    return partes[2] + '-' + MESES[Number(partes[1]) - 1] + '-' + partes[0];
+  }
+
+  function boletoSuerteHtml(rifa, boleto, url, precio, d) {
+    var numeros = (boleto.folios || []).slice(0, 4);
+    var emision = fechaCorta(rifa.creada_en);
+    return '<article class="boleto">' +
+      '<div class="marco"></div><div class="marco2"></div>' +
+      trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr1"') +
+      trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr2"') +
+      trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr3"') +
+      '<div class="titulo">' + tituloEnDos(rifa.nombre) + '</div>' +
+      monedaSvg(d.borde).replace('class="moneda"', 'class="moneda mo1"') +
+      monedaSvg(d.borde).replace('class="moneda"', 'class="moneda mo2"') +
+      ranaSvg(conAlfa(d.acento, 0.85)) +
+      numeros.map(function (f, i) {
+        return '<div class="caja n' + (i + 1) + '">' + escapar(f) + '</div>';
+      }).join('') +
+      '<div class="qr">' + qrSvg(url) + '</div>' +
+      (d.logo ? '<img class="sello" src="' + escapar(d.logo) + '" alt="" />' : '') +
+      '<div class="fechas">' +
+      (d.caducidad ? 'Caducidad: ' + escapar(d.caducidad) : '') +
+      (emision ? '<br />Emisión: ' + escapar(emision) : '') +
+      '</div>' +
+      (precio ? '<div class="precio">' + escapar(precio) + '</div>' : '') +
+      (d.aviso ? '<div class="aviso">' + escapar(d.aviso) + '</div>' : '') +
+      '</article>';
+  }
+
   /**
    * El estilo de un boleto. Lo comparten la hoja y la vista previa.
    *
@@ -1026,6 +1190,7 @@
    */
   function estiloBoleto(d, prefijo) {
     var p = prefijo || '';
+    if (d.disposicion === 'suertudito') { return estiloSuerte(d, p); }
     return (
       // El color va por separado de la imagen: `background` a secas borraría
       // la trama que viene justo después.
@@ -1062,8 +1227,17 @@
     );
   }
 
-  /** Un boleto. El mismo que va a la hoja y el que se ve en la vista previa. */
-  function boletoHtml(nombre, boleto, url, precio, d) {
+  /**
+   * Un boleto. El mismo que va a la hoja y el que se ve en la vista previa.
+   *
+   * Recibe la rifa entera y no solo su nombre porque la disposición vertical
+   * imprime además su fecha de emisión.
+   */
+  function boletoHtml(rifa, boleto, url, precio, d) {
+    if (d.disposicion === 'suertudito') {
+      return boletoSuerteHtml(rifa, boleto, url, precio, d);
+    }
+    var nombre = rifa.nombre;
     var numeros = (boleto.folios || []).map(function (f) {
       return '<span class="num">' + escapar(f) + '</span>';
     }).join('');
@@ -1094,7 +1268,7 @@
     var trozos = boletos.map(function (b) {
       // El QR lleva el boleto, no un folio: un papel, un código.
       var url = base + '?b=' + encodeURIComponent(b.id) + '&c=' + encodeURIComponent(b.codigo);
-      return boletoHtml(rifa.nombre, b, url, precio, d);
+      return boletoHtml(rifa, b, url, precio, d);
     });
 
     return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" />' +
@@ -1320,6 +1494,55 @@
     });
   }
 
+  var DISPOSICIONES = {
+    clasica: { nombre: 'Clásica', razon: '16 / 9' },
+    suertudito: { nombre: 'Suertudito', razon: '60 / 84.7' },
+  };
+
+  function pintarDisposiciones() {
+    var caja = $('disposiciones');
+    caja.textContent = '';
+    var d = disenoCompleto(disenoEnEdicion);
+    Object.keys(DISPOSICIONES).forEach(function (llave) {
+      var info = DISPOSICIONES[llave];
+      var boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'tema' + (llave === d.disposicion ? ' elegido' : '');
+      boton.dataset.disposicion = llave;
+
+      // La muestra enseña la FORMA, que es lo que de verdad cambia.
+      var muestra = document.createElement('span');
+      muestra.className = 'muestra';
+      var papel = document.createElement('span');
+      papel.style.cssText = 'aspect-ratio:' + info.razon + ';height:28px;border:1.5px solid ' +
+        d.borde + ';border-radius:2px;background:' + d.fondo;
+      muestra.appendChild(papel);
+
+      var nombre = document.createElement('span');
+      nombre.className = 'nombre';
+      nombre.textContent = info.nombre;
+
+      boton.appendChild(muestra);
+      boton.appendChild(nombre);
+      boton.addEventListener('click', function () { elegirDisposicion(llave); });
+      caja.appendChild(boton);
+    });
+  }
+
+  /**
+   * Cambiar de disposición ajusta los boletos por renglón.
+   *
+   * Un boleto vertical a dos por renglón sale de 90 mm de ancho y 126 de
+   * alto: enorme. Tres es el tamaño del original. Es una sugerencia, no un
+   * candado: se puede volver a cambiar a mano enseguida.
+   */
+  function elegirDisposicion(llave) {
+    disenoEnEdicion.disposicion = llave;
+    disenoEnEdicion.columnas = llave === 'suertudito' ? 3 : 2;
+    escribirControles(disenoEnEdicion);
+    refrescarVista();
+  }
+
   function pintarTramas() {
     var caja = $('tramas');
     caja.textContent = '';
@@ -1376,7 +1599,12 @@
     $('dsAviso').value = d.aviso;
     $('dsColumnas').value = String(d.columnas);
     $('dsIntensidad').value = d.intensidad;
+    $('dsCaducidad').value = d.caducidad;
+    // La caducidad solo existe en el boleto vertical: en el clásico no hay
+    // dónde ponerla, y un control que no hace nada confunde.
+    $('campoCaducidad').hidden = d.disposicion !== 'suertudito';
     $('btnQuitarLogo').hidden = !d.logo;
+    pintarDisposiciones();
     pintarTemas();
     pintarTramas();
   }
@@ -1389,6 +1617,7 @@
     disenoEnEdicion.aviso = $('dsAviso').value;
     disenoEnEdicion.columnas = Number($('dsColumnas').value);
     disenoEnEdicion.intensidad = $('dsIntensidad').value;
+    disenoEnEdicion.caducidad = $('dsCaducidad').value;
     // Las muestras de trama llevan los colores de ahora: al moverlos, se
     // vuelven a pintar o enseñarían unos que ya no son.
     pintarTramas();
@@ -1401,6 +1630,7 @@
   $('dsAviso').addEventListener('input', leerControles);
   $('dsColumnas').addEventListener('change', leerControles);
   $('dsIntensidad').addEventListener('change', leerControles);
+  $('dsCaducidad').addEventListener('input', leerControles);
 
   /**
    * La vista previa. Dibuja UN boleto con el mismo código que la hoja de
@@ -1435,8 +1665,9 @@
     envoltura.className = 'envoltura';
     envoltura.style.width = anchoMm + 'mm';
     envoltura.style.fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-    envoltura.innerHTML = boletoHtml(nombre, muestra, baseDelSitio() + '?b=' + muestra.id +
-      '&c=' + muestra.codigo, precio, d);
+    envoltura.innerHTML = boletoHtml(
+      { nombre: nombre, serie: (r && r.serie) || 'A', creada_en: (r && r.creada_en) || new Date().toISOString() },
+      muestra, baseDelSitio() + '?b=' + muestra.id + '&c=' + muestra.codigo, precio, d);
 
     caja.appendChild(estilo);
     caja.appendChild(envoltura);

@@ -114,6 +114,9 @@ function sorteo(cuerpo) {
       if (!/^[a-z]{3,20}$/.test(String(d.trama))) {
         return [400, { error: 'esa trama no es válida' }];
       }
+      if (!['clasica', 'suertudito'].includes(d.disposicion)) {
+        return [400, { error: 'esa disposición no existe' }];
+      }
       for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
                                    ['acento', 'números'], ['borde', 'marco']]) {
         if (!/^#[0-9a-fA-F]{6}$/.test(String(d[campo]))) {
@@ -134,7 +137,16 @@ function sorteo(cuerpo) {
   if (a === 'boletos') {
     const r = rifaDe(cuerpo.rifa);
     if (!r) return [404, { error: 'rifa no encontrada' }];
-    return [200, { rifa: r, boletos: boletos[r.id] || [] }];
+    // SOLO los campos que el servidor de verdad devuelve en esta acción.
+    // Antes se mandaba la rifa entera y eso tapaba un hueco: la hoja usaba
+    // `creada_en` para la fecha de emisión y el servidor real no la incluía
+    // en su `select`, pero aquí sí llegaba y la prueba pasaba igual.
+    const ficha = {
+      id: r.id, nombre: r.nombre, serie: r.serie, fecha_sorteo: r.fecha_sorteo,
+      creada_en: r.creada_en, precio_boleto: r.precio_boleto,
+      folios_por_boleto: r.folios_por_boleto, diseno: r.diseno,
+    };
+    return [200, { rifa: ficha, boletos: boletos[r.id] || [] }];
   }
   if (a === 'verificar') {
     // Se puede preguntar por el boleto (con su código) o por cualquiera de
