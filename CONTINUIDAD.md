@@ -180,7 +180,7 @@ El boleto de papel                El teléfono                    El panel
 | `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió y el **diseño del boleto impreso** |
 | `boletos` | El boleto de papel: su número (el del QR) y su código, uno para todo el papel. **Sin políticas: nadie lo lee desde fuera** |
 | `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas. **Sin políticas** |
-| `sorteo_log` | Cada acción del panel con su hora |
+| `sorteo_log` | Cada acción del panel con su hora, **y también cada número tecleado en «Revelar» que no pertenecía a la rifa** (`intento_rechazado`) — la prueba de que un papelito ajeno a lo impreso queda rechazado y registrado, no solo rechazado |
 | `panel_clave` | El hash de la clave. Sin políticas |
 | `panel_ajustes` | Lo que no cuelga de una rifa: hoy, el diseño que heredará la próxima. Sin políticas |
 | `llave_firma` | La llave HMAC. Sin políticas |
