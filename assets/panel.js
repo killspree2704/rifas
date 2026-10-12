@@ -1004,6 +1004,10 @@
     return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
   }
 
+  // Dos renglones de 49.2 mm a 1.9 mm de letra. Medido sobre el boleto
+  // impreso, no a ojo.
+  var AVISO_CABE = 100;
+
   /** Qué habría que arreglar antes de imprimir, en palabras. */
   function avisosDeContraste(d) {
     var avisos = [];
@@ -1016,6 +1020,12 @@
     }
     if (contraste(d.borde, d.fondo) < 1.6) {
       avisos.push('el marco del boleto va a quedar invisible, y es la línea por donde se recorta');
+    }
+    // En la disposición vertical el aviso tiene su renglón medido: lo que no
+    // cabe se recorta sin decir nada, y un aviso legal a medias no sirve.
+    if (d.disposicion === 'suertudito' && String(d.aviso || '').length > AVISO_CABE) {
+      avisos.push('el aviso no cabe completo en el boleto vertical: déjalo en ' +
+        AVISO_CABE + ' letras o menos');
     }
     return avisos;
   }
@@ -1070,6 +1080,45 @@
       'font-weight="700" fill="' + color + '">$</text></svg>';
   }
 
+  /*
+   * Las medidas del boleto vertical, en porcentaje de su alto y de su ancho.
+   *
+   * El boleto del cliente trae cuatro números en las cuatro esquinas del
+   * centro, pero una rifa puede llevar de 1 a 10 por boleto. Los números se
+   * acomodan en dos columnas y en tantos renglones como hagan falta: con
+   * cuatro caen exactamente donde el original, y con más se aprietan hacia
+   * adentro. Imprimir solo los primeros cuatro no es opción: los demás siguen
+   * valiendo y pueden salir ganadores sin que el papel los muestre.
+   */
+  var CAJA_PRIMER = 39.6;
+  var CAJA_ULTIMO = 76.6;
+  var CAJA_ALTO = 7.1;
+  var CAJA_COLUMNA = [7.2, 66.2];
+
+  /** El lugar de cada número, para un boleto de `cuantos` folios. */
+  function cajasSuerte(cuantos) {
+    var renglones = Math.ceil(cuantos / 2);
+    var paso = renglones > 1 ? (CAJA_ULTIMO - CAJA_PRIMER) / (renglones - 1) : 0;
+    var lugares = [];
+    for (var i = 0; i < cuantos; i++) {
+      lugares.push({
+        izq: CAJA_COLUMNA[i % 2],
+        arriba: Number((CAJA_PRIMER + Math.floor(i / 2) * paso).toFixed(2)),
+      });
+    }
+    return lugares;
+  }
+
+  /**
+   * ¿Con tantos folios hay que apretar el boleto?
+   *
+   * Pasando de cuatro los números ocupan los costados de arriba a abajo, y ahí
+   * vivían las fechas verticales y el sello. Los dos se mudan.
+   */
+  function suerteApretado(cuantos) {
+    return cuantos > 4;
+  }
+
   /**
    * El estilo del boleto vertical.
    *
@@ -1094,19 +1143,26 @@
       ' color: ' + d.tinta + '; }' +
       p + '.titulo span { display: block; }' +
       p + '.titulo span + span { margin-left: 1.5mm; }' +
-      p + '.caja { position: absolute; width: 26.6%; height: 7.1%; border: 0.22mm solid ' +
-      d.borde + '; border-radius: 1mm; display: flex; align-items: center;' +
-      ' justify-content: center; background: ' + d.fondo + ';' +
+      // El `left` y el `top` de cada caja los calcula `cajasSuerte` y viajan
+      // en el atributo `style`: el boleto lleva de 1 a 10 folios y no hay
+      // cuatro lugares fijos que alcancen para los diez.
+      p + '.caja { position: absolute; width: 26.6%; height: ' + CAJA_ALTO + '%;' +
+      ' border: 0.22mm solid ' + d.borde + '; border-radius: 1mm; display: flex;' +
+      ' align-items: center; justify-content: center; background: ' + d.fondo + ';' +
       ' font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700;' +
       ' font-size: 3.3mm; color: ' + d.acento + '; }' +
-      p + '.n1 { left: 7.2%; top: 39.6%; } ' + p + '.n2 { left: 66.2%; top: 39.6%; }' +
-      p + '.n3 { left: 7.2%; top: 76.6%; } ' + p + '.n4 { left: 66.2%; top: 76.6%; }' +
       p + '.rana { position: absolute; left: 38.5%; width: 23%; top: 35.5%; }' +
       // El QR, siempre sobre blanco y con su margen: no se negocia ni aquí.
       p + '.qr { position: absolute; left: 36.5%; width: 27%; top: 50%; background: #fff;' +
       ' padding: 0.6mm; border-radius: 0.5mm; }' +
       p + '.qr svg { width: 100%; height: auto; display: block; }' +
-      p + '.sello { position: absolute; left: 71.5%; width: 19%; top: 52.5%; }' +
+      // `max-height` y `object-fit`: un logo vertical con `width` a secas se
+      // estiraba hasta encimarse con el renglón de abajo.
+      p + '.sello { position: absolute; left: 71.5%; width: 19%; top: 52.5%;' +
+      ' height: auto; max-height: 13%; object-fit: contain; }' +
+      // Apretado el sello no cabe al costado: se sube al hueco que queda
+      // entre el título y la rana.
+      p + '.apretado .sello { left: 43%; width: 14%; top: 24.3%; max-height: 10%; }' +
       p + '.trebol { position: absolute; }' +
       p + '.tr1 { left: 3.5%; top: 4%; width: 13%; }' +
       p + '.tr2 { left: 75%; top: 14%; width: 17%; }' +
@@ -1116,12 +1172,32 @@
       p + '.fechas { position: absolute; left: 6.2%; top: 47.5%; height: 28%;' +
       ' writing-mode: vertical-rl; font-size: 1.75mm; font-weight: 600; line-height: 1.45;' +
       ' white-space: nowrap; opacity: 0.9; }' +
-      p + '.precio { position: absolute; left: 33.4%; width: 33.2%; top: 76.6%; height: 7.1%;' +
+      p + '.precio { position: absolute; left: 34.4%; width: 31.2%; top: 76.6%; height: 7.1%;' +
       ' display: flex; align-items: center; justify-content: center; font-size: 6mm;' +
       ' font-weight: 900; font-style: italic; color: ' + d.acento + ';' +
       ' text-shadow: 0.25mm 0.25mm 0 ' + d.borde + ', 0.5mm 0.5mm 0.2mm rgba(0,0,0,.3); }' +
-      p + '.aviso { position: absolute; left: 12%; right: 6%; top: 86.5%; text-align: center;' +
-      ' font-size: 2.05mm; font-weight: 700; line-height: 1.3; }'
+      // Los dos empiezan en 12 %/13 % y no en 6 %: en la esquina de abajo a la
+      // izquierda vive el trébol, y encima de un trébol no se lee un folio.
+      p + '.aviso { position: absolute; left: 12%; right: 6%; top: 84.8%; height: 6.9%;' +
+      ' overflow: hidden; display: flex; align-items: center; justify-content: center;' +
+      ' text-align: center; font-size: 1.9mm; font-weight: 700; line-height: 1.3; }' +
+      // El identificador y el código, impresos. El día del sorteo hay que
+      // cotejar el código del panel contra el talón que trae el ganador, y un
+      // boleto que solo los lleve dentro del QR no se puede cotejar si el
+      // teléfono no lo lee.
+      p + '.pie { position: absolute; left: 13%; right: 6%; top: 91.9%; height: 3.3%;' +
+      ' display: flex; align-items: center; justify-content: space-between; gap: 1.2mm;' +
+      ' font-size: 1.7mm; line-height: 1; opacity: 0.9; }' +
+      p + '.pie span { font-family: ui-monospace, Menlo, Consolas, monospace;' +
+      ' white-space: nowrap; }' +
+      p + '.serial { letter-spacing: 0.04em; }' +
+      p + '.codigo { letter-spacing: 0.08em; font-weight: 700; }' +
+      // `min-width: 0`: sin eso la fecha no se deja recortar y es el código el
+      // que se sale del boleto.
+      p + '.fechas-pie { font-family: inherit; letter-spacing: 0; min-width: 0;' +
+      ' overflow: hidden; text-overflow: ellipsis; }' +
+      // Apretado, la moneda de la derecha cae justo detrás de un número.
+      p + '.apretado .mo2 { display: none; }'
     );
   }
 
@@ -1157,9 +1233,14 @@
   }
 
   function boletoSuerteHtml(rifa, boleto, url, precio, d) {
-    var numeros = (boleto.folios || []).slice(0, 4);
+    var numeros = boleto.folios || [];
+    var lugares = cajasSuerte(numeros.length);
+    var apretado = suerteApretado(numeros.length);
     var emision = fechaCorta(rifa.creada_en);
-    return '<article class="boleto">' +
+    var fechas = [];
+    if (d.caducidad) { fechas.push('Caducidad: ' + escapar(d.caducidad)); }
+    if (emision) { fechas.push('Emisión: ' + escapar(emision)); }
+    return '<article class="boleto' + (apretado ? ' apretado' : '') + '">' +
       '<div class="marco"></div><div class="marco2"></div>' +
       trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr1"') +
       trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr2"') +
@@ -1169,16 +1250,20 @@
       monedaSvg(d.borde).replace('class="moneda"', 'class="moneda mo2"') +
       ranaSvg(conAlfa(d.acento, 0.85)) +
       numeros.map(function (f, i) {
-        return '<div class="caja n' + (i + 1) + '">' + escapar(f) + '</div>';
+        return '<div class="caja" style="left: ' + lugares[i].izq + '%; top: ' +
+          lugares[i].arriba + '%">' + escapar(f) + '</div>';
       }).join('') +
       '<div class="qr">' + qrSvg(url) + '</div>' +
       (d.logo ? '<img class="sello" src="' + escapar(d.logo) + '" alt="" />' : '') +
-      '<div class="fechas">' +
-      (d.caducidad ? 'Caducidad: ' + escapar(d.caducidad) : '') +
-      (emision ? '<br />Emisión: ' + escapar(emision) : '') +
-      '</div>' +
+      (!apretado && fechas.length ? '<div class="fechas">' + fechas.join('<br />') + '</div>' : '') +
       (precio ? '<div class="precio">' + escapar(precio) + '</div>' : '') +
       (d.aviso ? '<div class="aviso">' + escapar(d.aviso) + '</div>' : '') +
+      '<div class="pie">' +
+      '<span class="serial">' + escapar(boleto.id) + '</span>' +
+      (apretado && fechas.length
+        ? '<span class="fechas-pie">' + fechas.join(' · ') + '</span>' : '') +
+      '<span class="codigo">Código ' + escapar(boleto.codigo) + '</span>' +
+      '</div>' +
       '</article>';
   }
 

@@ -52,6 +52,21 @@ rifas.push({
   revelado_en: null, creada_en: '2025-05-01T00:00:00Z', precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 });
+// Una rifa de nueve números por boleto, ya con la disposición vertical puesta:
+// el boleto del cliente trae cuatro, pero el formulario acepta hasta diez y
+// los nueve tienen que caber impresos. Trae logo porque el sello también se
+// mueve de lugar cuando el boleto va apretado.
+rifas.push({
+  id: 'generosa', nombre: 'Rifa de nueve números', serie: 'G', estado: 'cerrado',
+  activa: false, folio_ganador: null, fecha_sorteo: '2025-08-01T18:00:00-06:00',
+  revelado_en: null, creada_en: '2025-07-01T00:00:00Z', precio_boleto: 100,
+  folios_por_boleto: 9, transmision_url: null, transmite_desde: null,
+  diseno: {
+    disposicion: 'suertudito', caducidad: '3 días',
+    logo: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"'
+      + ' viewBox="0 0 40 60"><rect width="40" height="60" fill="gray"/></svg>',
+  },
+});
 // Un boleto de papel con varios números. Igual que en el servidor de verdad:
 // el código es del boleto, no de cada folio.
 const boletos = {
@@ -65,6 +80,10 @@ const boletos = {
     { id: '9000001060', codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
   ],
   'vieja-2025-01': [{ id: '9000009001', codigo: 'ZZZZ', folios: ['90001', '90002'] }],
+  generosa: [{
+    id: '9000007001', codigo: 'NUE9',
+    folios: ['70001', '70002', '70003', '70004', '70005', '70006', '70007', '70008', '70009'],
+  }],
 };
 let contadorNuevas = 0;
 

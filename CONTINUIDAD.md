@@ -113,6 +113,23 @@ desde la terminal con `herramientas/generar-folios.mjs`.
 
 Todas con la cuenta `perez.eduardo2704@gmail.com`.
 
+### Ver un cambio antes de fusionarlo
+
+Cloudflare publica **una dirección por rama**, no solo la de `main`. La forma
+es la rama con los `/` y los `.` cambiados por guiones:
+
+```
+https://<rama-con-guiones>-rifas.el-original.workers.dev/panel.html
+```
+
+Por ejemplo, la rama `claude/bold-archimedes-9b51qm` se ve en
+`https://claude-bold-archimedes-9b51qm-rifas.el-original.workers.dev/panel.html`.
+
+> **Esa dirección usa la MISMA base de datos que la de verdad.** Es una copia
+> del sitio, no del sistema: la rifa que crees ahí es una rifa real, con sus
+> folios reales ocupados. Para probar sin tocar nada real está el servidor de
+> prueba (`node pruebas/servidor-de-prueba.mjs`).
+
 ## Retomar desde otro equipo
 
 Para **usar** el sistema no hace falta instalar nada: el panel se abre en el
@@ -279,11 +296,24 @@ Todo desde el panel, sin tocar código ni publicar nada:
    ahí es la **disposición**, que es la plantilla entera:
    - **Clásica**: horizontal y sobria, la de siempre.
    - **Suertudito**: vertical, con marco verde doble, tréboles, rana, el
-     nombre de la rifa en cursiva a dos renglones, los cuatro números en sus
+     nombre de la rifa en cursiva a dos renglones, los números en sus
      recuadros, el QR al centro, el logo a un lado y la caducidad y la fecha
      de emisión impresas de canto. Reproduce el boleto que trajo el dueño.
      Al elegirla, los boletos por renglón saltan a 3, que es el tamaño del
      original.
+
+     Los números van en dos columnas: con cuatro caen exactamente en las
+     cuatro esquinas del original, y **con más de cuatro el boleto se
+     aprieta** —tantos renglones como hagan falta hasta diez— y entonces la
+     caducidad y la emisión bajan al pie y el logo se sube bajo el título,
+     porque los costados se llenaron de números. Ninguna rifa imprime menos
+     números de los que vendió.
+
+     Abajo, en las dos disposiciones, van **el identificador del boleto y su
+     código impresos en letra**. No es decoración: el día del sorteo el panel
+     enseña el código del boleto que salió y hay que compararlo con el talón
+     en la mano. Dentro del QR no alcanza —un QR arrugado o mojado no se lee
+     y el cotejo se queda sin hacer.
 
    Encima van seis temas listos, tus colores, **doce fondos** —seis de línea,
    al estilo del papel de seguridad, y seis de figura: estrellas, confeti,
