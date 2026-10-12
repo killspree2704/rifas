@@ -773,7 +773,7 @@ await ctxD.close();
      (await pg.textContent('#disenoDeQuien')).includes('Rifa El Muerde Manos'),
      await pg.textContent('#disenoDeQuien'));
 
-  ok('ofrece los seis temas', (await pg.locator('#temas .tema').count()) === 6,
+  ok('ofrece los siete temas', (await pg.locator('#temas .tema').count()) === 7,
      String(await pg.locator('#temas .tema').count()));
   ok('ofrece las dos disposiciones',
      (await pg.locator('#disposiciones .tema').count()) === 2,
@@ -969,6 +969,22 @@ await ctxD.close();
      await pg.isVisible('#campoCaducidad'));
   ok('y los boletos por renglón saltan a 3, que es el tamaño del original',
      (await pg.inputValue('#dsColumnas')) === '3', await pg.inputValue('#dsColumnas'));
+  // La disposición no es una forma: es el boleto del cliente entero, y ese
+  // boleto es verde sobre papel verde pálido.
+  ok('y trae los colores del boleto del cliente, sin tener que acertarles',
+     (await pg.inputValue('#dsFondo')) === '#e4e9e3' &&
+     (await pg.inputValue('#dsTinta')) === '#2a5a30' &&
+     (await pg.inputValue('#dsAcento')) === '#1b4d1b' &&
+     (await pg.inputValue('#dsBorde')) === '#2e7d32',
+     [await pg.inputValue('#dsFondo'), await pg.inputValue('#dsTinta'),
+      await pg.inputValue('#dsAcento'), await pg.inputValue('#dsBorde')].join(' '));
+  // El título del original es una romana cursiva. La primera versión pedía
+  // letra manuscrita y en la máquina del cliente salía escrito a mano.
+  const letraTitulo = await pg.$eval('#vistaBoleto .titulo',
+    (e) => getComputedStyle(e).fontFamily + ' | ' + getComputedStyle(e).fontStyle);
+  ok('y el título va en romana cursiva, no en manuscrita',
+     /Times|serif/i.test(letraTitulo) && /italic/.test(letraTitulo) &&
+     !/script|cursive|handwriting|chancery/i.test(letraTitulo), letraTitulo);
 
   await pg.fill('#dsCaducidad', '2 días');
   await pg.waitForFunction(() => {
@@ -1032,13 +1048,24 @@ await ctxD.close();
     }).join(' ');
   });
   ok('y los cuatro caen en las cuatro esquinas del original',
-     esquinas === '7.2,39.6 66.2,39.6 7.2,76.6 66.2,76.6', esquinas);
+     esquinas === '7.2,39.4 66.3,39.4 7.2,76.5 66.3,76.5', esquinas);
   const choca4 = (await encimadas(hojaV, LEIBLE))
     .concat(await encimadas(hojaV, ADORNO, '.caja, .pie, .precio, .aviso, .qr'));
   ok('y en el boleto de cuatro tampoco se encima nada', choca4.length === 0,
      choca4.join(' | '));
   const sale4 = await fuera(hojaV, LEIBLE + ', .pie span');
   ok('ni se sale nada del boleto de cuatro', sale4.length === 0, sale4.join(' | '));
+  // Todo el boleto se mide contra su propio ancho. Antes las letras iban en
+  // milímetros fijos: en papel salían bien y en la pantalla —donde la hoja
+  // enseña el boleto al doble— se veían diminutas, así que lo que el cliente
+  // revisaba no era lo que iba a imprimir.
+  const proporcion = await hojaV.$eval('.boleto', (art) => {
+    const aviso = art.querySelector('.aviso');
+    return parseFloat(getComputedStyle(aviso).fontSize) / art.getBoundingClientRect().width;
+  });
+  ok('y la letra crece con el boleto, no se queda en milímetros fijos',
+     Math.abs(proporcion - 1.85 / 60) < 0.0004,
+     'el aviso mide ' + (proporcion * 60).toFixed(2) + ' mm en un boleto de 60 mm');
   await hojaV.close();
 
   // Volver al de siempre, con su confirmación.

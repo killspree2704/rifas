@@ -784,6 +784,10 @@
     menta:   { nombre: 'Menta',   fondo: '#f2fbf6', tinta: '#12301f', acento: '#00796b', borde: '#4f8f74' },
     oro:     { nombre: 'Oro',     fondo: '#fdf6e3', tinta: '#2a2113', acento: '#9a6f0a', borde: '#b08d3a' },
     noche:   { nombre: 'Noche',   fondo: '#1b2432', tinta: '#f2f5f9', acento: '#ffd166', borde: '#5b6b82' },
+    // Los cuatro colores sacados con cuentagotas del boleto que trajo el
+    // dueño, no elegidos a gusto: el papel verde pálido, el verde medio de
+    // los textos, el verde oscuro de las cifras y el verde vivo del marco.
+    trebol:  { nombre: 'Trébol',  fondo: '#e4e9e3', tinta: '#2a5a30', acento: '#1b4d1b', borde: '#2e7d32' },
   };
 
   /*
@@ -1004,9 +1008,9 @@
     return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
   }
 
-  // Dos renglones de 49.2 mm a 1.9 mm de letra. Medido sobre el boleto
+  // Dos renglones de 49.2 mm a 1.85 mm de letra. Medido sobre el boleto
   // impreso, no a ojo.
-  var AVISO_CABE = 100;
+  var AVISO_CABE = 90;
 
   /** Qué habría que arreglar antes de imprimir, en palabras. */
   function avisosDeContraste(d) {
@@ -1047,37 +1051,47 @@
    * la imagen. Así el boleto se puede imprimir a uno, dos o tres por renglón
    * y conserva sus proporciones.
    */
-  var HOJA_TREBOL =
-    'M50,50 C33,36 23,15 35,8 C45,2 50,12 50,22 C50,12 55,2 65,8 C77,15 67,36 50,50 Z';
+  /*
+   * El trébol del original: seis hojas redondas repartidas cada 60°, con la
+   * muesca justo arriba y justo abajo, y el tallito saliendo de la de abajo.
+   * Medido sobre la foto del boleto, no inventado.
+   */
+  var HOJA_TREBOL = 'M50,50 C59,40 77,34 87,40 C95,45 95,55 87,60 C77,66 59,60 50,50 Z';
 
   function trebolSvg(color) {
-    return '<svg class="trebol" viewBox="0 0 100 100">' +
-      [0, 90, 180, 270].map(function (g) {
-        return '<path d="' + HOJA_TREBOL + '" transform="rotate(' + g + ' 50 50)" fill="' + color + '"/>';
+    return '<svg class="trebol" viewBox="0 0 100 101">' +
+      [0, 60, 120, 180, 240, 300].map(function (g) {
+        return '<path d="' + HOJA_TREBOL + '" transform="rotate(' + g + ' 50 50)" fill="' +
+          color + '"/>';
       }).join('') +
-      '<path d="M54,56 C62,70 64,84 59,97" fill="none" stroke="' + color +
-      '" stroke-width="4.5" stroke-linecap="round"/></svg>';
+      '<path d="M51,78 C54,85 55,91 52,97" fill="none" stroke="' + color +
+      '" stroke-width="6" stroke-linecap="round"/></svg>';
   }
 
+  /*
+   * La rana del original, calcada de la foto: la caja mide 21.8 % de ancho
+   * por 11.7 % de alto —más ancha que alta—, los ojos son grandes y los
+   * brazos bajan casi hasta abajo antes de engancharse.
+   */
   function ranaSvg(color) {
-    return '<svg class="rana" viewBox="0 0 120 100">' +
-      '<g fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" ' +
+    return '<svg class="rana" viewBox="0 0 132 96">' +
+      '<g fill="none" stroke="' + color + '" stroke-width="3.2" stroke-linecap="round" ' +
       'stroke-linejoin="round">' +
-      '<circle cx="48" cy="13" r="8.5"/><circle cx="72" cy="13" r="8.5"/>' +
-      '<path d="M40,19 C41,35 52,43 60,43 C68,43 79,35 80,19"/>' +
-      '<path d="M42,29 C22,33 7,48 6,66 C5,80 16,86 24,79 C30,74 31,65 29,58"/>' +
-      '<path d="M78,29 C98,33 113,48 114,66 C115,80 104,86 96,79 C90,74 89,65 91,58"/>' +
-      '<path d="M24,79 C19,85 12,88 5,87"/><path d="M96,79 C101,85 108,88 115,87"/></g>' +
-      '<circle cx="48" cy="13" r="2.6" fill="' + color + '"/>' +
-      '<circle cx="72" cy="13" r="2.6" fill="' + color + '"/></svg>';
+      '<circle cx="50" cy="12" r="10.5"/><circle cx="82" cy="12" r="10.5"/>' +
+      '<path d="M40,20 C41,36 52,46 66,46 C80,46 91,36 92,20"/>' +
+      '<path d="M43,30 C20,34 5,54 4,72 C3,86 14,93 21,86 C28,79 29,68 27,59"/>' +
+      '<path d="M89,30 C112,34 127,54 128,72 C129,86 118,93 111,86 C104,79 103,68 105,59"/>' +
+      '<path d="M21,86 C16,92 10,94 3,93"/><path d="M111,86 C116,92 122,94 129,93"/></g>' +
+      '<circle cx="50" cy="12" r="3.2" fill="' + color + '"/>' +
+      '<circle cx="82" cy="12" r="3.2" fill="' + color + '"/></svg>';
   }
 
   function monedaSvg(color) {
     return '<svg class="moneda" viewBox="0 0 100 100">' +
-      '<circle cx="50" cy="50" r="45" fill="none" stroke="' + color + '" stroke-width="6"/>' +
-      '<circle cx="50" cy="50" r="34" fill="none" stroke="' + color + '" stroke-width="3.5"/>' +
-      '<text x="50" y="70" text-anchor="middle" font-family="Georgia,serif" font-size="54" ' +
-      'font-weight="700" fill="' + color + '">$</text></svg>';
+      '<circle cx="50" cy="50" r="45" fill="none" stroke="' + color + '" stroke-width="5"/>' +
+      '<circle cx="50" cy="50" r="35" fill="none" stroke="' + color + '" stroke-width="4"/>' +
+      '<text x="50" y="72" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" ' +
+      'font-size="60" font-weight="700" fill="' + color + '">$</text></svg>';
   }
 
   /*
@@ -1090,10 +1104,10 @@
    * adentro. Imprimir solo los primeros cuatro no es opción: los demás siguen
    * valiendo y pueden salir ganadores sin que el papel los muestre.
    */
-  var CAJA_PRIMER = 39.6;
-  var CAJA_ULTIMO = 76.6;
-  var CAJA_ALTO = 7.1;
-  var CAJA_COLUMNA = [7.2, 66.2];
+  var CAJA_PRIMER = 39.4;
+  var CAJA_ULTIMO = 76.5;
+  var CAJA_ALTO = 7.8;
+  var CAJA_COLUMNA = [7.2, 66.3];
 
   /** El lugar de cada número, para un boleto de `cuantos` folios. */
   function cajasSuerte(cuantos) {
@@ -1129,65 +1143,91 @@
   function estiloSuerte(d, p) {
     var tenue = conAlfa(d.borde, 0.55);
     return (
-      p + '.boleto { position: relative; aspect-ratio: 60 / 84.7; box-sizing: border-box;' +
+      // Todo el boleto se mide en `--u`, que vale un milímetro del boleto
+      // impreso a 60 mm de ancho... y, donde el navegador sepa de
+      // contenedores, la sesentava parte del ancho REAL.
+      //
+      // Hace falta porque el boleto no siempre sale de 60 mm: en la pantalla
+      // la hoja lo enseña al doble, y con las letras clavadas en milímetros
+      // se veían diminutas ahí y correctas en papel. Un boleto que no se ve
+      // como va a salir no sirve para decidir si va a salir bien.
+      //
+      // El milímetro va primero: un navegador viejo que no entienda
+      // `@container` se queda con él y el papel sale igual que siempre.
+      p + '.boleto { position: relative; aspect-ratio: 1 / 1.4142; box-sizing: border-box;' +
+      ' container-type: inline-size; --u: 1mm;' +
       ' background-color: ' + d.fondo + '; color: ' + d.tinta + '; overflow: hidden;' +
       ' break-inside: avoid; ' + fondoDe(d) + ' }' +
-      p + '.marco { position: absolute; inset: 1.9%; border: 0.75mm solid ' + d.borde + '; }' +
-      p + '.marco2 { position: absolute; inset: 3.6%; border: 0.18mm solid ' + tenue + '; }' +
-      // El nombre de la rifa, en cursiva y a dos renglones como el original.
-      // Si la máquina que imprime no tiene ninguna cursiva, cae en la de
-      // sistema: se ve distinto, pero nunca se queda sin título.
-      p + '.titulo { position: absolute; left: 6%; right: 6%; top: 7.5%; text-align: center;' +
-      ' line-height: 0.95; font-family: "Segoe Script", "Brush Script MT", "Lucida Handwriting",' +
-      ' "Apple Chancery", cursive; font-size: 7.2mm; font-weight: 700; font-style: italic;' +
-      ' color: ' + d.tinta + '; }' +
-      p + '.titulo span { display: block; }' +
-      p + '.titulo span + span { margin-left: 1.5mm; }' +
-      // El `left` y el `top` de cada caja los calcula `cajasSuerte` y viajan
-      // en el atributo `style`: el boleto lleva de 1 a 10 folios y no hay
-      // cuatro lugares fijos que alcancen para los diez.
-      p + '.caja { position: absolute; width: 26.6%; height: ' + CAJA_ALTO + '%;' +
-      ' border: 0.22mm solid ' + d.borde + '; border-radius: 1mm; display: flex;' +
+      p + '.boleto > * { --u: 1mm; }' +
+      '@container (min-width: 1px) { ' + p + '.boleto > * { --u: 1.6667cqw; } }' +
+      // Los dos marcos: el grueso a 1.84 % y el fino a 3.4 %, medidos.
+      p + '.marco { position: absolute; inset: 1.84%;' +
+      ' border: calc(var(--u) * 0.52) solid ' + d.borde + '; }' +
+      p + '.marco2 { position: absolute; inset: 3.4%;' +
+      ' border: calc(var(--u) * 0.23) solid ' + tenue + '; }' +
+      // El título del original es una ROMANA NEGRITA CURSIVA, no una letra
+      // manuscrita. La primera versión pedía `Segoe Script` y en la máquina
+      // del cliente salía escrito a mano: otro boleto.
+      p + '.titulo { position: absolute; left: 24%; right: 24%; top: 7.2%; text-align: center;' +
+      ' line-height: 1; font-family: "Times New Roman", "Liberation Serif", Times, serif;' +
+      ' font-weight: 700; font-style: italic; color: ' + d.tinta + '; }' +
+      p + '.titulo span { display: block; white-space: nowrap; }' +
+      // `border-box`: el 7.8 % medido en el original es el recuadro ENTERO,
+      // con su línea. Sin esto el borde se suma y el recuadro roza las fechas.
+      p + '.caja { position: absolute; box-sizing: border-box; width: 27.2%;' +
+      ' height: ' + CAJA_ALTO + '%; border: calc(var(--u) * 0.26) solid ' + d.borde + ';' +
+      ' border-radius: calc(var(--u) * 0.85); display: flex;' +
       ' align-items: center; justify-content: center; background: ' + d.fondo + ';' +
       ' font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700;' +
-      ' font-size: 3.3mm; color: ' + d.acento + '; }' +
-      p + '.rana { position: absolute; left: 38.5%; width: 23%; top: 35.5%; }' +
+      ' font-size: calc(var(--u) * 2.8); color: ' + d.acento + '; }' +
+      p + '.rana { position: absolute; left: 39%; width: 21.8%; top: 35.8%; }' +
       // El QR, siempre sobre blanco y con su margen: no se negocia ni aquí.
-      p + '.qr { position: absolute; left: 36.5%; width: 27%; top: 50%; background: #fff;' +
-      ' padding: 0.6mm; border-radius: 0.5mm; }' +
+      p + '.qr { position: absolute; left: 36.7%; width: 29.2%; top: 49.8%; background: #fff;' +
+      ' box-sizing: border-box; padding: calc(var(--u) * 0.9);' +
+      ' border-radius: calc(var(--u) * 0.8); }' +
       p + '.qr svg { width: 100%; height: auto; display: block; }' +
       // `max-height` y `object-fit`: un logo vertical con `width` a secas se
       // estiraba hasta encimarse con el renglón de abajo.
-      p + '.sello { position: absolute; left: 71.5%; width: 19%; top: 52.5%;' +
-      ' height: auto; max-height: 13%; object-fit: contain; }' +
+      p + '.sello { position: absolute; left: 71.7%; width: 18.8%; top: 52.5%;' +
+      ' height: auto; max-height: 13.3%; object-fit: contain; }' +
       // Apretado el sello no cabe al costado: se sube al hueco que queda
       // entre el título y la rana.
       p + '.apretado .sello { left: 43%; width: 14%; top: 24.3%; max-height: 10%; }' +
       p + '.trebol { position: absolute; }' +
-      p + '.tr1 { left: 3.5%; top: 4%; width: 13%; }' +
-      p + '.tr2 { left: 75%; top: 14%; width: 17%; }' +
-      p + '.tr3 { left: 2.5%; top: 87.5%; width: 9%; }' +
-      p + '.moneda { position: absolute; width: 7.4%; }' +
-      p + '.mo1 { left: 5.5%; top: 31.5%; } ' + p + '.mo2 { left: 88%; top: 68.5%; }' +
-      p + '.fechas { position: absolute; left: 6.2%; top: 47.5%; height: 28%;' +
-      ' writing-mode: vertical-rl; font-size: 1.75mm; font-weight: 600; line-height: 1.45;' +
-      ' white-space: nowrap; opacity: 0.9; }' +
-      p + '.precio { position: absolute; left: 34.4%; width: 31.2%; top: 76.6%; height: 7.1%;' +
-      ' display: flex; align-items: center; justify-content: center; font-size: 6mm;' +
-      ' font-weight: 900; font-style: italic; color: ' + d.acento + ';' +
-      ' text-shadow: 0.25mm 0.25mm 0 ' + d.borde + ', 0.5mm 0.5mm 0.2mm rgba(0,0,0,.3); }' +
-      // Los dos empiezan en 12 %/13 % y no en 6 %: en la esquina de abajo a la
-      // izquierda vive el trébol, y encima de un trébol no se lee un folio.
-      p + '.aviso { position: absolute; left: 12%; right: 6%; top: 84.8%; height: 6.9%;' +
-      ' overflow: hidden; display: flex; align-items: center; justify-content: center;' +
-      ' text-align: center; font-size: 1.9mm; font-weight: 700; line-height: 1.3; }' +
+      p + '.tr1 { left: 3.4%; top: 3.5%; width: 14%; }' +
+      p + '.tr2 { left: 76%; top: 14.5%; width: 15.1%; }' +
+      p + '.tr3 { left: 1.8%; top: 85.9%; width: 8.9%; }' +
+      p + '.moneda { position: absolute; }' +
+      p + '.mo1 { left: 5.4%; top: 31.5%; width: 7.2%; }' +
+      p + '.mo2 { left: 88%; top: 68.3%; width: 8.6%; }' +
+      // Apretado, la moneda de la derecha cae justo detrás de un número.
+      p + '.apretado .mo2 { display: none; }' +
+      // 47.4 % y no 46.8 %: en el original el texto de canto empieza justo a
+      // la altura del borde de abajo del recuadro y lo roza. Medio milímetro
+      // más abajo no se nota y deja de rozarlo.
+      p + '.fechas { position: absolute; left: 6.7%; top: 47.4%; height: 21.6%;' +
+      ' writing-mode: vertical-rl; font-size: calc(var(--u) * 1.5); font-weight: 700;' +
+      ' line-height: 1.3; white-space: nowrap; }' +
+      // El precio es una PALO SECO negrita cursiva con sombra suave, no una
+      // romana con relieve duro.
+      p + '.precio { position: absolute; left: 35.2%; width: 29.6%; top: 77.1%; height: 6.1%;' +
+      ' display: flex; align-items: center; justify-content: center;' +
+      ' font-size: calc(var(--u) * 5.25); font-weight: 800; font-style: italic;' +
+      ' color: ' + d.acento + '; text-shadow: calc(var(--u) * 0.35) calc(var(--u) * 0.4)' +
+      ' calc(var(--u) * 0.45) rgba(0, 0, 0, 0.45); }' +
+      p + '.aviso { position: absolute; left: 12%; right: 6%; top: 86.4%; height: 5.6%;' +
+      ' overflow: hidden; display: flex; align-items: flex-start; justify-content: center;' +
+      ' text-align: center; font-size: calc(var(--u) * 1.85); font-weight: 700;' +
+      ' line-height: 1.15; }' +
       // El identificador y el código, impresos. El día del sorteo hay que
       // cotejar el código del panel contra el talón que trae el ganador, y un
       // boleto que solo los lleve dentro del QR no se puede cotejar si el
-      // teléfono no lo lee.
-      p + '.pie { position: absolute; left: 13%; right: 6%; top: 91.9%; height: 3.3%;' +
-      ' display: flex; align-items: center; justify-content: space-between; gap: 1.2mm;' +
-      ' font-size: 1.7mm; line-height: 1; opacity: 0.9; }' +
+      // teléfono no lo lee. Empieza en 13 % porque en la esquina de abajo a la
+      // izquierda vive el trébol, y encima de un trébol no se lee un folio.
+      p + '.pie { position: absolute; left: 13%; right: 6%; top: 92.4%; height: 2.9%;' +
+      ' display: flex; align-items: center; justify-content: space-between;' +
+      ' gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.6); line-height: 1;' +
+      ' opacity: 0.85; }' +
       p + '.pie span { font-family: ui-monospace, Menlo, Consolas, monospace;' +
       ' white-space: nowrap; }' +
       p + '.serial { letter-spacing: 0.04em; }' +
@@ -1196,18 +1236,65 @@
       // que se sale del boleto.
       p + '.fechas-pie { font-family: inherit; letter-spacing: 0; min-width: 0;' +
       ' overflow: hidden; text-overflow: ellipsis; }' +
-      // Apretado, la moneda de la derecha cae justo detrás de un número.
-      p + '.apretado .mo2 { display: none; }'
+      // Apretado, al pie le caben además las dos fechas: con la letra del
+      // boleto normal la de emisión salía cortada con puntos suspensivos.
+      p + '.apretado .pie { font-size: calc(var(--u) * 1.4); }'
     );
   }
 
-  /** El nombre partido en dos renglones, como el original. */
+  // El título del original, «Suertudito», mide 6.1 mm de alto y ocupa 44 %
+  // del ancho del boleto.
+  var TITULO_MM = 6.1;
+  // Lo ancho que puede ser un renglón sin montarse al trébol de arriba a la
+  // derecha, que empieza en el 76 %: 2 × (76 − 50) % de 60 mm, menos un pelo.
+  var TITULO_ANCHO_MM = 30.6;
+  var FUENTE_TITULO = 'italic 700 100px "Times New Roman","Liberation Serif",Times,serif';
+
+  var medidor = null;
+
+  /**
+   * Lo que mide un texto, en emes, con la letra que de verdad tenga esta
+   * máquina.
+   *
+   * Contar letras no sirve: «Suertudito» y «Muerde Manos» tienen casi las
+   * mismas y la segunda mide un tercio más, porque las emes son anchas. Con
+   * la cuenta de letras el título se le montaba al trébol.
+   */
+  function anchoEm(texto, fuente) {
+    try {
+      if (!medidor) { medidor = document.createElement('canvas').getContext('2d'); }
+      medidor.font = fuente;
+      var w = medidor.measureText(texto).width / 100;
+      if (w > 0) { return w; }
+    } catch (e) { /* sin canvas se cae a la cuenta de letras */ }
+    return texto.length * 0.52;
+  }
+
+  /**
+   * El nombre partido en dos renglones, como el original, con el tamaño que
+   * le toca.
+   *
+   * Se corta por el espacio más cercano a la mitad y no por el último: con
+   * «Rifa El Muerde Manos», cortar por el último deja «Rifa El Muerde» arriba
+   * y «Manos» solo abajo, y el título se ve chueco.
+   */
   function tituloEnDos(nombre) {
     var texto = String(nombre || '').trim();
-    var corte = texto.lastIndexOf(' ');
-    if (corte < 1) { return '<span>' + escapar(texto) + '</span>'; }
-    return '<span>' + escapar(texto.slice(0, corte)) + '</span>' +
-           '<span>' + escapar(texto.slice(corte + 1)) + '</span>';
+    var mitad = texto.length / 2;
+    var corte = -1;
+    for (var i = 0; i < texto.length; i++) {
+      if (texto[i] === ' ' && (corte < 0 || Math.abs(i - mitad) < Math.abs(corte - mitad))) {
+        corte = i;
+      }
+    }
+    var renglones = corte < 1 ? [texto] : [texto.slice(0, corte), texto.slice(corte + 1)];
+    var ancho = renglones.reduce(function (n, r) {
+      return Math.max(n, anchoEm(r, FUENTE_TITULO));
+    }, 0.1);
+    var tam = Math.max(2.5, Math.min(TITULO_MM, TITULO_ANCHO_MM / ancho));
+    return '<div class="titulo" style="font-size: calc(var(--u) * ' + tam.toFixed(2) + ')">' +
+      renglones.map(function (r) { return '<span>' + escapar(r) + '</span>'; }).join('') +
+      '</div>';
   }
 
   var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
@@ -1245,10 +1332,10 @@
       trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr1"') +
       trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr2"') +
       trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr3"') +
-      '<div class="titulo">' + tituloEnDos(rifa.nombre) + '</div>' +
+      tituloEnDos(rifa.nombre) +
       monedaSvg(d.borde).replace('class="moneda"', 'class="moneda mo1"') +
       monedaSvg(d.borde).replace('class="moneda"', 'class="moneda mo2"') +
-      ranaSvg(conAlfa(d.acento, 0.85)) +
+      ranaSvg(d.tinta) +
       numeros.map(function (f, i) {
         return '<div class="caja" style="left: ' + lugares[i].izq + '%; top: ' +
           lugares[i].arriba + '%">' + escapar(f) + '</div>';
@@ -1615,15 +1702,26 @@
   }
 
   /**
-   * Cambiar de disposición ajusta los boletos por renglón.
+   * Cambiar de disposición ajusta los boletos por renglón Y los colores.
    *
    * Un boleto vertical a dos por renglón sale de 90 mm de ancho y 126 de
-   * alto: enorme. Tres es el tamaño del original. Es una sugerencia, no un
-   * candado: se puede volver a cambiar a mano enseguida.
+   * alto: enorme. Tres es el tamaño del original.
+   *
+   * Y con los colores pasa lo mismo que con el tamaño: la disposición no es
+   * una forma, es el boleto del cliente entero, y ese boleto es verde sobre
+   * papel verde pálido. Elegirla en blanco y negro no se parecía al original
+   * y había que acertarle a mano a cuatro colores. Las dos cosas son
+   * sugerencia, no candado: se cambian enseguida desde los controles.
    */
   function elegirDisposicion(llave) {
     disenoEnEdicion.disposicion = llave;
     disenoEnEdicion.columnas = llave === 'suertudito' ? 3 : 2;
+    var tema = llave === 'suertudito' ? 'trebol' : 'clasico';
+    disenoEnEdicion.tema = tema;
+    disenoEnEdicion.fondo = TEMAS[tema].fondo;
+    disenoEnEdicion.tinta = TEMAS[tema].tinta;
+    disenoEnEdicion.acento = TEMAS[tema].acento;
+    disenoEnEdicion.borde = TEMAS[tema].borde;
     escribirControles(disenoEnEdicion);
     refrescarVista();
   }

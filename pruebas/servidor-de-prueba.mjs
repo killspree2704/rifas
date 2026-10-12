@@ -62,7 +62,7 @@ rifas.push({
   revelado_en: null, creada_en: '2025-07-01T00:00:00Z', precio_boleto: 100,
   folios_por_boleto: 9, transmision_url: null, transmite_desde: null,
   diseno: {
-    disposicion: 'suertudito', caducidad: '3 días',
+    disposicion: 'suertudito', tema: 'trebol', caducidad: '3 días',
     logo: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"'
       + ' viewBox="0 0 40 60"><rect width="40" height="60" fill="gray"/></svg>',
   },
@@ -126,7 +126,7 @@ function sorteo(cuerpo) {
   if (a === 'guardar_diseno') {
     const d = cuerpo.diseno;
     if (d) {
-      if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche'].includes(d.tema)) {
+      if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche', 'trebol'].includes(d.tema)) {
         return [400, { error: 'ese tema no existe' }];
       }
       // La forma, no el catálogo: igual que el servidor de verdad.

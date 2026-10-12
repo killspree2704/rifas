@@ -296,11 +296,14 @@ Todo desde el panel, sin tocar código ni publicar nada:
    ahí es la **disposición**, que es la plantilla entera:
    - **Clásica**: horizontal y sobria, la de siempre.
    - **Suertudito**: vertical, con marco verde doble, tréboles, rana, el
-     nombre de la rifa en cursiva a dos renglones, los números en sus
+     nombre de la rifa en romana cursiva a dos renglones, los números en sus
      recuadros, el QR al centro, el logo a un lado y la caducidad y la fecha
-     de emisión impresas de canto. Reproduce el boleto que trajo el dueño.
-     Al elegirla, los boletos por renglón saltan a 3, que es el tamaño del
-     original.
+     de emisión impresas de canto. Reproduce el boleto que trajo el dueño:
+     cada pieza está donde la foto del original dice que va, medida en
+     porcentaje, y los cuatro colores salieron con cuentagotas de esa foto.
+     Al elegirla, los boletos por renglón saltan a 3 —el tamaño del
+     original— y los colores se ponen solos en el verde del boleto. Las dos
+     cosas son sugerencia: se cambian enseguida desde los controles.
 
      Los números van en dos columnas: con cuatro caen exactamente en las
      cuatro esquinas del original, y **con más de cuatro el boleto se
@@ -320,9 +323,11 @@ Todo desde el panel, sin tocar código ni publicar nada:
    burbujas, corazones, tréboles y fiesta, con sus propios colores—, logo y
    el aviso de letra chica.
 
-   > **Ojo con la cursiva del título.** Se pide `Segoe Script`, `Brush Script
-   > MT`, `Lucida Handwriting` o `Apple Chancery`, lo que la computadora que
-   > imprime tenga. Si no tiene ninguna, el título sale en la cursiva de
+   > **Ojo con la letra del título.** Se pide `Times New Roman` o
+   > `Liberation Serif`, que es la romana cursiva del original —no una letra
+   > manuscrita: la primera versión pedía `Segoe Script` y en una máquina con
+   > Windows el título salía escrito a mano, que es otro boleto—. Si la
+   > computadora no tiene ninguna de las dos, sale en la romana de
    > sistema: legible, pero con otra letra. Imprime una hoja de prueba desde
    > la máquina que vaya a hacer el tiraje antes de mandar el lote. **Se puede diseñar antes de crear la
    rifa**: sin ninguna, lo que guardes se le copia a la próxima al nacer. Se guarda **en esa rifa**,

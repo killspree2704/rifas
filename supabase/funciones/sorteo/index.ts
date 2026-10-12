@@ -198,7 +198,7 @@ function repartir<T>(lista: T[], porGrupo: number): T[][] {
  * y nada más. El panel ya filtra igual; esto es lo que manda, porque una
  * comprobación que solo vive en el navegador no comprueba nada.
  */
-const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche"];
+const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche", "trebol"];
 const DISPOSICIONES_VALIDAS = ["clasica", "suertudito"];
 /*
  * De la trama solo viaja y se guarda el NOMBRE; el dibujo lo arma el panel a
