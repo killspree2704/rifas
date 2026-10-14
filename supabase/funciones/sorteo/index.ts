@@ -198,7 +198,8 @@ function repartir<T>(lista: T[], porGrupo: number): T[][] {
  * y nada más. El panel ya filtra igual; esto es lo que manda, porque una
  * comprobación que solo vive en el navegador no comprueba nada.
  */
-const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche"];
+const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche", "trebol"];
+const DISPOSICIONES_VALIDAS = ["clasica", "suertudito"];
 /*
  * De la trama solo viaja y se guarda el NOMBRE; el dibujo lo arma el panel a
  * partir de él. Aquí se comprueba la FORMA, no el catálogo, y es a propósito:
@@ -253,6 +254,13 @@ function limpiarDiseno(entrada: unknown) {
     throw new Error("esa intensidad no existe");
   }
 
+  // La disposición sí lleva catálogo, al revés que la trama: cada una es una
+  // plantilla distinta en el panel, no un adorno, y son dos contadas.
+  const disposicion = String(d.disposicion ?? "clasica");
+  if (!DISPOSICIONES_VALIDAS.includes(disposicion)) {
+    throw new Error("esa disposición no existe");
+  }
+
   return {
     tema,
     fondo: color(d.fondo, "fondo"),
@@ -264,6 +272,8 @@ function limpiarDiseno(entrada: unknown) {
     columnas,
     trama,
     intensidad,
+    disposicion,
+    caducidad: String(d.caducidad ?? "").slice(0, 40),
   };
 }
 
@@ -432,7 +442,7 @@ Deno.serve(async (req) => {
     const rifaPedida = String(cuerpo.rifa ?? "");
     if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
     const { data: ficha } = await db
-      .from("rifas").select("id, nombre, serie, fecha_sorteo, precio_boleto, folios_por_boleto, diseno")
+      .from("rifas").select("id, nombre, serie, fecha_sorteo, creada_en, precio_boleto, folios_por_boleto, diseno")
       .eq("id", rifaPedida).maybeSingle();
     if (!ficha) return responder({ error: "rifa no encontrada" }, 404);
     const { data: lote } = await db

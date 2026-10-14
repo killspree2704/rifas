@@ -52,6 +52,21 @@ rifas.push({
   revelado_en: null, creada_en: '2025-05-01T00:00:00Z', precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 });
+// Una rifa de nueve números por boleto, ya con la disposición vertical puesta:
+// el boleto del cliente trae cuatro, pero el formulario acepta hasta diez y
+// los nueve tienen que caber impresos. Trae logo porque el sello también se
+// mueve de lugar cuando el boleto va apretado.
+rifas.push({
+  id: 'generosa', nombre: 'Rifa de nueve números', serie: 'G', estado: 'cerrado',
+  activa: false, folio_ganador: null, fecha_sorteo: '2025-08-01T18:00:00-06:00',
+  revelado_en: null, creada_en: '2025-07-01T00:00:00Z', precio_boleto: 100,
+  folios_por_boleto: 9, transmision_url: null, transmite_desde: null,
+  diseno: {
+    disposicion: 'suertudito', tema: 'trebol', caducidad: '3 días',
+    logo: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"'
+      + ' viewBox="0 0 40 60"><rect width="40" height="60" fill="gray"/></svg>',
+  },
+});
 // Un boleto de papel con varios números. Igual que en el servidor de verdad:
 // el código es del boleto, no de cada folio.
 const boletos = {
@@ -65,6 +80,10 @@ const boletos = {
     { id: '9000001060', codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
   ],
   'vieja-2025-01': [{ id: '9000009001', codigo: 'ZZZZ', folios: ['90001', '90002'] }],
+  generosa: [{
+    id: '9000007001', codigo: 'NUE9',
+    folios: ['70001', '70002', '70003', '70004', '70005', '70006', '70007', '70008', '70009'],
+  }],
 };
 let contadorNuevas = 0;
 
@@ -107,12 +126,15 @@ function sorteo(cuerpo) {
   if (a === 'guardar_diseno') {
     const d = cuerpo.diseno;
     if (d) {
-      if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche'].includes(d.tema)) {
+      if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche', 'trebol'].includes(d.tema)) {
         return [400, { error: 'ese tema no existe' }];
       }
       // La forma, no el catálogo: igual que el servidor de verdad.
       if (!/^[a-z]{3,20}$/.test(String(d.trama))) {
         return [400, { error: 'esa trama no es válida' }];
+      }
+      if (!['clasica', 'suertudito'].includes(d.disposicion)) {
+        return [400, { error: 'esa disposición no existe' }];
       }
       for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
                                    ['acento', 'números'], ['borde', 'marco']]) {
@@ -134,7 +156,16 @@ function sorteo(cuerpo) {
   if (a === 'boletos') {
     const r = rifaDe(cuerpo.rifa);
     if (!r) return [404, { error: 'rifa no encontrada' }];
-    return [200, { rifa: r, boletos: boletos[r.id] || [] }];
+    // SOLO los campos que el servidor de verdad devuelve en esta acción.
+    // Antes se mandaba la rifa entera y eso tapaba un hueco: la hoja usaba
+    // `creada_en` para la fecha de emisión y el servidor real no la incluía
+    // en su `select`, pero aquí sí llegaba y la prueba pasaba igual.
+    const ficha = {
+      id: r.id, nombre: r.nombre, serie: r.serie, fecha_sorteo: r.fecha_sorteo,
+      creada_en: r.creada_en, precio_boleto: r.precio_boleto,
+      folios_por_boleto: r.folios_por_boleto, diseno: r.diseno,
+    };
+    return [200, { rifa: ficha, boletos: boletos[r.id] || [] }];
   }
   if (a === 'verificar') {
     // Se puede preguntar por el boleto (con su código) o por cualquiera de

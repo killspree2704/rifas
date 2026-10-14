@@ -113,6 +113,23 @@ desde la terminal con `herramientas/generar-folios.mjs`.
 
 Todas con la cuenta `perez.eduardo2704@gmail.com`.
 
+### Ver un cambio antes de fusionarlo
+
+Cloudflare publica **una dirección por rama**, no solo la de `main`. La forma
+es la rama con los `/` y los `.` cambiados por guiones:
+
+```
+https://<rama-con-guiones>-rifas.el-original.workers.dev/panel.html
+```
+
+Por ejemplo, la rama `claude/bold-archimedes-9b51qm` se ve en
+`https://claude-bold-archimedes-9b51qm-rifas.el-original.workers.dev/panel.html`.
+
+> **Esa dirección usa la MISMA base de datos que la de verdad.** Es una copia
+> del sitio, no del sistema: la rifa que crees ahí es una rifa real, con sus
+> folios reales ocupados. Para probar sin tocar nada real está el servidor de
+> prueba (`node pruebas/servidor-de-prueba.mjs`).
+
 ## Retomar desde otro equipo
 
 Para **usar** el sistema no hace falta instalar nada: el panel se abre en el
@@ -275,11 +292,44 @@ Todo desde el panel, sin tocar código ni publicar nada:
    **Cuenta las hojas antes de echarlos**: cada una dice cuál es y cuántas
    son, y una hoja que no se imprimió es un boleto que jamás podría ganar.
 4. **Manejar esta** para que el panel opere esa rifa.
-5. Si quieres darle aspecto, **pestaña «Diseño»**: seis temas listos, tus
-   colores encima, **doce fondos** —seis de línea, al estilo del papel de
-   seguridad, y seis de figura: estrellas, confeti, burbujas, corazones,
-   tréboles y fiesta, con sus propios colores—, logo y el aviso de letra
-   chica. **Se puede diseñar antes de crear la
+5. Si quieres darle aspecto, **pestaña «Diseño»**. Lo primero que se elige
+   ahí es la **disposición**, que es la plantilla entera:
+   - **Clásica**: horizontal y sobria, la de siempre.
+   - **Suertudito**: vertical, con marco verde doble, tréboles, rana, el
+     nombre de la rifa en romana cursiva a dos renglones, los números en sus
+     recuadros, el QR al centro, el logo a un lado y la caducidad y la fecha
+     de emisión impresas de canto. Reproduce el boleto que trajo el dueño:
+     cada pieza está donde la foto del original dice que va, medida en
+     porcentaje, y los cuatro colores salieron con cuentagotas de esa foto.
+     Al elegirla, los boletos por renglón saltan a 3 —el tamaño del
+     original— y los colores se ponen solos en el verde del boleto. Las dos
+     cosas son sugerencia: se cambian enseguida desde los controles.
+
+     Los números van en dos columnas: con cuatro caen exactamente en las
+     cuatro esquinas del original, y **con más de cuatro el boleto se
+     aprieta** —tantos renglones como hagan falta hasta diez— y entonces la
+     caducidad y la emisión bajan al pie y el logo se sube bajo el título,
+     porque los costados se llenaron de números. Ninguna rifa imprime menos
+     números de los que vendió.
+
+     Abajo, en las dos disposiciones, van **el identificador del boleto y su
+     código impresos en letra**. No es decoración: el día del sorteo el panel
+     enseña el código del boleto que salió y hay que compararlo con el talón
+     en la mano. Dentro del QR no alcanza —un QR arrugado o mojado no se lee
+     y el cotejo se queda sin hacer.
+
+   Encima van seis temas listos, tus colores, **doce fondos** —seis de línea,
+   al estilo del papel de seguridad, y seis de figura: estrellas, confeti,
+   burbujas, corazones, tréboles y fiesta, con sus propios colores—, logo y
+   el aviso de letra chica.
+
+   > **Ojo con la letra del título.** Se pide `Times New Roman` o
+   > `Liberation Serif`, que es la romana cursiva del original —no una letra
+   > manuscrita: la primera versión pedía `Segoe Script` y en una máquina con
+   > Windows el título salía escrito a mano, que es otro boleto—. Si la
+   > computadora no tiene ninguna de las dos, sale en la romana de
+   > sistema: legible, pero con otra letra. Imprime una hoja de prueba desde
+   > la máquina que vaya a hacer el tiraje antes de mandar el lote. **Se puede diseñar antes de crear la
    rifa**: sin ninguna, lo que guardes se le copia a la próxima al nacer. Se guarda **en esa rifa**,
    así que cada una puede verse distinta y reimprimir una hoja vieja da la hoja
    de entonces. Solo toca el papel; la pantalla del participante no cambia.
@@ -290,42 +340,58 @@ Todo desde el panel, sin tocar código ni publicar nada:
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
-## Estado al 23 de septiembre de 2026
+## Estado al 14 de octubre de 2026
 
 Comprobado consultando Supabase, no de memoria.
 
-**La base está vacía de rifas, a propósito.** Se borraron las cuatro de
-ensayo —«El muerde manos», PRUEBA 2, RIFA PRUEBA 3 y PABLO TEST1— con sus 95
-boletos, sus 380 folios y su bitácora. Ninguna había repartido nada ni tenía
-ganador revelado.
+El proyecto está **ACTIVE_HEALTHY** —no pausado— y ya corrió **una rifa de
+verdad**, la primera desde que se vació la base.
 
 | Tabla | Filas |
 | --- | --- |
-| `rifas` | 0 |
-| `boletos` | 0 |
-| `folios` | 0 |
-| `sorteo_log` | 0 |
-| `panel_ajustes` | 1, sin diseño guardado: la próxima rifa nace con el clásico |
+| `rifas` | 1 |
+| `boletos` | 20 |
+| `folios` | 80 |
+| `sorteo_log` | 4 |
+| `panel_ajustes` | 1, **sin diseño guardado**: la próxima rifa nacería con el clásico |
 | `llave_firma` | 1 — intacta |
 | `panel_clave` | 1 — con la clave de arriba |
 
+La rifa que hay:
+
+| | |
+| --- | --- |
+| Nombre | Rifa El muerde manos |
+| Identificador | `rifa-el-muerde-manos-20261012` |
+| Serie | A |
+| Boletos / folios | 20 boletos, 4 números cada uno = 80 folios |
+| Precio | $20 |
+| Sorteo | 12-oct-2026, 03:00 UTC |
+| Estado | **cerrado, con ganador revelado: folio 76966** |
+| Diseño | ninguno guardado, así que salió con el boleto clásico |
+
 Qué significa en la práctica:
 
-- **Todos los números volvieron a estar libres.** La regla de «un folio no se
-  repite jamás» se hace comparando contra la tabla `folios`; vacía la tabla, el
-  espacio entero vuelve a estar disponible.
-- **Los boletos que se hayan impreso de esas cuatro rifas ya no sirven.** Quien
-  escanee uno va a ver «Boleto no válido», porque el boleto que respalda ese QR
-  ya no existe. Eran todos de prueba.
-- **La llave de firma no se tocó**, así que crear una rifa nueva funciona
-  igual. La clave del panel sí se movió dos veces el mismo día —se cambió
-  desde «Perfil» y se devolvió a la de siempre—, y la que vale es la de la
-  tabla de arriba.
+- **Esos 80 folios ya no vuelven a salir nunca.** La regla de «un folio no se
+  repite jamás» compara contra la tabla `folios`, y esas filas se quedan.
+- **El ganador ya está revelado y la rifa cerrada**, así que esa rifa no se
+  puede modificar: el servidor rechaza cualquier cambio sobre una rifa con
+  ganador. Es a propósito.
+- **Sigue marcada como activa**, o sea que es la que el panel maneja por
+  omisión. Al crear la siguiente, «Manejar esta» la cambia.
+- **No tiene diseño guardado**, así que se imprimió con el boleto clásico. El
+  boleto vertical «Suertudito» llegó después; para usarlo en la siguiente, hay
+  que dejarlo elegido en la pestaña «Diseño» **antes** de crearla, que es
+  cuando se le copia.
 
-La primera rifa que se cree desde aquí empieza de cero, y conviene que sea con
-serie `A` otra vez si se quiere el orden limpio. Si quieres darle aspecto,
-puedes dejar el diseño listo en la pestaña «Diseño» **antes** de crearla: se le
-copia al nacer.
+### Dónde está cada pieza hoy
+
+| | |
+| --- | --- |
+| Función de borde `sorteo` | **versión 14** |
+| Service worker | `rifa-v20` |
+| Etiquetas del panel | `?v=20` |
+| Pruebas de punta a punta | **204**, todas en verde |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -348,12 +414,12 @@ número uno es el caché del navegador, no la base.
 ### El resto del sistema
 
 - Las **10 migraciones** aplicadas; la función de borde `sorteo` en su
-  **versión 11**; la clave del panel y la llave de firma en su lugar.
-- El trabajador de servicio va en **`rifa-v17`**, a la par del `?v=17` de
+  **versión 13**; la clave del panel y la llave de firma en su lugar.
+- El trabajador de servicio va en **`rifa-v18`**, a la par del `?v=18` de
   `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **175 comprobaciones** automáticas
+- El panel y el boleto pasan **187 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
@@ -389,5 +455,14 @@ número uno es el caché del navegador, no la base.
 - **Borrar la rama vieja** `claude/qr-code-raffle-ticket-ks2mxd` en el
   repositorio de Koppert. Su PR está cerrado y `main` quedó intacto, pero la
   rama sigue ahí.
-- **Crear la primera rifa de verdad.** La base quedó vacía a propósito; el
-  siguiente paso es Rifas → Nueva rifa, con cuidado en la fecha y la hora.
+- **Dejar el diseño elegido ANTES de crear la próxima rifa.** La de octubre
+  salió con el boleto clásico porque no había diseño guardado cuando nació. El
+  diseño se copia a la rifa al crearla, no después: si se quiere el boleto
+  «Suertudito», hay que elegirlo en la pestaña «Diseño» y guardarlo primero.
+- **Decidir si el adorno del boleto vertical se queda dibujado o calcado.** Se
+  probaron los dos: el dibujado en SVG (el que está puesto) y uno calcado de la
+  foto del boleto del cliente. Puestos lado a lado la diferencia es mínima
+  —porque el dibujo salió de medir esa misma foto—, y el dibujado gana en
+  impresión: sale nítido a cualquier tamaño, mientras que la imagen se queda en
+  los 195 puntos por pulgada que trae. Queda elegido el dibujado; si se quiere
+  el calcado, el recorte limpio ya está hecho y es media hora de trabajo.

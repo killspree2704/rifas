@@ -38,6 +38,50 @@ function ok(nombre, cond, extra) {
   if (!cond) fallos.push(nombre);
 }
 
+/**
+ * Qué piezas del boleto se enciman con cuáles, medido en el navegador.
+ *
+ * Leer el HTML no alcanza: en el boleto vertical todo va colocado a
+ * porcentajes, y un número tapado por el QR o por un trébol se imprime igual
+ * de ilegible aunque el HTML esté perfecto. Con un solo selector compara
+ * todas esas piezas entre sí; con dos, las del primero contra las del segundo.
+ */
+async function encimadas(hoja, selA, selB) {
+  return hoja.$eval('.boleto', (art, sels) => {
+    const lista = (sel) => [...art.querySelectorAll(sel)].map((e, i) => ({
+      que: (e.getAttribute('class') || e.tagName).split(' ')[0] + '#' + i,
+      r: e.getBoundingClientRect(),
+    }));
+    const unos = lista(sels[0]);
+    const otros = sels[1] ? lista(sels[1]) : unos;
+    const malos = [];
+    unos.forEach((a, i) => otros.forEach((b, j) => {
+      if (!sels[1] && j <= i) return;
+      const ancho = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+      const alto = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+      if (ancho > 0.5 && alto > 0.5) malos.push(a.que + '×' + b.que);
+    }));
+    return malos;
+  }, [selA, selB || null]);
+}
+
+/** Qué piezas se salen de su boleto, que es donde `overflow` las recorta. */
+async function fuera(hoja, sel) {
+  return hoja.$eval('.boleto', (art, s) => {
+    const caja = art.getBoundingClientRect();
+    return [...art.querySelectorAll(s)].filter((e) => {
+      const r = e.getBoundingClientRect();
+      return r.left < caja.left - 0.5 || r.right > caja.right + 0.5 ||
+             r.top < caja.top - 0.5 || r.bottom > caja.bottom + 0.5;
+    }).map((e) => (e.getAttribute('class') || e.tagName) + ' «' +
+                  (e.textContent || '').trim().slice(0, 20) + '»');
+  }, sel);
+}
+
+// Lo que hay que poder leer en el boleto impreso, y lo que solo adorna.
+const LEIBLE = '.caja, .qr, .precio, .pie, .aviso, .fechas, .sello, .titulo';
+const ADORNO = '.trebol, .moneda, .rana';
+
 // El navegador. En un entorno donde Chromium ya viene instalado —como el de
 // integración continua— se le pasa su ruta en CHROMIUM_BIN en vez de que
 // Playwright se descargue el suyo.
@@ -147,7 +191,7 @@ console.log('\n== Rifas ==');
 await pagina.click('.pestana[data-panel="paneRifas"]');
 await pagina.waitForSelector('#listaRifas .rifa');
 const tarjetas = await pagina.$$('#listaRifas .rifa');
-ok('lista todo el historial', tarjetas.length === 4, tarjetas.length + ' tarjetas');
+ok('lista todo el historial', tarjetas.length === 5, tarjetas.length + ' tarjetas');
 ok('marca cuál se está manejando', await pagina.isVisible('#listaRifas .rifa.manejando'));
 const textoVieja = await pagina.locator('.rifa', { hasText: 'Rifa de estreno' }).textContent();
 ok('la rifa vieja conserva su ganador', textoVieja.includes('Ganador: Z-90001'), textoVieja.trim().replace(/\s+/g,' '));
@@ -246,8 +290,8 @@ ok('lo dice en voz alta',
    await pagina.textContent('#mensaje'));
 
 await pagina.click('.pestana[data-panel="paneRifas"]');
-await pagina.waitForSelector('#listaRifas .rifa:nth-child(5)');
-ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 5);
+await pagina.waitForSelector('#listaRifas .rifa:nth-child(6)');
+ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 6);
 ok('y queda marcada como la que se maneja',
    (await pagina.locator('.rifa.manejando').textContent()).includes('Rifa de prueba'),
    (await pagina.locator('.rifa.manejando').textContent()).replace(/\s+/g, ' ').slice(0, 60));
@@ -729,8 +773,11 @@ await ctxD.close();
      (await pg.textContent('#disenoDeQuien')).includes('Rifa El Muerde Manos'),
      await pg.textContent('#disenoDeQuien'));
 
-  ok('ofrece los seis temas', (await pg.locator('#temas .tema').count()) === 6,
+  ok('ofrece los siete temas', (await pg.locator('#temas .tema').count()) === 7,
      String(await pg.locator('#temas .tema').count()));
+  ok('ofrece las dos disposiciones',
+     (await pg.locator('#disposiciones .tema').count()) === 2,
+     String(await pg.locator('#disposiciones .tema').count()));
   ok('y los doce fondos: seis de línea y seis de figura',
      (await pg.locator('#tramas .tema').count()) === 12,
      String(await pg.locator('#tramas .tema').count()));
@@ -893,6 +940,134 @@ await ctxD.close();
      await hojaD.$eval('.boleto', (e) => getComputedStyle(e).backgroundImage));
   await hojaD.close();
 
+  // --- La disposición vertical «Suertudito» -------------------------
+  // Es una plantilla entera, no un color: lo que hay que comprobar es que los
+  // cuatro números caigan en sus recuadros y que lo que se ve en la vista
+  // previa sea lo que sale impreso.
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto');
+  ok('la caducidad está escondida mientras la disposición es la clásica',
+     await pg.isHidden('#campoCaducidad'));
+
+  await pg.click('#disposiciones .tema[data-disposicion="suertudito"]');
+  await pg.waitForSelector('#vistaBoleto .boleto .titulo');
+  ok('el boleto vertical trae su marco doble, su rana y su título',
+     (await pg.locator('#vistaBoleto .marco').count()) === 1 &&
+     (await pg.locator('#vistaBoleto .rana').count()) === 1 &&
+     (await pg.locator('#vistaBoleto .titulo').count()) === 1);
+  ok('con los cuatro números en sus cuatro recuadros',
+     (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim())))
+       .join(',') === '1018,4307,2850,3267',
+     (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim()))).join(','));
+  ok('el QR sigue sobre blanco también en el boleto vertical',
+     (await pg.$eval('#vistaBoleto .qr', (e) => getComputedStyle(e).backgroundColor))
+       === 'rgb(255, 255, 255)');
+  ok('y el papel queda vertical, no horizontal',
+     await pg.$eval('#vistaBoleto .boleto', (e) => e.offsetHeight > e.offsetWidth * 1.3),
+     await pg.$eval('#vistaBoleto .boleto', (e) => e.offsetWidth + '×' + e.offsetHeight));
+  ok('ahora sí aparece la caducidad, que solo existe en esta disposición',
+     await pg.isVisible('#campoCaducidad'));
+  ok('y los boletos por renglón saltan a 3, que es el tamaño del original',
+     (await pg.inputValue('#dsColumnas')) === '3', await pg.inputValue('#dsColumnas'));
+  // La disposición no es una forma: es el boleto del cliente entero, y ese
+  // boleto es verde sobre papel verde pálido.
+  ok('y trae los colores del boleto del cliente, sin tener que acertarles',
+     (await pg.inputValue('#dsFondo')) === '#e4e9e3' &&
+     (await pg.inputValue('#dsTinta')) === '#2a5a30' &&
+     (await pg.inputValue('#dsAcento')) === '#1b4d1b' &&
+     (await pg.inputValue('#dsBorde')) === '#2e7d32',
+     [await pg.inputValue('#dsFondo'), await pg.inputValue('#dsTinta'),
+      await pg.inputValue('#dsAcento'), await pg.inputValue('#dsBorde')].join(' '));
+  // El título del original es una romana cursiva. La primera versión pedía
+  // letra manuscrita y en la máquina del cliente salía escrito a mano.
+  const letraTitulo = await pg.$eval('#vistaBoleto .titulo',
+    (e) => getComputedStyle(e).fontFamily + ' | ' + getComputedStyle(e).fontStyle);
+  ok('y el título va en romana cursiva, no en manuscrita',
+     /Times|serif/i.test(letraTitulo) && /italic/.test(letraTitulo) &&
+     !/script|cursive|handwriting|chancery/i.test(letraTitulo), letraTitulo);
+
+  await pg.fill('#dsCaducidad', '2 días');
+  await pg.waitForFunction(() => {
+    const f = document.querySelector('#vistaBoleto .fechas');
+    return f && f.textContent.includes('2 días');
+  }, null, { timeout: 5000 });
+  ok('la caducidad escrita se ve en el boleto', true);
+
+  // El aviso del boleto vertical tiene su renglón medido: lo que sobra se
+  // recorta sin decir nada, y un aviso legal a medias no sirve de aviso.
+  await pg.fill('#dsAviso', 'A'.repeat(150));
+  await pg.waitForFunction(() => {
+    const c = document.getElementById('avisoContraste');
+    return !c.hidden && c.textContent.includes('no cabe completo');
+  }, null, { timeout: 5000 });
+  ok('avisa cuando el aviso no cabe en el boleto vertical', true);
+  await pg.fill('#dsAviso',
+    'El boleto se anulará si se encuentra roto, con tachones, borrones o enmendaduras.');
+  await pg.waitForFunction(() =>
+    document.getElementById('avisoContraste').hidden, null, { timeout: 5000 });
+  ok('y deja de avisar cuando el aviso vuelve a caber', true);
+
+  // Lo que importa: que la hoja impresa salga vertical igual que la vista.
+  await pg.click('#btnGuardarDiseno');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeDiseno').textContent.includes('va a salir así'),
+    null, { timeout: 10000 });
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  const [hojaV] = await Promise.all([
+    ctxG.waitForEvent('page'),
+    pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaV.waitForLoadState('domcontentloaded');
+  await hojaV.waitForSelector('.boleto .titulo');
+  ok('la hoja impresa sale con el boleto vertical, no con el clásico',
+     (await hojaV.locator('.boleto .rana').count()) > 0 &&
+     (await hojaV.locator('.boleto .caja').count()) === 8,
+     (await hojaV.locator('.boleto .caja').count()) + ' recuadros en 2 boletos');
+  ok('y con la caducidad que se escribió',
+     (await hojaV.textContent('.boleto .fechas')).includes('2 días'),
+     (await hojaV.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
+  ok('la fecha de emisión sale con guiones, igual en cualquier navegador',
+     /\d{2}-[a-z]{3}-\d{4}/.test(await hojaV.textContent('.boleto .fechas')),
+     (await hojaV.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
+  // El día del sorteo hay que cotejar el código del panel contra el talón del
+  // ganador. Si el boleto solo lo lleva dentro del QR, un QR que no se lee
+  // deja el cotejo sin hacer y el sorteo sin cerrar.
+  ok('el boleto vertical imprime su identificador y su código, como el clásico',
+     (await hojaV.textContent('.boleto .serial')) === '9000001052' &&
+     (await hojaV.textContent('.boleto .codigo')) === 'Código R5VR',
+     (await hojaV.textContent('.boleto .pie')).replace(/\s+/g, ' '));
+  // Con cuatro números los recuadros tienen que caer donde el boleto del
+  // cliente, no «más o menos ahí».
+  const esquinas = await hojaV.$eval('.boleto', (art) => {
+    const caja = art.getBoundingClientRect();
+    return [...art.querySelectorAll('.caja')].map((e) => {
+      const r = e.getBoundingClientRect();
+      return Math.round((r.left - caja.left) / caja.width * 1000) / 10 + ',' +
+             Math.round((r.top - caja.top) / caja.height * 1000) / 10;
+    }).join(' ');
+  });
+  ok('y los cuatro caen en las cuatro esquinas del original',
+     esquinas === '7.2,39.4 66.3,39.4 7.2,76.5 66.3,76.5', esquinas);
+  const choca4 = (await encimadas(hojaV, LEIBLE))
+    .concat(await encimadas(hojaV, ADORNO, '.caja, .pie, .precio, .aviso, .qr'));
+  ok('y en el boleto de cuatro tampoco se encima nada', choca4.length === 0,
+     choca4.join(' | '));
+  const sale4 = await fuera(hojaV, LEIBLE + ', .pie span');
+  ok('ni se sale nada del boleto de cuatro', sale4.length === 0, sale4.join(' | '));
+  // Todo el boleto se mide contra su propio ancho. Antes las letras iban en
+  // milímetros fijos: en papel salían bien y en la pantalla —donde la hoja
+  // enseña el boleto al doble— se veían diminutas, así que lo que el cliente
+  // revisaba no era lo que iba a imprimir.
+  const proporcion = await hojaV.$eval('.boleto', (art) => {
+    const aviso = art.querySelector('.aviso');
+    return parseFloat(getComputedStyle(aviso).fontSize) / art.getBoundingClientRect().width;
+  });
+  ok('y la letra crece con el boleto, no se queda en milímetros fijos',
+     Math.abs(proporcion - 1.85 / 60) < 0.0004,
+     'el aviso mide ' + (proporcion * 60).toFixed(2) + ' mm en un boleto de 60 mm');
+  await hojaV.close();
+
   // Volver al de siempre, con su confirmación.
   await pg.click('.pestana[data-panel="paneDiseno"]');
   await pg.waitForSelector('#vistaBoleto .boleto');
@@ -911,6 +1086,70 @@ await ctxD.close();
 
   ok('sin errores de JavaScript en Diseño', errG.length === 0, errG.join(' | '));
   await ctxG.close();
+}
+
+// ------------------------------------------- BOLETO VERTICAL APRETADO ----
+// El boleto del cliente trae cuatro números, pero el formulario acepta hasta
+// diez por boleto. Un folio que no se imprime sigue valiendo y puede salir
+// ganador sin que el papel del comprador lo muestre, así que lo que se prueba
+// aquí es que los nueve salgan impresos y que nada se encime con nada.
+{
+  console.log('\n== Boleto vertical con nueve números ==');
+  const ctxN = await navegador.newContext({ serviceWorkers: 'block' });
+  const pn = await ctxN.newPage();
+  const errN = [];
+  pn.on('pageerror', (e) => errN.push(String(e)));
+  await pn.goto(BASE + '/panel.html');
+  await pn.fill('#clave', 'secreta');
+  await pn.click('#btnEntrar');
+  await pn.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pn.click('.pestana[data-panel="paneRifas"]');
+  await pn.waitForSelector('#listaRifas .rifa');
+
+  const [hojaN] = await Promise.all([
+    ctxN.waitForEvent('page'),
+    pn.locator('.rifa', { hasText: 'Rifa de nueve números' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaN.waitForLoadState('domcontentloaded');
+  await hojaN.waitForSelector('.boleto .titulo');
+
+  const impresos = await hojaN.$$eval('.boleto .caja', (n) => n.map((e) => e.textContent.trim()));
+  ok('imprime los nueve números del boleto, no los primeros cuatro',
+     impresos.join(',') === '70001,70002,70003,70004,70005,70006,70007,70008,70009',
+     impresos.join(','));
+  ok('y también aquí van el identificador y el código impresos',
+     (await hojaN.textContent('.boleto .serial')) === '9000007001' &&
+     (await hojaN.textContent('.boleto .codigo')) === 'Código NUE9',
+     (await hojaN.textContent('.boleto .pie')).replace(/\s+/g, ' '));
+
+  // Con cinco renglones de números los costados quedan ocupados, así que las
+  // fechas se bajan al pie en vez de quedarse verticales encima de un número.
+  ok('las fechas se mudan al pie cuando el boleto va apretado',
+     (await hojaN.locator('.boleto .fechas').count()) === 0 &&
+     (await hojaN.textContent('.boleto .fechas-pie')).includes('3 días') &&
+     /\d{2}-[a-z]{3}-\d{4}/.test(await hojaN.textContent('.boleto .fechas-pie')),
+     (await hojaN.textContent('.boleto .pie')).replace(/\s+/g, ' '));
+  ok('y el sello del logo sigue en el boleto, en su otro lugar',
+     (await hojaN.locator('.boleto .sello').count()) === 1);
+
+  // La prueba de verdad: medir. Un número tapado por el QR o por el precio se
+  // imprime igual y no se puede leer, y de eso uno se entera con los boletos
+  // ya repartidos.
+  const encimados = await encimadas(hojaN, LEIBLE);
+  ok('nada de lo que hay que leer se encima con nada', encimados.length === 0,
+     encimados.join(' | '));
+  const adornos = await encimadas(hojaN, ADORNO, '.caja, .pie, .precio, .aviso, .qr');
+  ok('ni los adornos se le montan encima a un número o al código',
+     adornos.length === 0, adornos.join(' | '));
+
+  // Y todo adentro del marco: lo que se sale lo recorta `overflow: hidden` y
+  // desaparece sin avisar.
+  const desbordes = await fuera(hojaN, LEIBLE + ', .pie span');
+  ok('y nada se sale del boleto', desbordes.length === 0, desbordes.join(' | '));
+
+  await hojaN.close();
+  ok('sin errores de JavaScript con el boleto apretado', errN.length === 0, errN.join(' | '));
+  await ctxN.close();
 }
 
 // ---------------------------------------------------------------- PERFIL ---
