@@ -22,6 +22,17 @@
 --   panel_clave hash de la clave del panel; sin políticas, nadie lo lee
 --   llave_firma llave HMAC con la que se firman los códigos; sin políticas,
 --               solo la alcanza la función de borde `sorteo`
+--   vendedores  catálogo de quién reparte boletos. Vive fuera de cualquier
+--               rifa: el mismo equipo reparte en varios eventos
+--   vendedor_boletos  a qué vendedor le toca cada boleto, por rifa. Clave
+--               primaria el boleto: un papel físico solo está en una mano.
+--               Reasignar sobrescribe, sin bloqueo ni con la rifa cerrada —es
+--               bitácora de reparto, no toca folios ni ganador
+--
+-- `boletos.numero` es el orden del boleto dentro de su rifa (1..cantidad),
+-- distinto del identificador aleatorio del QR: sirve para hablar de lotes
+-- («del 1 al 50») con un vendedor. `rifas.emision` es la fecha de emisión del
+-- lote impreso si es distinta de `creada_en`; nula usa esa de siempre.
 --
 -- Garantías:
 --   * El público solo puede LEER `rifas`. No hay escritura pública en ninguna

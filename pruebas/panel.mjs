@@ -14,13 +14,16 @@
  */
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import jsQR from 'jsqr';
 import { PNG } from 'pngjs';
 
 const BASE = 'http://localhost:8891';
 
 // El servidor de prueba se levanta aquí para que cada corrida empiece limpia.
-const servidor = spawn(process.execPath, [new URL('./servidor-de-prueba.mjs', import.meta.url).pathname],
+// `fileURLToPath` y no `.pathname`: en Windows el pathname trae la unidad con
+// una barra delante («/C:/Users/…») y pasarlo tal cual a `spawn` la duplica.
+const servidor = spawn(process.execPath, [fileURLToPath(new URL('./servidor-de-prueba.mjs', import.meta.url))],
   { stdio: 'inherit' });
 process.on('exit', () => servidor.kill());
 // Se espera a que conteste, en vez de confiar en un plazo fijo: si el puerto
@@ -260,6 +263,7 @@ await pagina.fill('#nvDigitos', '5');
 await pagina.fill('#nvNombre', 'Rifa de prueba');
 await pagina.fill('#nvSerie', 'B');
 await pagina.fill('#nvFecha', '2026-12-24T20:00');
+await pagina.fill('#nvFechaEmision', '2026-12-20');
 await pagina.fill('#nvCantidad', '4');
 await pagina.fill('#nvPrecio', '100');
 ok('el resumen calcula lo que suma el lote',
@@ -305,6 +309,11 @@ ok('el formulario queda limpio para la siguiente',
 ok('manda la hora en la zona del evento, no la del navegador',
    cuerpoCreacion && cuerpoCreacion.fecha_sorteo === '2026-12-25T02:00:00.000Z',
    cuerpoCreacion && cuerpoCreacion.fecha_sorteo);
+// Mediodía y no medianoche: a medianoche, en una zona de desfase negativo
+// como esta, convertir a UTC puede caer en el día anterior.
+ok('la fecha de emisión también viaja en la zona del evento',
+   cuerpoCreacion && cuerpoCreacion.fecha_emision === '2026-12-20T18:00:00.000Z',
+   cuerpoCreacion && cuerpoCreacion.fecha_emision);
 
 // --- pasar el mando a otra rifa ---
 console.log('\n== Cambiar de rifa ==');
@@ -1068,6 +1077,56 @@ await ctxD.close();
      'el aviso mide ' + (proporcion * 60).toFixed(2) + ' mm en un boleto de 60 mm');
   await hojaV.close();
 
+  // Fecha de emisión: corrige la de esta rifa. Es de LA RIFA, no del diseño,
+  // así que se guarda aparte y solo aparece editando una rifa que ya existe.
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto');
+  ok('el campo de emisión aparece porque se está editando una rifa que existe',
+     await pg.isVisible('#campoEmision') && await pg.isVisible('#btnGuardarEmision'));
+  ok('y nace vacío: sin nada guardado, el boleto usa la fecha de creación',
+     (await pg.inputValue('#dsEmision')) === '');
+  await pg.fill('#dsEmision', '2026-09-20');
+  await pg.click('#btnGuardarEmision');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeEmision').textContent.includes('va a imprimir esa fecha'),
+    null, { timeout: 10000 });
+  ok('guarda la fecha de emisión', true);
+
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  const [hojaE] = await Promise.all([
+    ctxG.waitForEvent('page'),
+    pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaE.waitForLoadState('domcontentloaded');
+  await hojaE.waitForSelector('.boleto .fechas');
+  ok('la hoja imprime la emisión recién fijada, no la fecha de creación',
+     (await hojaE.textContent('.boleto .fechas')).includes('20-sep-2026'),
+     (await hojaE.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
+  await hojaE.close();
+
+  // Vacía otra vez: vuelve a usar la fecha de creación, sin que haga falta
+  // acordarse de cuál era.
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto');
+  await pg.fill('#dsEmision', '');
+  await pg.click('#btnGuardarEmision');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeEmision').textContent.includes('va a imprimir esa fecha'),
+    null, { timeout: 10000 });
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  const [hojaE2] = await Promise.all([
+    ctxG.waitForEvent('page'),
+    pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaE2.waitForLoadState('domcontentloaded');
+  await hojaE2.waitForSelector('.boleto .fechas');
+  ok('vaciarla vuelve a usar la fecha en que se creó la rifa',
+     (await hojaE2.textContent('.boleto .fechas')).includes('01-sep-2026'),
+     (await hojaE2.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
+  await hojaE2.close();
+
   // Volver al de siempre, con su confirmación.
   await pg.click('.pestana[data-panel="paneDiseno"]');
   await pg.waitForSelector('#vistaBoleto .boleto');
@@ -1129,6 +1188,12 @@ await ctxD.close();
      (await hojaN.textContent('.boleto .fechas-pie')).includes('3 días') &&
      /\d{2}-[a-z]{3}-\d{4}/.test(await hojaN.textContent('.boleto .fechas-pie')),
      (await hojaN.textContent('.boleto .pie')).replace(/\s+/g, ' '));
+  // Esta rifa tiene `emision` distinta de `creada_en` a propósito: lo que
+  // tiene que imprimirse es la fecha de EMISIÓN del lote, no la del registro.
+  ok('la emisión impresa es la del lote, no la de cuando se creó la rifa',
+     (await hojaN.textContent('.boleto .fechas-pie')).includes('15-jul-2025') &&
+     !(await hojaN.textContent('.boleto .fechas-pie')).includes('01-jul-2025'),
+     await hojaN.textContent('.boleto .fechas-pie'));
   ok('y el sello del logo sigue en el boleto, en su otro lugar',
      (await hojaN.locator('.boleto .sello').count()) === 1);
 
@@ -1150,6 +1215,128 @@ await ctxD.close();
   await hojaN.close();
   ok('sin errores de JavaScript con el boleto apretado', errN.length === 0, errN.join(' | '));
   await ctxN.close();
+}
+
+// ------------------------------------------------------------ VENDEDORES ---
+// Aparte y con su propio navegador: pasa a manejar «Rifa El Muerde Manos»
+// (dos boletos, números 1 y 2) para tener un lote chico y predecible.
+{
+  console.log('\n== Vendedores ==');
+  const ctxV = await navegador.newContext({ serviceWorkers: 'block' });
+  const pv = await ctxV.newPage();
+  const errV = [];
+  pv.on('pageerror', (e) => errV.push(String(e)));
+  await pv.goto(BASE + '/panel.html');
+  await pv.fill('#clave', 'secreta');
+  await pv.click('#btnEntrar');
+  await pv.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+
+  await pv.click('.pestana[data-panel="paneRifas"]');
+  await pv.waitForSelector('#listaRifas .rifa');
+  // La sección de Diseño, que corre antes, puede haber dejado esta misma
+  // rifa activa: solo se toca el botón si hace falta.
+  const filaMM = pv.locator('.rifa', { hasText: 'Rifa El Muerde Manos' });
+  if (!(await filaMM.getAttribute('class')).includes('manejando')) {
+    await filaMM.getByText('Manejar esta').click();
+    await pv.waitForFunction(() =>
+      document.getElementById('tituloRifa').textContent === 'Rifa El Muerde Manos', null, { timeout: 10000 });
+  }
+
+  await pv.click('.pestana[data-panel="paneVendedores"]');
+  ok('hay una pestaña Vendedores y se abre', await pv.isVisible('#paneVendedores'));
+  ok('dice de cuál rifa es el reparto',
+     (await pv.textContent('#vendedoresDeQuien')).includes('Rifa El Muerde Manos'),
+     await pv.textContent('#vendedoresDeQuien'));
+  await pv.waitForFunction(() =>
+    document.getElementById('listaVendedores').textContent.includes('Todavía no hay ningún vendedor'));
+  ok('sin vendedores, lo dice en vez de enseñar una lista vacía', true);
+
+  // Alta de dos vendedores.
+  await pv.click('#cajaNuevoVendedor > summary');
+  await pv.fill('#vdNombre', 'Juan Pérez');
+  await pv.fill('#vdNota', 'Turno de la tarde');
+  await pv.click('#btnCrearVendedor');
+  await pv.waitForSelector('#listaVendedores .vendedor');
+  ok('el vendedor nuevo aparece en la lista',
+     (await pv.textContent('#listaVendedores')).includes('Juan Pérez'));
+  ok('y en el selector de asignar', (await pv.locator('#vdSelector option')).count() &&
+     (await pv.textContent('#vdSelector')).includes('Juan Pérez'));
+  ok('nace sin boletos', (await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).textContent())
+     .includes('Sin boletos asignados todavía'));
+
+  // Crear uno cierra el desplegable de alta: hay que volver a abrirlo.
+  await pv.click('#cajaNuevoVendedor > summary');
+  await pv.fill('#vdNombre', 'Ana López');
+  await pv.fill('#vdNota', '');
+  await pv.click('#btnCrearVendedor');
+  await pv.waitForFunction(() =>
+    document.getElementById('listaVendedores').textContent.includes('Ana López'));
+  ok('se pueden agregar varios vendedores', true);
+
+  // Lote consecutivo: el boleto Nº 1 para Juan.
+  await pv.selectOption('#vdSelector', { label: 'Juan Pérez' });
+  await pv.fill('#vdDesde', '1');
+  await pv.fill('#vdHasta', '1');
+  await pv.click('#btnAsignar');
+  await pv.waitForFunction(() =>
+    document.getElementById('mensajeAsignar').textContent.includes('Asignados: 1'));
+  ok('asigna un lote consecutivo', true);
+  ok('el resumen cuenta cuántos boletos tienen ya vendedor',
+     (await pv.textContent('#resumenAsignacion')) === '1 de 2 boletos ya tienen vendedor; 1 sin asignar.',
+     await pv.textContent('#resumenAsignacion'));
+  ok('la tarjeta de Juan ya muestra su número',
+     (await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).textContent()).includes('Nº 1'));
+
+  // Números sueltos: el boleto Nº 2 para Ana.
+  await pv.selectOption('#vdSelector', { label: 'Ana López' });
+  await pv.fill('#vdSueltos', '2');
+  await pv.click('#btnAsignar');
+  await pv.waitForFunction(() =>
+    document.getElementById('resumenAsignacion').textContent.includes('0 sin asignar'));
+  ok('asigna por números sueltos, y ya no queda ninguno libre', true);
+
+  // Reasignar: Ana se queda también con el Nº 1, que era de Juan. No se
+  // bloquea —es bitácora de reparto—, pero avisa a quién se lo quitó.
+  await pv.fill('#vdSueltos', '1');
+  await pv.click('#btnAsignar');
+  await pv.waitForFunction(() =>
+    document.getElementById('mensajeAsignar').textContent.includes('Se los quitaron'));
+  ok('reasignar un boleto no se bloquea',
+     (await pv.textContent('#mensajeAsignar')).includes('Nº 1') &&
+     (await pv.textContent('#mensajeAsignar')).includes('Juan Pérez'),
+     await pv.textContent('#mensajeAsignar'));
+  ok('y a Juan ya no le queda ese número',
+     (await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).textContent())
+       .includes('Sin boletos asignados todavía'));
+
+  // Un número que no existe en esta rifa de dos boletos.
+  await pv.fill('#vdSueltos', '1, 99');
+  await pv.click('#btnAsignar');
+  await pv.waitForFunction(() =>
+    document.getElementById('mensajeAsignar').textContent.includes('No existen en esta rifa'));
+  ok('avisa de los números que no existen en la rifa, sin tronar con los demás',
+     (await pv.textContent('#mensajeAsignar')).includes('99'), await pv.textContent('#mensajeAsignar'));
+
+  // Quitarle a Ana sus boletos: doble toque, como el resto del panel.
+  await pv.locator('.vendedor', { hasText: 'Ana López' }).getByText('Quitarle todos los boletos').click();
+  await pv.waitForFunction(() =>
+    document.getElementById('mensajeVendedores').textContent.includes('Toca otra vez'));
+  ok('pide confirmar antes de quitar boletos', true);
+  await pv.locator('.vendedor', { hasText: 'Ana López' }).getByText('Quitarle todos los boletos').click();
+  await pv.waitForFunction(() =>
+    document.getElementById('resumenAsignacion').textContent.includes('0 de 2'));
+  ok('quita los boletos y el resumen vuelve a cero', true);
+
+  // Archivar: deja de salir en el selector, sin tocar su historial.
+  await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).getByText('Archivar').click();
+  await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).getByText('Archivar').click();
+  await pv.waitForFunction(() =>
+    !document.getElementById('listaVendedores').textContent.includes('Juan Pérez'));
+  ok('archivar lo saca de la lista y del selector',
+     !(await pv.textContent('#vdSelector')).includes('Juan Pérez'));
+
+  ok('sin errores de JavaScript en Vendedores', errV.length === 0, errV.join(' | '));
+  await ctxV.close();
 }
 
 // ---------------------------------------------------------------- PERFIL ---

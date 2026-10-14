@@ -106,7 +106,7 @@
   // ------------------------------------------------------------------
   // Pestañas
   // ------------------------------------------------------------------
-  var PANES = ['paneSorteo', 'paneRifas', 'paneVerificar', 'paneDiseno', 'panePerfil'];
+  var PANES = ['paneSorteo', 'paneRifas', 'paneVendedores', 'paneVerificar', 'paneDiseno', 'panePerfil'];
 
   function abrirPestana(id) {
     PANES.forEach(function (p) { $(p).hidden = (p !== id); });
@@ -118,6 +118,7 @@
     });
     if (id === 'paneRifas') { cargarRifas(); }
     if (id === 'paneDiseno') { abrirDiseno(); }
+    if (id === 'paneVendedores') { cargarVendedores(); }
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('.pestana'), function (b) {
@@ -616,6 +617,7 @@
     mensaje('Generando ' + (cantidad * porBoleto) + ' folios… puede tardar unos segundos.', '', 'mensajeNueva');
     $('btnCrear').disabled = true;
 
+    var fechaEmisionLocal = $('nvFechaEmision').value;
     llamar('crear_rifa', {
       nombre: nombre,
       serie: serie || 'A',
@@ -626,6 +628,10 @@
       digitos: digitos,
       folios_por_boleto: porBoleto,
       precio: precio === '' ? null : Number(precio),
+      // Mediodía y no medianoche: a medianoche, en una zona con desfase
+      // negativo, convertir a UTC puede caer en el día anterior y el boleto
+      // sale con la fecha equivocada.
+      fecha_emision: fechaEmisionLocal ? conZona(fechaEmisionLocal + 'T12:00') : '',
     })
       .then(function (datos) {
         $('btnCrear').disabled = false;
@@ -655,7 +661,7 @@
 
   /** Deja el formulario listo para la siguiente, sin arrastrar lo anterior. */
   function limpiarFormularioNueva() {
-    ['nvNombre', 'nvSerie', 'nvFecha', 'nvCantidad', 'nvPrecio'].forEach(function (id) {
+    ['nvNombre', 'nvSerie', 'nvFecha', 'nvFechaEmision', 'nvCantidad', 'nvPrecio'].forEach(function (id) {
       $(id).value = '';
     });
     $('nvDigitos').value = '5';
@@ -700,6 +706,218 @@
     var desfase = enZona - comoUtc;
     return new Date(comoUtc - desfase).toISOString();
   }
+
+  // ------------------------------------------------------------------
+  // Pestaña: vendedores
+  // ------------------------------------------------------------------
+  var vendedoresConocidos = [];    // el catálogo activo, con cuántos boletos tiene cada uno aquí
+  var asignacionesConocidas = [];  // el reparto completo de la rifa que se está manejando
+
+  function cargarVendedores() {
+    if (!rifaActual) {
+      $('vendedoresDeQuien').textContent =
+        'Todavía no hay ninguna rifa que manejar. Crea una en la pestaña «Rifas».';
+      $('listaVendedores').textContent = '';
+      $('resumenAsignacion').textContent = '';
+      vendedoresConocidos = [];
+      pintarSelectorVendedores();
+      return;
+    }
+    var r = rifaConocida(rifaActual);
+    $('vendedoresDeQuien').textContent = r
+      ? 'Repartiendo los boletos de «' + r.nombre + '», serie ' + r.serie + '.' : '';
+    mensaje('Cargando…', '', 'mensajeVendedores');
+    return Promise.all([llamar('vendedores'), llamar('asignaciones')])
+      .then(function (resultados) {
+        vendedoresConocidos = resultados[0].vendedores || [];
+        asignacionesConocidas = resultados[1].asignaciones || [];
+        pintarSelectorVendedores();
+        pintarVendedores();
+        mensaje('', '', 'mensajeVendedores');
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeVendedores'); });
+  }
+
+  function pintarSelectorVendedores() {
+    var sel = $('vdSelector');
+    var elegido = sel.value;
+    sel.textContent = '';
+    if (!vendedoresConocidos.length) {
+      var vacia = document.createElement('option');
+      vacia.textContent = 'Agrega un vendedor primero';
+      vacia.value = '';
+      sel.appendChild(vacia);
+      return;
+    }
+    vendedoresConocidos.forEach(function (v) {
+      var opcion = document.createElement('option');
+      opcion.value = v.id;
+      opcion.textContent = v.nombre + (v.asignados ? ' (' + v.asignados + ')' : '');
+      sel.appendChild(opcion);
+    });
+    if (elegido) { sel.value = elegido; }
+  }
+
+  /** «3, 4, 5, 8» se lee mejor como «Nº 3–5, Nº 8». */
+  function rangosDeTexto(numeros) {
+    var trozos = [];
+    var inicio = numeros[0];
+    var previo = numeros[0];
+    for (var i = 1; i <= numeros.length; i++) {
+      var actual = numeros[i];
+      if (actual === previo + 1) { previo = actual; continue; }
+      trozos.push(inicio === previo ? ('Nº ' + inicio) : ('Nº ' + inicio + '–' + previo));
+      inicio = actual;
+      previo = actual;
+    }
+    return trozos.join(', ');
+  }
+
+  function pintarVendedores() {
+    var caja = $('listaVendedores');
+    caja.textContent = '';
+
+    var totalBoletos = (rifaConocida(rifaActual) || {}).boletos || 0;
+    var sinAsignar = Math.max(0, totalBoletos - asignacionesConocidas.length);
+    $('resumenAsignacion').textContent = totalBoletos
+      ? asignacionesConocidas.length + ' de ' + totalBoletos + ' boletos ya tienen vendedor; ' +
+        sinAsignar + ' sin asignar.'
+      : '';
+
+    if (!vendedoresConocidos.length) {
+      caja.textContent = 'Todavía no hay ningún vendedor. Agrega el primero arriba.';
+      return;
+    }
+
+    // Agrupar el reparto por vendedor, para enseñar sus números juntos.
+    var porVendedor = {};
+    asignacionesConocidas.forEach(function (a) {
+      (porVendedor[a.vendedor] = porVendedor[a.vendedor] || []).push(a.numero);
+    });
+
+    vendedoresConocidos.forEach(function (v) {
+      var numeros = (porVendedor[v.id] || []).slice().sort(function (a, b) { return a - b; });
+
+      var fila = document.createElement('article');
+      fila.className = 'vendedor';
+
+      var cabeza = document.createElement('div');
+      cabeza.className = 'vendedor-cabeza';
+      var nombre = document.createElement('strong');
+      nombre.textContent = v.nombre;
+      cabeza.appendChild(nombre);
+      var cuenta = document.createElement('span');
+      cuenta.className = 'marca-estado';
+      cuenta.textContent = numeros.length + ' boleto' + (numeros.length === 1 ? '' : 's');
+      cabeza.appendChild(cuenta);
+      fila.appendChild(cabeza);
+
+      if (v.nota) {
+        var nota = document.createElement('p');
+        nota.className = 'nota';
+        nota.textContent = v.nota;
+        fila.appendChild(nota);
+      }
+
+      var rango = document.createElement('p');
+      rango.className = 'nota';
+      rango.textContent = numeros.length ? rangosDeTexto(numeros) : 'Sin boletos asignados todavía.';
+      fila.appendChild(rango);
+
+      var acciones = document.createElement('div');
+      acciones.className = 'vendedor-acciones';
+
+      if (numeros.length) {
+        var quitar = document.createElement('button');
+        quitar.className = 'boton fantasma chico';
+        quitar.textContent = 'Quitarle todos los boletos';
+        quitar.addEventListener('click', function () {
+          if (!confirmarVendedor('quitarle ' + numeros.length + ' boletos a «' + v.nombre + '».')) { return; }
+          llamar('quitar_asignacion', { numeros: numeros })
+            .then(function () { return cargarVendedores(); })
+            .catch(function (e) { mensaje(e.message, 'error', 'mensajeVendedores'); });
+        });
+        acciones.appendChild(quitar);
+      }
+
+      var archivar = document.createElement('button');
+      archivar.className = 'boton fantasma chico';
+      archivar.textContent = 'Archivar';
+      archivar.addEventListener('click', function () {
+        if (!confirmarVendedor('archivar a «' + v.nombre + '». Sus boletos ya asignados no se tocan.')) { return; }
+        llamar('archivar_vendedor', { vendedor: v.id })
+          .then(function () { return cargarVendedores(); })
+          .catch(function (e) { mensaje(e.message, 'error', 'mensajeVendedores'); });
+      });
+      acciones.appendChild(archivar);
+
+      fila.appendChild(acciones);
+      caja.appendChild(fila);
+    });
+  }
+
+  var pendienteVendedor = null;
+  function confirmarVendedor(texto) {
+    if (pendienteVendedor === texto) { pendienteVendedor = null; return true; }
+    pendienteVendedor = texto;
+    mensaje('Vas a ' + texto + ' Toca otra vez para confirmar.', 'error', 'mensajeVendedores');
+    setTimeout(function () { if (pendienteVendedor === texto) { pendienteVendedor = null; } }, 8000);
+    return false;
+  }
+
+  $('btnCrearVendedor').addEventListener('click', function () {
+    var nombre = $('vdNombre').value.trim();
+    var nota = $('vdNota').value.trim();
+    if (!nombre) { return mensaje('Ponle nombre al vendedor.', 'error', 'mensajeVendedorNuevo'); }
+    mensaje('Guardando…', '', 'mensajeVendedorNuevo');
+    llamar('crear_vendedor', { nombre: nombre, nota: nota })
+      .then(function () {
+        $('vdNombre').value = '';
+        $('vdNota').value = '';
+        $('cajaNuevoVendedor').open = false;
+        mensaje('', '', 'mensajeVendedorNuevo');
+        return cargarVendedores();
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeVendedorNuevo'); });
+  });
+
+  $('btnAsignar').addEventListener('click', function () {
+    var vendedorId = $('vdSelector').value;
+    if (!vendedorId) { return mensaje('Elige a quién se le asigna.', 'error', 'mensajeAsignar'); }
+
+    var desde = parseInt($('vdDesde').value, 10);
+    var hasta = parseInt($('vdHasta').value, 10);
+    var sueltos = $('vdSueltos').value.split(',')
+      .map(function (t) { return parseInt(t.trim(), 10); })
+      .filter(function (n) { return n > 0; });
+
+    var extra = { vendedor: vendedorId };
+    if (desde > 0 && hasta > 0) { extra.desde = desde; extra.hasta = hasta; }
+    if (sueltos.length) { extra.numeros = sueltos; }
+    if (!extra.desde && !extra.numeros) {
+      return mensaje('Escribe un lote (del/al) o números sueltos.', 'error', 'mensajeAsignar');
+    }
+
+    mensaje('Asignando…', '', 'mensajeAsignar');
+    llamar('asignar', extra)
+      .then(function (datos) {
+        var texto = 'Asignados: ' + datos.asignados + '.';
+        if (datos.faltantes && datos.faltantes.length) {
+          texto += ' No existen en esta rifa: ' + datos.faltantes.join(', ') + '.';
+        }
+        if (datos.reasignados && datos.reasignados.length) {
+          texto += ' Se los quitaron a quien los tenía: ' + datos.reasignados.map(function (x) {
+            return 'Nº ' + x.numero + ' (era de ' + (x.de || '—') + ')';
+          }).join(', ') + '.';
+        }
+        mensaje(texto, 'ok', 'mensajeAsignar');
+        $('vdDesde').value = '';
+        $('vdHasta').value = '';
+        $('vdSueltos').value = '';
+        return cargarVendedores();
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeAsignar'); });
+  });
 
   // ------------------------------------------------------------------
   // Hoja de boletos para imprimir
@@ -1319,11 +1537,21 @@
     return partes[2] + '-' + MESES[Number(partes[1]) - 1] + '-' + partes[0];
   }
 
+  /** La misma fecha, en el formato que pide un `<input type="date">`: AAAA-MM-DD. */
+  function fechaSoloISO(iso) {
+    if (!iso) { return ''; }
+    var f = new Date(iso);
+    if (isNaN(f.getTime())) { return ''; }
+    return new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit', timeZone: CFG.zonaHoraria || undefined,
+    }).format(f);
+  }
+
   function boletoSuerteHtml(rifa, boleto, url, precio, d) {
     var numeros = boleto.folios || [];
     var lugares = cajasSuerte(numeros.length);
     var apretado = suerteApretado(numeros.length);
-    var emision = fechaCorta(rifa.creada_en);
+    var emision = fechaCorta(rifa.emision || rifa.creada_en);
     var fechas = [];
     if (d.caducidad) { fechas.push('Caducidad: ' + escapar(d.caducidad)); }
     if (emision) { fechas.push('Emisión: ' + escapar(emision)); }
@@ -1630,6 +1858,14 @@
       ? 'Guardar el diseño' : 'Guardar para la próxima rifa';
     $('btnGuardarDiseno').disabled = false;
     $('btnDisenoDeSiempre').disabled = false;
+
+    // La emisión es de LA RIFA, no del diseño: sin rifa no hay nada que
+    // corregir todavía, así que el campo solo sale cuando se está editando
+    // una que ya existe.
+    $('campoEmision').hidden = !r;
+    $('btnGuardarEmision').hidden = !r;
+    $('dsEmision').value = r ? fechaSoloISO(r.emision) : '';
+    mensaje('', '', 'mensajeEmision');
     disenoEnEdicion = disenoCompleto(r ? r.diseno : disenoPorOmision);
     escribirControles(disenoEnEdicion);
     refrescarVista();
@@ -1967,6 +2203,23 @@
         }
       })
       .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
+  });
+
+  $('btnGuardarEmision').addEventListener('click', function () {
+    var r = rifaConocida(rifaActual);
+    if (!r) { return; }
+    var valor = $('dsEmision').value;
+    mensaje('Guardando…', '', 'mensajeEmision');
+    llamar('fijar_emision', {
+      // Mediodía, por la misma razón que al crear la rifa: a medianoche una
+      // zona con desfase negativo puede correr la fecha al día anterior.
+      fecha_emision: valor ? conZona(valor + 'T12:00') : '',
+    })
+      .then(function (datos) {
+        r.emision = datos.rifa.emision;
+        mensaje('Listo. La próxima hoja de esta rifa va a imprimir esa fecha.', 'ok', 'mensajeEmision');
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeEmision'); });
   });
 
   $('btnDisenoDeSiempre').addEventListener('click', function () {

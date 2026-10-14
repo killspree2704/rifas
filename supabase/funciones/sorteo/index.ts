@@ -414,7 +414,7 @@ Deno.serve(async (req) => {
   if (accion === "rifas") {
     const { data: rifas } = await db
       .from("rifas")
-      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, revelado_en, creada_en, precio_boleto, transmision_url, folios_por_boleto, diseno")
+      .select("id, nombre, serie, estado, activa, folio_ganador, fecha_sorteo, revelado_en, creada_en, emision, precio_boleto, transmision_url, folios_por_boleto, diseno")
       .order("fecha_sorteo", { ascending: false });
     const { data: boletos } = await db.from("boletos").select("rifa_id");
     const { data: folios } = await db.from("folios").select("rifa_id");
@@ -442,11 +442,11 @@ Deno.serve(async (req) => {
     const rifaPedida = String(cuerpo.rifa ?? "");
     if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
     const { data: ficha } = await db
-      .from("rifas").select("id, nombre, serie, fecha_sorteo, creada_en, precio_boleto, folios_por_boleto, diseno")
+      .from("rifas").select("id, nombre, serie, fecha_sorteo, creada_en, emision, precio_boleto, folios_por_boleto, diseno")
       .eq("id", rifaPedida).maybeSingle();
     if (!ficha) return responder({ error: "rifa no encontrada" }, 404);
     const { data: lote } = await db
-      .from("boletos").select("id, codigo").eq("rifa_id", rifaPedida).order("id");
+      .from("boletos").select("id, numero, codigo").eq("rifa_id", rifaPedida).order("numero");
     const { data: sueltos } = await db
       .from("folios").select("folio, boleto_id").eq("rifa_id", rifaPedida).order("folio");
 
@@ -523,6 +523,13 @@ Deno.serve(async (req) => {
     const precio = cuerpo.precio === undefined || cuerpo.precio === null || cuerpo.precio === ""
       ? null
       : Number(cuerpo.precio);
+    // Nulo es legítimo: significa «imprime con la fecha de creación», que es
+    // lo que siempre pasó. Solo se guarda si de verdad se escribió una.
+    const fechaEmisionCruda = String(cuerpo.fecha_emision ?? "").trim();
+    if (fechaEmisionCruda && isNaN(Date.parse(fechaEmisionCruda))) {
+      return responder({ error: "la fecha de emisión no es válida" }, 400);
+    }
+    const emision = fechaEmisionCruda || null;
 
     if (!nombre) return responder({ error: "falta el nombre de la rifa" }, 400);
     if (!fecha || isNaN(Date.parse(fecha))) return responder({ error: "la fecha del sorteo no es válida" }, 400);
@@ -568,7 +575,7 @@ Deno.serve(async (req) => {
     const id = idDeRifa(nombre, fecha, idsUsados);
     const { error: errorRifa } = await db.from("rifas").insert({
       id, nombre, serie, fecha_sorteo: fecha, estado: "espera", activa: false,
-      precio_boleto: precio, folios_por_boleto: porBoleto,
+      precio_boleto: precio, folios_por_boleto: porBoleto, emision,
       diseno: ajustes?.diseno ?? null,
     });
     if (errorRifa) return responder({ error: errorRifa.message }, 400);
@@ -587,10 +594,11 @@ Deno.serve(async (req) => {
     const filasFolios = [];
     for (let i = 0; i < identificadores.length; i++) {
       const idBoleto = identificadores[i];
+      const numero = i + 1;
       const codigo = await codigoDe(llave, serie, idBoleto);
       const suyos = (grupos[i] ?? []).slice().sort();
-      boletos.push({ id: idBoleto, codigo, folios: suyos });
-      filasBoletos.push({ id: idBoleto, rifa_id: id, codigo });
+      boletos.push({ id: idBoleto, numero, codigo, folios: suyos });
+      filasBoletos.push({ id: idBoleto, numero, rifa_id: id, codigo });
       for (const folio of suyos) filasFolios.push({ folio, boleto_id: idBoleto, rifa_id: id });
     }
 
@@ -613,10 +621,36 @@ Deno.serve(async (req) => {
       rifa: {
         id, nombre, serie, fecha_sorteo: fecha, estado: "espera", activa: false,
         boletos: boletos.length, folios: filasFolios.length, folios_por_boleto: porBoleto,
-        precio_boleto: precio,
+        precio_boleto: precio, emision,
       },
       boletos,
     });
+  }
+
+  /**
+   * Corregir la fecha de emisión de un lote ya creado.
+   *
+   * Separada de `crear_rifa` porque a veces el lote se manda a imprimir días
+   * después de armar la rifa en el sistema, y de eso uno no se entera hasta
+   * tener la fecha real en la mano. No toca folios ni boletos, así que no hay
+   * razón para bloquearla ni con la rifa cerrada: reimprimir con la fecha
+   * correcta sigue siendo válido.
+   */
+  if (accion === "fijar_emision") {
+    const rifaPedida = String(cuerpo.rifa ?? "");
+    if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
+    const cruda = String(cuerpo.fecha_emision ?? "").trim();
+    if (cruda && isNaN(Date.parse(cruda))) {
+      return responder({ error: "la fecha de emisión no es válida" }, 400);
+    }
+    const emision = cruda || null;
+    const { data, error } = await db
+      .from("rifas").update({ emision }).eq("id", rifaPedida)
+      .select("id, emision").maybeSingle();
+    if (error) return responder({ error: error.message }, 400);
+    if (!data) return responder({ error: "rifa no encontrada" }, 404);
+    await anotar(rifaPedida, "emision", { emision });
+    return responder({ rifa: data });
   }
 
   /**
@@ -673,6 +707,180 @@ Deno.serve(async (req) => {
     if (error) return responder({ error: error.message }, 400);
     await anotar(rifa, "activar", null);
     return responder({ rifa: data });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Vendedores
+  // ---------------------------------------------------------------------------
+  /**
+   * El catálogo de vendedores. Vive fuera de cualquier rifa —el mismo equipo
+   * reparte en varios eventos—, así que aquí solo salen los activos: los
+   * archivados se quedan fuera del selector, pero sus asignaciones viejas no
+   * se tocan ni se pierden.
+   *
+   * Si llega `rifa`, se suma cuántos boletos tiene asignados cada uno en esa
+   * rifa: es lo que el panel necesita para el resumen de reparto.
+   */
+  if (accion === "vendedores") {
+    const rifaPedida = String(cuerpo.rifa ?? "");
+    const { data: vendedores, error } = await db
+      .from("vendedores").select("id, nombre, nota, activo, creado_en")
+      .eq("activo", true).order("nombre");
+    if (error) return responder({ error: error.message }, 400);
+
+    const conteo: Record<string, number> = {};
+    if (rifaPedida) {
+      const { data: filas } = await db
+        .from("vendedor_boletos").select("vendedor_id").eq("rifa_id", rifaPedida);
+      for (const f of filas ?? []) conteo[f.vendedor_id] = (conteo[f.vendedor_id] ?? 0) + 1;
+    }
+
+    return responder({
+      vendedores: (vendedores ?? []).map((v) => ({ ...v, asignados: conteo[v.id] ?? 0 })),
+    });
+  }
+
+  /** Dar de alta un vendedor nuevo. */
+  if (accion === "crear_vendedor") {
+    const nombre = String(cuerpo.nombre ?? "").trim();
+    const nota = String(cuerpo.nota ?? "").trim().slice(0, 200);
+    if (!nombre) return responder({ error: "falta el nombre del vendedor" }, 400);
+    if (nombre.length > 80) return responder({ error: "el nombre es demasiado largo" }, 400);
+    const { data, error } = await db
+      .from("vendedores").insert({ nombre, nota })
+      .select("id, nombre, nota, activo, creado_en").single();
+    if (error) return responder({ error: error.message }, 400);
+    return responder({ vendedor: data });
+  }
+
+  /**
+   * Archivar o reactivar un vendedor.
+   *
+   * No se borra nunca: borrarlo rompería la referencia desde
+   * `vendedor_boletos`, y con ella la pregunta «a quién le tocó este boleto»
+   * en cualquier rifa pasada. Archivado solo deja de salir en el selector de
+   * la próxima asignación; sus asignaciones de antes se quedan intactas.
+   */
+  if (accion === "archivar_vendedor" || accion === "reactivar_vendedor") {
+    const vendedorId = String(cuerpo.vendedor ?? "");
+    if (!vendedorId) return responder({ error: "falta el vendedor" }, 400);
+    const { data, error } = await db
+      .from("vendedores").update({ activo: accion === "reactivar_vendedor" })
+      .eq("id", vendedorId).select("id, nombre, activo").maybeSingle();
+    if (error) return responder({ error: error.message }, 400);
+    if (!data) return responder({ error: "vendedor no encontrado" }, 404);
+    return responder({ vendedor: data });
+  }
+
+  /**
+   * Asignar boletos a un vendedor: un lote consecutivo (`desde`/`hasta`, por
+   * `numero`, el orden del boleto en la rifa), una lista suelta (`numeros`),
+   * o las dos cosas a la vez.
+   *
+   * Reasignar un boleto que ya era de otro vendedor NO se bloquea —esto es
+   * bitácora de reparto, no el candado del ganador—, pero a quién se le quitó
+   * va en la respuesta, para que el panel lo avise antes de que alguien se
+   * entere por las malas el día de cobrar.
+   */
+  if (accion === "asignar") {
+    const rifaPedida = String(cuerpo.rifa ?? "");
+    const vendedorId = String(cuerpo.vendedor ?? "");
+    if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
+    if (!vendedorId) return responder({ error: "falta el vendedor" }, 400);
+
+    const { data: vendedor } = await db
+      .from("vendedores").select("id, nombre, activo").eq("id", vendedorId).maybeSingle();
+    if (!vendedor) return responder({ error: "vendedor no encontrado" }, 404);
+    if (!vendedor.activo) return responder({ error: "ese vendedor está archivado" }, 400);
+
+    const numeros = new Set<number>();
+    const desde = Number(cuerpo.desde);
+    const hasta = Number(cuerpo.hasta);
+    if (Number.isInteger(desde) && Number.isInteger(hasta)) {
+      if (desde < 1 || hasta < desde) return responder({ error: "el rango de números no es válido" }, 400);
+      if (hasta - desde + 1 > 5000) return responder({ error: "el lote es demasiado grande" }, 400);
+      for (let n = desde; n <= hasta; n++) numeros.add(n);
+    }
+    for (const n of (Array.isArray(cuerpo.numeros) ? cuerpo.numeros : [])) {
+      if (Number.isInteger(Number(n))) numeros.add(Number(n));
+    }
+    if (numeros.size === 0) return responder({ error: "no se dio ningún número que asignar" }, 400);
+
+    const { data: boletos, error: errorBoletos } = await db
+      .from("boletos").select("id, numero").eq("rifa_id", rifaPedida).in("numero", Array.from(numeros));
+    if (errorBoletos) return responder({ error: errorBoletos.message }, 400);
+    if (!(boletos ?? []).length) {
+      return responder({ error: "ninguno de esos números existe en esta rifa" }, 400);
+    }
+    const encontrados = new Set((boletos ?? []).map((b) => b.numero));
+    const faltantes = Array.from(numeros).filter((n) => !encontrados.has(n));
+
+    // Quién los tenía antes de esta asignación, para avisar de un robo
+    // accidental de lote entre vendedores.
+    const { data: previos } = await db
+      .from("vendedor_boletos")
+      .select("numero, vendedor_id, vendedores(nombre)")
+      .eq("rifa_id", rifaPedida)
+      .in("boleto_id", (boletos ?? []).map((b) => b.id));
+    const reasignados = (previos ?? [])
+      .filter((p) => p.vendedor_id !== vendedorId)
+      .map((p) => ({ numero: p.numero, de: (p.vendedores as { nombre: string } | null)?.nombre ?? null }));
+
+    const ahora = new Date().toISOString();
+    const filas = (boletos ?? []).map((b) => ({
+      boleto_id: b.id, rifa_id: rifaPedida, numero: b.numero, vendedor_id: vendedorId,
+      asignado_en: ahora,
+    }));
+    for (let i = 0; i < filas.length; i += 500) {
+      const { error } = await db
+        .from("vendedor_boletos").upsert(filas.slice(i, i + 500), { onConflict: "boleto_id" });
+      if (error) return responder({ error: error.message }, 400);
+    }
+
+    await anotar(rifaPedida, "vendedor_asignar", {
+      vendedor: vendedor.nombre, cantidad: filas.length, reasignados: reasignados.length,
+    });
+    return responder({ asignados: filas.length, faltantes, reasignados });
+  }
+
+  /** Quitarle a un vendedor los números que ya no le tocan. */
+  if (accion === "quitar_asignacion") {
+    const rifaPedida = String(cuerpo.rifa ?? "");
+    if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
+    const numeros = (Array.isArray(cuerpo.numeros) ? cuerpo.numeros : [])
+      .map(Number).filter(Number.isInteger);
+    if (!numeros.length) return responder({ error: "no se dio ningún número que quitar" }, 400);
+
+    const { data: boletos } = await db
+      .from("boletos").select("id").eq("rifa_id", rifaPedida).in("numero", numeros);
+    const ids = (boletos ?? []).map((b) => b.id);
+    if (!ids.length) return responder({ quitados: 0 });
+
+    const { error, count } = await db
+      .from("vendedor_boletos").delete({ count: "exact" })
+      .eq("rifa_id", rifaPedida).in("boleto_id", ids);
+    if (error) return responder({ error: error.message }, 400);
+
+    await anotar(rifaPedida, "vendedor_quitar", { cantidad: count ?? 0 });
+    return responder({ quitados: count ?? 0 });
+  }
+
+  /** El reparto completo de una rifa: qué número le tocó a quién. */
+  if (accion === "asignaciones") {
+    const rifaPedida = String(cuerpo.rifa ?? "");
+    if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
+    const { data, error } = await db
+      .from("vendedor_boletos")
+      .select("numero, boleto_id, vendedor_id, asignado_en, vendedores(nombre)")
+      .eq("rifa_id", rifaPedida).order("numero");
+    if (error) return responder({ error: error.message }, 400);
+    return responder({
+      asignaciones: (data ?? []).map((f) => ({
+        numero: f.numero, boleto: f.boleto_id, vendedor: f.vendedor_id,
+        vendedor_nombre: (f.vendedores as { nombre: string } | null)?.nombre ?? null,
+        asignado_en: f.asignado_en,
+      })),
+    });
   }
 
   // ---- Acciones sobre una rifa -------------------------------------------

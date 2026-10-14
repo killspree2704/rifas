@@ -194,13 +194,15 @@ El boleto de papel                El teléfono                    El panel
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió y el **diseño del boleto impreso** |
-| `boletos` | El boleto de papel: su número (el del QR) y su código, uno para todo el papel. **Sin políticas: nadie lo lee desde fuera** |
+| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió, el **diseño del boleto impreso** y, si se fijó, la **fecha de emisión** del lote (`emision`; nula usa `creada_en`, como siempre) |
+| `boletos` | El boleto de papel: su identificador (el del QR), su **número de orden dentro de la rifa** (`numero`, 1..cantidad — para hablar de lotes con un vendedor, distinto del identificador aleatorio) y su código. **Sin políticas: nadie lo lee desde fuera** |
 | `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas. **Sin políticas** |
 | `sorteo_log` | Cada acción del panel con su hora, **y también cada número tecleado en «Revelar» que no pertenecía a la rifa** (`intento_rechazado`) — la prueba de que un papelito ajeno a lo impreso queda rechazado y registrado, no solo rechazado |
 | `panel_clave` | El hash de la clave. Sin políticas |
 | `panel_ajustes` | Lo que no cuelga de una rifa: hoy, el diseño que heredará la próxima. Sin políticas |
 | `llave_firma` | La llave HMAC. Sin políticas |
+| `vendedores` | Catálogo de quién reparte boletos. Vive fuera de cualquier rifa: el mismo equipo reparte en varios eventos. Sin políticas |
+| `vendedor_boletos` | A qué vendedor le toca cada boleto, por rifa. Clave primaria el boleto —un papel físico solo está en una mano—, así que reasignar sobrescribe la fila. No se bloquea ni con la rifa cerrada: es bitácora de reparto, no toca folios ni ganador. Sin políticas |
 
 | Función | Qué hace |
 | --- | --- |
@@ -210,11 +212,23 @@ El boleto de papel                El teléfono                    El panel
 Migraciones aplicadas, en orden: `esquema_rifas`, `realtime_rifas`,
 `endurecer_trigger`, `rifa_activa_y_llave`, `rifa_de_folio`, `transmision`,
 `rifa_de_folio_con_transmision`, `boleto_con_varios_folios`,
-`diseno_del_boleto`, `ajustes_del_panel`.
+`diseno_del_boleto`, `ajustes_del_panel`, `vendedores_y_numero_de_boleto`,
+`fecha_de_emision_del_lote`, `numero_de_boleto_nullable_hasta_desplegar`.
 
-**Aquí no hay ni un dato personal.** Ni nombres, ni teléfonos, ni correos. Solo
-números. Quién compró cada boleto lo lleva el vendedor en su libreta, y ese es
-el diseño, no una omisión.
+**Aquí no hay ningún dato personal del comprador.** Ni nombres, ni teléfonos,
+ni correos. Solo números. Quién compró cada boleto lo lleva el vendedor en su
+libreta, y ese es el diseño, no una omisión. Lo único parecido a un nombre que
+sí vive aquí es el del **vendedor** —de quien reparte, no de quien compra—, y
+es un alias que el organizador elige para llevar la cuenta del reparto, no un
+dato que alguien entregó para participar.
+
+> ⚠️ **`boletos.numero` está en NULLABLE a propósito, de forma temporal.** La
+> función `sorteo` desplegada en producción todavía no lo escribe al crear una
+> rifa —ese código vive en la rama `worktree-rifas-vendedores-plantillas` /
+> PR correspondiente, no desplegado—. Se relajó la columna para que crear una
+> rifa con la función VIEJA no falle mientras tanto. **En cuanto se despliegue
+> la función nueva, puede volver a ponerse NOT NULL** (y conviene hacerlo,
+> para que un futuro descuido no vuelva a dejar boletos sin número).
 
 ## ⚠️ El plan gratis PAUSA el proyecto a los 7 días sin actividad
 
@@ -340,6 +354,47 @@ Todo desde el panel, sin tocar código ni publicar nada:
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
+## Vendedores: quién reparte los boletos
+
+Pestaña **«Vendedores»**, junto a Rifas. Es solo bitácora de reparto —de aquí
+no sale ningún dato de quien compra—, así que se puede corregir en cualquier
+momento sin que toque folios ni al ganador.
+
+1. **Agregar vendedor**: nombre (el alias que uses para identificarlo) y una
+   nota si quieres. Vive fuera de cualquier rifa: el mismo vendedor sirve para
+   la próxima también, no hay que darlo de alta cada vez.
+2. **Asignar boletos**, de dos formas, se pueden combinar en una sola llamada:
+   - **Lote consecutivo**: «del boleto Nº… al Nº…». El número es el orden del
+     boleto dentro de ESTA rifa (1 en adelante), no el identificador largo del
+     QR.
+   - **Números sueltos**: una lista separada por comas, para repartos que no
+     son un bloque parejo.
+3. **Reasignar no se bloquea.** Si un número que ya era de alguien se le da a
+   otro vendedor, el panel lo avisa —a quién se lo quitó— pero lo deja pasar:
+   es bitácora de reparto, no el candado del ganador. Un número que no existe
+   en la rifa también se avisa, sin tronar con los demás que sí existan.
+4. **Archivar** saca a un vendedor del selector sin tocar lo que ya tenía
+   asignado; **reactivar** lo regresa. No hay forma de borrarlo del todo: eso
+   rompería la pregunta «a quién le tocó este boleto» en una rifa pasada.
+5. El resumen arriba de la lista dice cuántos boletos de la rifa ya tienen
+   vendedor y cuántos siguen libres.
+
+## Fecha de emisión del lote
+
+Antes, el boleto imprimía «Emisión» con la fecha en que la rifa se creó en el
+sistema, sin poder cambiarla. Normalmente coincide con cuándo se manda a
+imprimir, pero no siempre —se puede armar la rifa un día y mandar el lote a
+imprenta otro—. Ahora:
+
+- Al crear la rifa, el campo **«Fecha de emisión (opcional)»** la fija desde
+  el principio. Vacío sigue usando la fecha de creación, como siempre.
+- Para corregirla después, **pestaña Diseño → «Fecha de emisión impresa»**,
+  con su propio botón de guardar —es un dato de la rifa, no del diseño, así
+  que no comparte botón con «Guardar el diseño»—. Vaciarla vuelve a usar la
+  fecha de creación.
+- La caducidad (cuántos días vale el boleto) sigue siendo el texto libre de
+  siempre: esto solo tocó la fecha de EMISIÓN, no la de caducidad.
+
 ## Estado al 14 de octubre de 2026
 
 Comprobado consultando Supabase, no de memoria.
@@ -442,6 +497,16 @@ número uno es el caché del navegador, no la base.
 
 ### Pendientes
 
+- **Desplegar la función `sorteo` y el sitio de la rama de vendedores
+  (`worktree-rifas-vendedores-plantillas` / su PR), en ese orden.** La función
+  AGREGA acciones nuevas (vendedores, `fijar_emision`) y columnas al `select`
+  de `rifas`/`boletos` que el panel nuevo necesita: por eso **la función va
+  primero**, siguiendo la regla de siempre. Ya se aplicaron las migraciones a
+  producción (tablas `vendedores`/`vendedor_boletos`, columnas
+  `boletos.numero` y `rifas.emision`) para que estén listas cuando el código
+  llegue; `boletos.numero` quedó deliberadamente NULLABLE mientras tanto —ver
+  el aviso en «En la base de datos»— y conviene volver a ponerla NOT NULL
+  después de desplegar.
 - **Supabase Pro para el mes del evento, por DOS razones.** La primera y más
   grave: **el plan gratis pausa el proyecto a los 7 días sin actividad** —ya
   pasó una vez— y los de pago no se pausan nunca; un proyecto pausado el día
