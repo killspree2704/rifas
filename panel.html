@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=20" />
-  <link rel="stylesheet" href="assets/panel.css?v=20" />
+  <link rel="stylesheet" href="assets/estilos.css?v=21" />
+  <link rel="stylesheet" href="assets/panel.css?v=21" />
 </head>
 <body class="panel">
   <main class="tablero">
@@ -48,6 +48,7 @@
     <nav class="pestanas" id="pestanas" hidden>
       <button class="pestana activa" data-panel="paneSorteo">Sorteo</button>
       <button class="pestana" data-panel="paneRifas">Rifas</button>
+      <button class="pestana" data-panel="paneVendedores">Vendedores</button>
       <button class="pestana" data-panel="paneVerificar">Verificar</button>
       <button class="pestana" data-panel="paneDiseno">Diseño</button>
       <button class="pestana" data-panel="panePerfil">Perfil</button>
@@ -153,6 +154,11 @@
             <span>Día y hora del sorteo</span>
             <input type="datetime-local" id="nvFecha" />
           </label>
+          <label class="campo">
+            <span>Fecha de emisión (opcional)</span>
+            <input type="date" id="nvFechaEmision" />
+            <small class="ayuda">Si el lote se va a imprimir otro día. Vacío usa la fecha en que se crea aquí.</small>
+          </label>
           <label class="campo ancho">
             <span>¿Cuántos boletos?</span>
             <input type="number" id="nvCantidad" min="1" max="5000"
@@ -190,6 +196,60 @@
       <p class="nota">Ninguna rifa se borra. Cada una guarda su ganador y sus folios para siempre.</p>
       <div id="listaRifas" class="rifas"></div>
       <p class="mensaje" id="mensajeRifas" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- 2.5 Vendedores -->
+    <section id="paneVendedores" class="caja" hidden>
+      <h2 class="subtitulo-seccion">Vendedores</h2>
+      <p class="nota">
+        Quién reparte los boletos de papel. Esto es solo bitácora de reparto
+        —de aquí no sale ningún dato del comprador—, así que se puede corregir
+        en cualquier momento: no toca folios ni el ganador.
+      </p>
+      <p class="nota" id="vendedoresDeQuien"></p>
+
+      <details class="bloque" id="cajaNuevoVendedor">
+        <summary><strong>Agregar vendedor</strong></summary>
+        <div class="rejilla-campos">
+          <label class="campo ancho">
+            <span>Nombre</span>
+            <input type="text" id="vdNombre" placeholder="Juan Pérez" />
+          </label>
+          <label class="campo ancho">
+            <span>Nota (opcional)</span>
+            <input type="text" id="vdNota" maxlength="200" placeholder="Turno de la tarde" />
+          </label>
+        </div>
+        <button class="boton primario" id="btnCrearVendedor">Agregar vendedor</button>
+        <p class="mensaje" id="mensajeVendedorNuevo" role="status" aria-live="polite"></p>
+      </details>
+
+      <h3 class="subtitulo-menor">Asignar boletos</h3>
+      <p class="nota" id="resumenAsignacion"></p>
+      <div class="rejilla-campos">
+        <label class="campo ancho">
+          <span>Vendedor</span>
+          <select id="vdSelector"></select>
+        </label>
+        <label class="campo">
+          <span>Lote: del boleto Nº</span>
+          <input type="number" id="vdDesde" min="1" inputmode="numeric" />
+        </label>
+        <label class="campo">
+          <span>al Nº</span>
+          <input type="number" id="vdHasta" min="1" inputmode="numeric" />
+        </label>
+        <label class="campo ancho">
+          <span>O números sueltos, separados por coma</span>
+          <input type="text" id="vdSueltos" inputmode="numeric" placeholder="3, 17, 42" />
+        </label>
+      </div>
+      <button class="boton primario" id="btnAsignar">Asignar</button>
+      <p class="mensaje" id="mensajeAsignar" role="status" aria-live="polite"></p>
+
+      <h3 class="subtitulo-menor">Reparto de esta rifa</h3>
+      <div id="listaVendedores" class="vendedores"></div>
+      <p class="mensaje" id="mensajeVendedores" role="status" aria-live="polite"></p>
     </section>
 
     <!-- 3. Verificar -->
@@ -297,6 +357,13 @@
         <input type="text" id="dsCaducidad" maxlength="40" placeholder="1 día" />
         <small class="ayuda">Va de lado, junto a la fecha de emisión. Déjalo vacío para no imprimirlo.</small>
       </label>
+      <label class="campo" id="campoEmision" hidden>
+        <span>Fecha de emisión impresa</span>
+        <input type="date" id="dsEmision" />
+        <small class="ayuda">Vacío usa la fecha en que se creó esta rifa.</small>
+      </label>
+      <button class="boton fantasma chico" id="btnGuardarEmision" hidden>Guardar fecha de emisión</button>
+      <p class="mensaje" id="mensajeEmision" role="status" aria-live="polite"></p>
       <label class="campo">
         <span>Boletos por renglón en la hoja</span>
         <select id="dsColumnas">
@@ -356,9 +423,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=20"></script>
-  <script src="assets/youtube.js?v=20"></script>
+  <script src="assets/config.js?v=21"></script>
+  <script src="assets/youtube.js?v=21"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=20"></script>
+  <script src="assets/panel.js?v=21"></script>
 </body>
 </html>

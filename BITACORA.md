@@ -11,7 +11,7 @@ Rifas con boleto de papel. Cada boleto lleva un folio, un código de
 verificación y un QR. Quien lo escanea ve su folio y, a la hora del sorteo, si
 ganó o no — sin registrarse, sin instalar nada.
 
-## Las siete decisiones de fondo
+## Las ocho decisiones de fondo
 
 **1. Aquí no vive ningún dato personal.**
 Ni nombres, ni teléfonos, ni correos. Solo números. Quién compró cada boleto lo
@@ -70,6 +70,22 @@ Todo pasa por la función de borde `sorteo`, que exige la clave en cada acción.
 El público solo puede leer el estado de la rifa; `boletos` no tiene ni una
 política, así que los códigos no salen.
 
+**8. El reparto a vendedores es bitácora, no un candado.**
+*Añadida el 14 de octubre de 2026,* al agregar la pestaña «Vendedores».
+Se asigna por **boleto**, no por folio: el papel es la unidad física que se le
+entrega a alguien, y un boleto de cuatro números no se puede partir entre dos
+vendedores aunque sus folios vivan en filas separadas. El catálogo de
+vendedores vive **fuera de cualquier rifa** —el mismo equipo reparte en varios
+eventos—, y reasignar un boleto que ya era de otro vendedor **no se bloquea**,
+ni con la rifa cerrada: es la única acción del sistema que se parece a las
+demás del panel pero que deliberadamente NO lleva el candado de la decisión 4.
+La diferencia es qué protege cada una: el ganador es un hecho del sorteo que
+no puede mentir; a quién le tocó un boleto es contabilidad del organizador,
+que se corrige todo el tiempo —boletos que vuelven, vendedores que cambian de
+turno— y bloquearlo solo estorbaría. Lo que sí queda es la bitácora: quién
+tenía el número antes de la reasignación se le avisa a quien reasigna, para
+que un «robo» de lote entre vendedores no pase en silencio.
+
 ## Lo que se intentó y no funcionó
 
 Vale más que la lista de aciertos: es lo que evita repetir el camino.
@@ -108,6 +124,8 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 | **Dejar el código solo dentro del QR** | El mismo boleto vertical llevaba el identificador y el código únicamente codificados en el QR. El procedimiento del día del sorteo es comparar el código que enseña el panel con el del talón del ganador ANTES de revelar, y eso con un QR mojado, arrugado o mal impreso no se puede hacer. Van impresos en letra al pie, como en el clásico |
 | **Confiar en una prueba geométrica que solo mira la mitad** | Al acomodar nueve números, la prueba de encimados pasó en verde y la imagen renderizada enseñaba el folio del boleto tachado por un trébol: la prueba comparaba las piezas legibles entre sí, pero no contra los adornos. Segunda vez en este proyecto que la prueba dice que sí y la imagen dice que no. Ahora hay dos medidas —legibles entre sí y adornos contra legibles— y se sigue mirando el PNG |
 | **Copiar un diseño a ojo** | El primer intento de reproducir el boleto «Suertudito» puso cada pieza donde parecía ir, y salió todo encimado: el texto de canto sobre una caja, el trébol cortado por el marco, el `$20` debajo de los números en vez de ENTRE ellos. Midiendo la imagen original se vio la estructura real —tres filas: caja·rana·caja, texto·QR·logo, caja·$20·caja— y las posiciones se pasaron a porcentaje. Medir antes de dibujar costó diez minutos y ahorró tres vueltas |
+| **Poner una columna en NOT NULL antes de que el código que la llena esté desplegado** | Al agregar `boletos.numero`, la migración la dejó NOT NULL de una vez. La función `sorteo` que ESTABA DESPLEGADA en ese momento no la escribía —ese código vivía en una rama sin publicar—, así que crear una rifa desde el panel real, en ese instante, habría fallado. Se cachó antes de que pasara, no después: la migración y el código que depende de ella no se despliegan solos ni a la vez. Se relajó a NULLABLE hasta que la función nueva se publique; queda anotado en CONTINUIDAD.md para volver a cerrarla después |
+| **Confiar en `new URL(...).pathname` para rutas de archivo en Windows** | Las pruebas (`panel.mjs`, `servidor-de-prueba.mjs`) usaban `.pathname` de una `file://` para encontrar sus propios archivos. En Linux/Mac da una ruta usable tal cual; en Windows da `/C:/Users/…`, con una barra antes de la unidad, y pasada a `spawn` o `require` sin más se resuelve como `C:\C:\Users\…` — una ruta que no existe. `fileURLToPath` sí entiende la diferencia entre sistemas; `.pathname` no. Sin este cambio, las 229 pruebas no corrían en Windows aunque el código sí funcionara |
 
 ## Cómo llegó a ser lo que es
 
@@ -147,6 +165,14 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 
 ## Lo que queda pendiente
 
+- **Desplegar la función `sorteo` y el sitio de la rama de vendedores**, la
+  función primero: ver el pendiente anotado en CONTINUIDAD.md, con el detalle
+  de qué migración relajada hay que volver a cerrar después.
+- **Plantilla de diseño personalizada, cargable desde afuera.** Pedida junto
+  con vendedores y la fecha de emisión, pero es la pieza más grande de las
+  tres —un editor visual para posicionar QR, números, código y fechas sobre
+  una imagen que suba el organizador— y quedó para una siguiente entrega, no
+  se improvisó a medias.
 - **Supabase Pro** para el mes del evento (~25 USD) si serán 500 teléfonos a la
   vez: el plan gratis da 200 conexiones de Realtime. Sin Pro no se rompe —el
   sondeo cubre, y está medido— pero tardan unos segundos más.
