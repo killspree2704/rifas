@@ -340,42 +340,58 @@ Todo desde el panel, sin tocar código ni publicar nada:
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
-## Estado al 23 de septiembre de 2026
+## Estado al 14 de octubre de 2026
 
 Comprobado consultando Supabase, no de memoria.
 
-**La base está vacía de rifas, a propósito.** Se borraron las cuatro de
-ensayo —«El muerde manos», PRUEBA 2, RIFA PRUEBA 3 y PABLO TEST1— con sus 95
-boletos, sus 380 folios y su bitácora. Ninguna había repartido nada ni tenía
-ganador revelado.
+El proyecto está **ACTIVE_HEALTHY** —no pausado— y ya corrió **una rifa de
+verdad**, la primera desde que se vació la base.
 
 | Tabla | Filas |
 | --- | --- |
-| `rifas` | 0 |
-| `boletos` | 0 |
-| `folios` | 0 |
-| `sorteo_log` | 0 |
-| `panel_ajustes` | 1, sin diseño guardado: la próxima rifa nace con el clásico |
+| `rifas` | 1 |
+| `boletos` | 20 |
+| `folios` | 80 |
+| `sorteo_log` | 4 |
+| `panel_ajustes` | 1, **sin diseño guardado**: la próxima rifa nacería con el clásico |
 | `llave_firma` | 1 — intacta |
 | `panel_clave` | 1 — con la clave de arriba |
 
+La rifa que hay:
+
+| | |
+| --- | --- |
+| Nombre | Rifa El muerde manos |
+| Identificador | `rifa-el-muerde-manos-20261012` |
+| Serie | A |
+| Boletos / folios | 20 boletos, 4 números cada uno = 80 folios |
+| Precio | $20 |
+| Sorteo | 12-oct-2026, 03:00 UTC |
+| Estado | **cerrado, con ganador revelado: folio 76966** |
+| Diseño | ninguno guardado, así que salió con el boleto clásico |
+
 Qué significa en la práctica:
 
-- **Todos los números volvieron a estar libres.** La regla de «un folio no se
-  repite jamás» se hace comparando contra la tabla `folios`; vacía la tabla, el
-  espacio entero vuelve a estar disponible.
-- **Los boletos que se hayan impreso de esas cuatro rifas ya no sirven.** Quien
-  escanee uno va a ver «Boleto no válido», porque el boleto que respalda ese QR
-  ya no existe. Eran todos de prueba.
-- **La llave de firma no se tocó**, así que crear una rifa nueva funciona
-  igual. La clave del panel sí se movió dos veces el mismo día —se cambió
-  desde «Perfil» y se devolvió a la de siempre—, y la que vale es la de la
-  tabla de arriba.
+- **Esos 80 folios ya no vuelven a salir nunca.** La regla de «un folio no se
+  repite jamás» compara contra la tabla `folios`, y esas filas se quedan.
+- **El ganador ya está revelado y la rifa cerrada**, así que esa rifa no se
+  puede modificar: el servidor rechaza cualquier cambio sobre una rifa con
+  ganador. Es a propósito.
+- **Sigue marcada como activa**, o sea que es la que el panel maneja por
+  omisión. Al crear la siguiente, «Manejar esta» la cambia.
+- **No tiene diseño guardado**, así que se imprimió con el boleto clásico. El
+  boleto vertical «Suertudito» llegó después; para usarlo en la siguiente, hay
+  que dejarlo elegido en la pestaña «Diseño» **antes** de crearla, que es
+  cuando se le copia.
 
-La primera rifa que se cree desde aquí empieza de cero, y conviene que sea con
-serie `A` otra vez si se quiere el orden limpio. Si quieres darle aspecto,
-puedes dejar el diseño listo en la pestaña «Diseño» **antes** de crearla: se le
-copia al nacer.
+### Dónde está cada pieza hoy
+
+| | |
+| --- | --- |
+| Función de borde `sorteo` | **versión 14** |
+| Service worker | `rifa-v20` |
+| Etiquetas del panel | `?v=20` |
+| Pruebas de punta a punta | **204**, todas en verde |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -439,5 +455,14 @@ número uno es el caché del navegador, no la base.
 - **Borrar la rama vieja** `claude/qr-code-raffle-ticket-ks2mxd` en el
   repositorio de Koppert. Su PR está cerrado y `main` quedó intacto, pero la
   rama sigue ahí.
-- **Crear la primera rifa de verdad.** La base quedó vacía a propósito; el
-  siguiente paso es Rifas → Nueva rifa, con cuidado en la fecha y la hora.
+- **Dejar el diseño elegido ANTES de crear la próxima rifa.** La de octubre
+  salió con el boleto clásico porque no había diseño guardado cuando nació. El
+  diseño se copia a la rifa al crearla, no después: si se quiere el boleto
+  «Suertudito», hay que elegirlo en la pestaña «Diseño» y guardarlo primero.
+- **Decidir si el adorno del boleto vertical se queda dibujado o calcado.** Se
+  probaron los dos: el dibujado en SVG (el que está puesto) y uno calcado de la
+  foto del boleto del cliente. Puestos lado a lado la diferencia es mínima
+  —porque el dibujo salió de medir esa misma foto—, y el dibujado gana en
+  impresión: sale nítido a cualquier tamaño, mientras que la imagen se queda en
+  los 195 puntos por pulgada que trae. Queda elegido el dibujado; si se quiere
+  el calcado, el recorte limpio ya está hecho y es media hora de trabajo.
