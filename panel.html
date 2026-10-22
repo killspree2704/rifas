@@ -14,10 +14,24 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=21" />
-  <link rel="stylesheet" href="assets/panel.css?v=21" />
+  <link rel="stylesheet" href="assets/estilos.css?v=22" />
+  <link rel="stylesheet" href="assets/panel.css?v=22" />
+  <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
+       primer pintado, para que no parpadee del tema de siempre al elegido. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('tema');
+        if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+      } catch (e) { /* modo privado: se queda con el del sistema */ }
+    })();
+  </script>
 </head>
 <body class="panel">
+  <button class="conmutador-tema" id="btnTema" type="button">
+    <span aria-hidden="true">🌙</span>
+  </button>
+
   <main class="tablero">
     <header>
       <p class="eyebrow">Panel de sorteo</p>
@@ -423,9 +437,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=21"></script>
-  <script src="assets/youtube.js?v=21"></script>
+  <script src="assets/config.js?v=22"></script>
+  <script src="assets/youtube.js?v=22"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=21"></script>
+  <script src="assets/panel.js?v=22"></script>
 </body>
 </html>

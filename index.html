@@ -8,8 +8,26 @@
   <meta name="robots" content="noindex" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23b8860b'/%3E%3Ctext x='16' y='23' font-size='19' font-family='monospace' font-weight='bold' text-anchor='middle' fill='%23fff'%3E%23%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="assets/estilos.css" />
+  <!--
+    Aplica el tema guardado ANTES de pintar nada: si se hiciera desde
+    app.js (que carga `defer`, después del primer pintado), se vería un
+    parpadeo del tema de siempre al tema elegido. Sin nada guardado, no
+    toca nada y se queda con el del sistema.
+  -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('tema');
+        if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+      } catch (e) { /* modo privado: se queda con el del sistema */ }
+    })();
+  </script>
 </head>
 <body>
+  <button class="conmutador-tema" id="btnTema" type="button">
+    <span aria-hidden="true">🌙</span>
+  </button>
+
   <main class="boleto" id="boleto">
     <header class="cabecera">
       <p class="eyebrow">Boleto</p>

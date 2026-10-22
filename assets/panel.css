@@ -1,4 +1,81 @@
-/* Panel de sorteo: herramienta de trabajo, no escaparate. */
+/* Panel de sorteo: herramienta de trabajo, ahora también de vidrio. Sin la
+   restricción de la pantalla pública —aquí no hay cientos de celulares en
+   una antena saturada—, el `backdrop-filter` se usa sin medias tintas.
+
+   La gama es OTRA que la del boleto, a propósito: el boleto es de tómbola
+   —oro, cartulina, estampado de feria—, pero quien administra necesita algo
+   neutro y serio: blancos, azules, oscuros. Nada de violeta ni de colores
+   de fiesta — eso se quedó en el boleto. Se redefinen las MISMAS variables
+   que usa `estilos.css` —`--oro`, `--sello`, `--luz-oro`…—, no otras
+   nuevas: así cada regla que ya las usa (los botones, el candado de
+   contraste, las luces de fondo) cambia de color sola, sin tocarla. El
+   nombre de la variable quedó del boleto; lo que vale aquí es la ranura
+   que ocupa, no lo que el nombre sugiere. */
+body.panel {
+  --fondo: #eef1f5;
+  --papel: #ffffff;
+  --tinta: #121722;
+  --tinta-tenue: #5a6372;
+  --linea: #dde2e9;
+  --oro: #2563eb;    /* antes dorado: ahora un azul limpio, acento y foco */
+  --sello: #be123c;  /* antes terracota: ahora un rojo limpio, solo para peligro */
+  --gana: #047857;   /* antes verde bosque: ahora esmeralda */
+
+  --vidrio: rgba(244, 247, 252, 0.42);
+  --vidrio-tenue: rgba(244, 247, 252, 0.26);
+  --vidrio-borde: rgba(255, 255, 255, 0.78);
+  --vidrio-brillo: rgba(255, 255, 255, 0.68);
+  --vidrio-sombra: rgba(15, 23, 42, 0.2);
+
+  /* Dos luces de color —azul y esmeralda— y una tercera gris neutra en vez
+     del violeta: nada que lea como «de fiesta». */
+  --luz-oro: rgba(37, 99, 235, 0.46);
+  --luz-gana: rgba(4, 120, 87, 0.36);
+  --luz-sello: rgba(100, 116, 139, 0.26);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body.panel {
+    --fondo: #0a0e15;
+    --papel: #11161f;
+    --tinta: #e7eaf0;
+    --tinta-tenue: #868fa0;
+    --linea: #212834;
+    --oro: #60a5fa;
+    --sello: #fb7185;
+    --gana: #34d399;
+
+    --vidrio: rgba(205, 216, 235, 0.07);
+    --vidrio-tenue: rgba(205, 216, 235, 0.045);
+    --vidrio-borde: rgba(205, 216, 235, 0.17);
+    --vidrio-brillo: rgba(215, 224, 240, 0.12);
+    --vidrio-sombra: rgba(0, 0, 2, 0.6);
+
+    --luz-oro: rgba(59, 130, 246, 0.3);
+    --luz-gana: rgba(16, 185, 129, 0.22);
+    --luz-sello: rgba(148, 163, 184, 0.16);
+  }
+}
+:root[data-theme="dark"] body.panel {
+  --fondo: #0a0e15;
+  --papel: #11161f;
+  --tinta: #e7eaf0;
+  --tinta-tenue: #868fa0;
+  --linea: #212834;
+  --oro: #60a5fa;
+  --sello: #fb7185;
+  --gana: #34d399;
+
+  --vidrio: rgba(205, 216, 235, 0.07);
+  --vidrio-tenue: rgba(205, 216, 235, 0.045);
+  --vidrio-borde: rgba(205, 216, 235, 0.17);
+  --vidrio-brillo: rgba(215, 224, 240, 0.12);
+  --vidrio-sombra: rgba(0, 0, 2, 0.6);
+
+  --luz-oro: rgba(59, 130, 246, 0.3);
+  --luz-gana: rgba(16, 185, 129, 0.22);
+  --luz-sello: rgba(148, 163, 184, 0.16);
+}
 
 body.panel {
   display: block;
@@ -22,6 +99,24 @@ body.panel {
   border: 1px solid var(--linea);
   border-radius: 12px;
   padding: 20px;
+}
+/*
+ * El vidrio del panel va en `section.caja`: cada pestaña es UNA sección así.
+ * No en `.caja` a secas, porque el boleto «Suertudito» también llama `.caja`
+ * a sus recuadros de número —son clases que nacieron por separado y
+ * coinciden de nombre—, y esos viven en un `<div>` dentro de la vista
+ * previa de impresión: el vidrio ahí la arruinaría, haciendo ver borroso
+ * justo lo que esa vista existe para comprobar antes de imprimir.
+ */
+section.caja {
+  background: var(--vidrio);
+  border-color: var(--vidrio-borde);
+  box-shadow: 0 16px 46px var(--vidrio-sombra), inset 0 1px 0 var(--vidrio-brillo);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  section.caja { background: var(--papel); }
 }
 
 .campo { display: block; margin-bottom: 14px; text-align: left; }
@@ -127,16 +222,19 @@ input:focus-visible { outline: 2px solid var(--oro); outline-offset: 1px; }
   font-weight: 600;
   font-size: 0.88rem;
   color: var(--tinta-tenue);
-  background: transparent;
-  border: 1px solid var(--linea);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
   border-radius: 9px;
   cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
 }
 .pestana.activa {
   color: var(--tinta);
-  background: var(--papel);
+  background: var(--vidrio);
   border-color: var(--oro);
+  box-shadow: inset 0 1px 0 var(--vidrio-brillo);
 }
+@media (prefers-reduced-motion: reduce) { .pestana { transition: none; } }
 
 /* --- Formularios de varias casillas ------------------------------------ */
 .rejilla-campos {
@@ -175,13 +273,20 @@ input[type="number"], input[type="datetime-local"] {
 /* --- Historial de rifas ------------------------------------------------- */
 .rifas { margin-top: 14px; }
 .rifa {
-  border: 1px solid var(--linea);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
   border-left: 4px solid var(--linea);
   border-radius: 10px;
   padding: 13px 15px;
   margin-bottom: 10px;
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
+.rifa:hover { transform: translateY(-2px); box-shadow: 0 10px 26px var(--vidrio-sombra); }
 .rifa.manejando { border-left-color: var(--oro); }
+@media (prefers-reduced-motion: reduce) {
+  .rifa { transition: none; }
+  .rifa:hover { transform: none; }
+}
 .rifa-cabeza {
   display: flex;
   justify-content: space-between;
@@ -212,11 +317,18 @@ input[type="number"], input[type="datetime-local"] {
 /* --- Vendedores: misma tarjeta que una rifa, otro nombre de clase --------- */
 .vendedores { margin-top: 14px; }
 .vendedor {
-  border: 1px solid var(--linea);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
   border-left: 4px solid var(--linea);
   border-radius: 10px;
   padding: 13px 15px;
   margin-bottom: 10px;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.vendedor:hover { transform: translateY(-2px); box-shadow: 0 10px 26px var(--vidrio-sombra); }
+@media (prefers-reduced-motion: reduce) {
+  .vendedor { transition: none; }
+  .vendedor:hover { transform: none; }
 }
 .vendedor-cabeza {
   display: flex;
@@ -233,7 +345,8 @@ input[type="number"], input[type="datetime-local"] {
 .veredicto-boleto {
   margin-top: 16px;
   padding: 14px 16px;
-  border: 1px solid var(--linea);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
   border-left: 4px solid var(--linea);
   border-radius: 10px;
 }
