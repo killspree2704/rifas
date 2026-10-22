@@ -432,3 +432,33 @@ body:not(.panel) .cronometro > div {
 .alterna { margin: 10px 0 0; font-size: 0.88rem; }
 .alterna a { color: var(--tinta-tenue); }
 .alterna a:hover { color: var(--tinta); }
+
+/*
+ * Confeti: SOLO cuando el boleto que se abre es el ganador —lo decide
+ * `app.js`, no esta hoja—. Son `<span>` sueltos que caen con una animación
+ * de CSS, nada de canvas ni librería: unos cuantos nodos que se borran
+ * solos a los pocos segundos. En `prefers-reduced-motion` ni se crean.
+ */
+.confeti-capa {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 60;
+}
+.confeti {
+  position: absolute;
+  top: -5vh;
+  left: var(--x);
+  width: 8px;
+  height: 14px;
+  background: var(--color);
+  border-radius: 2px;
+  opacity: 0;
+  animation: caeConfeti var(--duracion) var(--retardo) cubic-bezier(0.18, 0.66, 0.4, 1) forwards;
+}
+@keyframes caeConfeti {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translate3d(var(--deriva), 112vh, 0) rotate(var(--giro)); opacity: 0; }
+}

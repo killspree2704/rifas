@@ -70,6 +70,7 @@
   var reintentosCanal = 0;
   var fallosSeguidos = 0;
   var temporizador = null;
+  var celebrado = false;   // el confeti sale una sola vez por boleto ganador
 
   // ------------------------------------------------------------------
   // Pintado
@@ -117,6 +118,35 @@
     return !!estadoActual && (estadoActual.estado === 'revelado' || estadoActual.estado === 'cerrado');
   }
 
+  /**
+   * Confeti, solo para quien ganó. Nada de canvas ni librería: son `<span>`
+   * sueltos con una caída en CSS, que se borran solos a los pocos segundos.
+   * `prefers-reduced-motion` los deja sin crear — el resultado se sigue
+   * viendo igual de claro sin la fiesta encima.
+   */
+  function celebrar() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { return; }
+    var COLORES = ['#c5921a', '#1f7a4d', '#8d3b2f', '#e8c15a', '#ffffff'];
+    var capa = document.createElement('div');
+    capa.className = 'confeti-capa';
+    capa.setAttribute('aria-hidden', 'true');
+    for (var i = 0; i < 64; i++) {
+      var pieza = document.createElement('span');
+      pieza.className = 'confeti';
+      pieza.style.setProperty('--x', (Math.random() * 100) + '%');
+      pieza.style.setProperty('--color', COLORES[i % COLORES.length]);
+      pieza.style.setProperty('--retardo', (Math.random() * 0.7).toFixed(2) + 's');
+      pieza.style.setProperty('--duracion', (2.6 + Math.random() * 1.8).toFixed(2) + 's');
+      pieza.style.setProperty('--deriva', Math.round(Math.random() * 160 - 80) + 'px');
+      pieza.style.setProperty('--giro', Math.round(Math.random() * 720 - 360) + 'deg');
+      capa.appendChild(pieza);
+    }
+    document.body.appendChild(capa);
+    // No hace falta llevar cuenta de cada pieza: se borra la capa entera
+    // cuando hasta la más tardía ya terminó de caer.
+    setTimeout(function () { capa.remove(); }, 5200);
+  }
+
   function pintarEstado(estado) {
     if (!estado) { return; }
     // Un estado viejo (de un sondeo lento que llegó tarde) no debe borrar el
@@ -149,6 +179,7 @@
       } else {
         $('veredicto').textContent = gano ? '¡Ganaste!' : 'No ganaste';
         $('veredicto').className = 'veredicto' + (gano ? ' gana' : '');
+        if (gano && !celebrado) { celebrado = true; celebrar(); }
         $('fraseResultado').textContent = gano
           ? (folios.length > 1 ? 'Uno de tus números es el ganador.' : 'Tu folio es el ganador.')
           : 'Suerte para la próxima.';
