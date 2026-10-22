@@ -506,6 +506,17 @@
       });
       acciones.appendChild(papelitos);
 
+      // Con ganador revelado, el botón ni aparece: el servidor también lo
+      // rechaza, pero no tiene caso enseñar una puerta que va a dar a un
+      // error. Ese registro ya no se toca.
+      if (!r.folio_ganador) {
+        var eliminar = document.createElement('button');
+        eliminar.className = 'boton fantasma chico';
+        eliminar.textContent = 'Eliminar';
+        eliminar.addEventListener('click', function () { abrirEliminar(r); });
+        acciones.appendChild(eliminar);
+      }
+
       fila.appendChild(acciones);
       caja.appendChild(fila);
     });
@@ -527,6 +538,71 @@
         mensaje(e.message, 'error', 'mensajeRifas');
       });
   }
+
+  // ------------------------------------------------------------------
+  // Eliminar una rifa: irreversible, con confirmación tecleada
+  // ------------------------------------------------------------------
+  // El botón rojo nace apagado: solo se enciende cuando lo que se tecleó
+  // calza letra por letra con el nombre de la rifa. Eso es la segunda
+  // confirmación, no el clic en sí — un clic de más no basta para borrar
+  // nada por accidente.
+  var rifaEnBorrado = null;
+
+  function abrirEliminar(r) {
+    rifaEnBorrado = r;
+    $('nombreAEliminar').textContent = r.nombre;
+    $('avisoActivaEliminar').hidden = r.id !== rifaActual;
+    $('confirmarNombreEliminar').value = '';
+    $('btnConfirmarEliminar').disabled = true;
+    mensaje('', '', 'mensajeEliminar');
+    $('modalEliminar').hidden = false;
+    $('confirmarNombreEliminar').focus();
+  }
+
+  function cerrarEliminar() {
+    $('modalEliminar').hidden = true;
+    rifaEnBorrado = null;
+  }
+
+  $('confirmarNombreEliminar').addEventListener('input', function () {
+    $('btnConfirmarEliminar').disabled = !rifaEnBorrado ||
+      $('confirmarNombreEliminar').value !== rifaEnBorrado.nombre;
+  });
+
+  $('btnCancelarEliminar').addEventListener('click', cerrarEliminar);
+
+  // Tocar el fondo oscurecido cancela, igual que Escape; tocar el cuadro
+  // mismo no, para que un clic dentro del cuadro no lo cierre por error.
+  $('modalEliminar').addEventListener('click', function (ev) {
+    if (ev.target === $('modalEliminar')) { cerrarEliminar(); }
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !$('modalEliminar').hidden) { cerrarEliminar(); }
+  });
+
+  $('btnConfirmarEliminar').addEventListener('click', function () {
+    if (!rifaEnBorrado) { return; }
+    var r = rifaEnBorrado;
+    $('btnConfirmarEliminar').disabled = true;
+    mensaje('Eliminando…', '', 'mensajeEliminar');
+    llamar('eliminar_rifa', { rifa: r.id, confirmar_nombre: $('confirmarNombreEliminar').value })
+      .then(function (datos) {
+        cerrarEliminar();
+        // Era la que el panel manejaba: no se adivina otra en su lugar, se
+        // deja dicho que no hay ninguna, igual que con la base vacía.
+        if (datos.era_activa) {
+          rifaActual = null;
+          ultimoEstado = null;
+          $('tituloRifa').textContent = 'Todavía no hay ninguna rifa';
+          $('subtitulo').textContent = 'Crea una o maneja otra desde aquí abajo.';
+        }
+        return cargarRifas('«' + r.nombre + '» se eliminó para siempre.');
+      })
+      .catch(function (e) {
+        $('btnConfirmarEliminar').disabled = false;
+        mensaje(e.message, 'error', 'mensajeEliminar');
+      });
+  });
 
   // ------------------------------------------------------------------
   // Nueva rifa
