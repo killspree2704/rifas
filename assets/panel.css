@@ -1,4 +1,6 @@
-/* Panel de sorteo: herramienta de trabajo, no escaparate. */
+/* Panel de sorteo: herramienta de trabajo, ahora también de vidrio. Sin la
+   restricción de la pantalla pública —aquí no hay cientos de celulares en
+   una antena saturada—, el `backdrop-filter` se usa sin medias tintas. */
 
 body.panel {
   display: block;
@@ -22,6 +24,24 @@ body.panel {
   border: 1px solid var(--linea);
   border-radius: 12px;
   padding: 20px;
+}
+/*
+ * El vidrio del panel va en `section.caja`: cada pestaña es UNA sección así.
+ * No en `.caja` a secas, porque el boleto «Suertudito» también llama `.caja`
+ * a sus recuadros de número —son clases que nacieron por separado y
+ * coinciden de nombre—, y esos viven en un `<div>` dentro de la vista
+ * previa de impresión: el vidrio ahí la arruinaría, haciendo ver borroso
+ * justo lo que esa vista existe para comprobar antes de imprimir.
+ */
+section.caja {
+  background: var(--vidrio);
+  border-color: var(--vidrio-borde);
+  box-shadow: 0 16px 46px var(--vidrio-sombra), inset 0 1px 0 var(--vidrio-brillo);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  section.caja { background: var(--papel); }
 }
 
 .campo { display: block; margin-bottom: 14px; text-align: left; }
@@ -127,16 +147,19 @@ input:focus-visible { outline: 2px solid var(--oro); outline-offset: 1px; }
   font-weight: 600;
   font-size: 0.88rem;
   color: var(--tinta-tenue);
-  background: transparent;
-  border: 1px solid var(--linea);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
   border-radius: 9px;
   cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
 }
 .pestana.activa {
   color: var(--tinta);
-  background: var(--papel);
+  background: var(--vidrio);
   border-color: var(--oro);
+  box-shadow: inset 0 1px 0 var(--vidrio-brillo);
 }
+@media (prefers-reduced-motion: reduce) { .pestana { transition: none; } }
 
 /* --- Formularios de varias casillas ------------------------------------ */
 .rejilla-campos {
@@ -175,13 +198,20 @@ input[type="number"], input[type="datetime-local"] {
 /* --- Historial de rifas ------------------------------------------------- */
 .rifas { margin-top: 14px; }
 .rifa {
-  border: 1px solid var(--linea);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
   border-left: 4px solid var(--linea);
   border-radius: 10px;
   padding: 13px 15px;
   margin-bottom: 10px;
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
+.rifa:hover { transform: translateY(-2px); box-shadow: 0 10px 26px var(--vidrio-sombra); }
 .rifa.manejando { border-left-color: var(--oro); }
+@media (prefers-reduced-motion: reduce) {
+  .rifa { transition: none; }
+  .rifa:hover { transform: none; }
+}
 .rifa-cabeza {
   display: flex;
   justify-content: space-between;
@@ -212,11 +242,18 @@ input[type="number"], input[type="datetime-local"] {
 /* --- Vendedores: misma tarjeta que una rifa, otro nombre de clase --------- */
 .vendedores { margin-top: 14px; }
 .vendedor {
-  border: 1px solid var(--linea);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
   border-left: 4px solid var(--linea);
   border-radius: 10px;
   padding: 13px 15px;
   margin-bottom: 10px;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.vendedor:hover { transform: translateY(-2px); box-shadow: 0 10px 26px var(--vidrio-sombra); }
+@media (prefers-reduced-motion: reduce) {
+  .vendedor { transition: none; }
+  .vendedor:hover { transform: none; }
 }
 .vendedor-cabeza {
   display: flex;
@@ -233,7 +270,8 @@ input[type="number"], input[type="datetime-local"] {
 .veredicto-boleto {
   margin-top: 16px;
   padding: 14px 16px;
-  border: 1px solid var(--linea);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
   border-left: 4px solid var(--linea);
   border-radius: 10px;
 }

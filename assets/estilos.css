@@ -1,4 +1,8 @@
-/* Rifa El Muerde Manos — talón de boleto: tinta, hueso y oro de tómbola. */
+/* Rifa El Muerde Manos — talón de boleto: tinta, hueso y oro de tómbola,
+   ahora sobre vidrio esmerilado. El papel se volvió translúcido y flota
+   sobre una luz de noche de tómbola; nada de esto pide un solo byte de
+   red — son gradientes y `backdrop-filter`, con su respaldo opaco para el
+   navegador que no sepa de ninguno de los dos. */
 
 :root {
   --fondo: #ece7dd;
@@ -9,6 +13,25 @@
   --oro: #9a6f0a;
   --sello: #8d3b2f;
   --gana: #1f7a4d;
+
+  /* El vidrio: translúcido sobre blanco, no sobre --papel, así se ve igual
+     de «vidrio» en cualquier tema y solo cambia cuánto se nota. Bastante
+     transparente a propósito: sin color de verdad detrás no se lee como
+     vidrio, se lee como una tarjeta blanca cualquiera. */
+  --vidrio: rgba(255, 255, 255, 0.3);
+  --vidrio-tenue: rgba(255, 255, 255, 0.2);
+  --vidrio-borde: rgba(255, 255, 255, 0.85);
+  --vidrio-brillo: rgba(255, 255, 255, 0.75);
+  --vidrio-sombra: rgba(61, 42, 10, 0.4);
+
+  /* Las luces de fondo: oro, verde y terracota del propio boleto, bien
+     saturadas — son lo que el vidrio tiene que dejar ver a través. Sin esto
+     bien cargado, el vidrio claro sobre un fondo igual de claro no se
+     distingue de una tarjeta blanca cualquiera. */
+  --luz-oro: rgba(197, 146, 25, 0.85);
+  --luz-gana: rgba(31, 122, 77, 0.72);
+  --luz-sello: rgba(141, 59, 47, 0.65);
+
   /* Tipografías del propio dispositivo: cero descargas, cero hosts externos.
      En un evento con la antena saturada, cada archivo que no se pide es una
      forma menos de que la carga se corte. */
@@ -27,6 +50,16 @@
     --oro: #e0a92e;
     --sello: #d4685a;
     --gana: #4ec38a;
+
+    --vidrio: rgba(255, 255, 255, 0.09);
+    --vidrio-tenue: rgba(255, 255, 255, 0.055);
+    --vidrio-borde: rgba(255, 255, 255, 0.22);
+    --vidrio-brillo: rgba(255, 255, 255, 0.14);
+    --vidrio-sombra: rgba(0, 0, 0, 0.55);
+
+    --luz-oro: rgba(224, 169, 46, 0.3);
+    --luz-gana: rgba(78, 195, 138, 0.25);
+    --luz-sello: rgba(212, 104, 90, 0.22);
   }
 }
 
@@ -39,6 +72,16 @@
   --oro: #e0a92e;
   --sello: #d4685a;
   --gana: #4ec38a;
+
+  --vidrio: rgba(255, 255, 255, 0.07);
+  --vidrio-tenue: rgba(255, 255, 255, 0.045);
+  --vidrio-borde: rgba(255, 255, 255, 0.16);
+  --vidrio-brillo: rgba(255, 255, 255, 0.1);
+  --vidrio-sombra: rgba(0, 0, 0, 0.5);
+
+  --luz-oro: rgba(224, 169, 46, 0.22);
+  --luz-gana: rgba(78, 195, 138, 0.18);
+  --luz-sello: rgba(212, 104, 90, 0.16);
 }
 
 * { box-sizing: border-box; }
@@ -47,6 +90,8 @@
 [hidden] { display: none !important; }
 
 body {
+  position: relative;
+  isolation: isolate;
   margin: 0;
   min-height: 100vh;
   background: var(--fondo);
@@ -60,16 +105,53 @@ body {
   gap: 14px;
   padding-block: 32px;
   padding-inline: 18px;
+  overflow-x: clip;
 }
 
-.boleto {
+/*
+ * La luz de noche de tómbola: tres manchas de color del propio boleto
+ * (oro, verde, terracota), difusas, fijas detrás de todo. Es un solo
+ * elemento compuesto por GPU, no una imagen — cuesta cero bytes de red,
+ * que es la regla de este sitio. Con movimiento reducido, se queda quieta.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -12%;
+  z-index: -1;
+  background:
+    radial-gradient(46% 40% at 12% 8%, var(--luz-oro), transparent 78%),
+    radial-gradient(42% 38% at 88% 14%, var(--luz-gana), transparent 78%),
+    radial-gradient(58% 50% at 50% 106%, var(--luz-sello), transparent 78%);
+  filter: blur(48px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  body::before { animation: deriva 28s ease-in-out infinite alternate; }
+  @keyframes deriva {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(2.5%, -3%, 0) scale(1.08); }
+  }
+}
+
+/*
+ * La tarjeta del boleto: vidrio esmerilado sobre la luz de atrás, no sobre
+ * la vista previa de impresión del panel (`body.panel` tiene su propio
+ * `.boleto` de papel, escalado en miniatura; el vidrio ahí lo arruinaría).
+ */
+body:not(.panel) .boleto {
   width: 100%;
   max-width: 400px;
-  background: var(--papel);
-  border: 1px solid var(--linea);
-  border-radius: 10px;
+  background: var(--vidrio);
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 24px 60px var(--vidrio-sombra), inset 0 1px 0 var(--vidrio-brillo);
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body:not(.panel) .boleto { background: var(--papel); }
 }
 
 .cabecera {
@@ -77,6 +159,12 @@ body {
   padding: 26px 24px 22px;
   border-bottom: 1px solid var(--linea);
   text-align: center;
+}
+/* El circulito de troquelado: ahora una ventana real al vidrio, no un
+   parche color --fondo encima. */
+body:not(.panel) .cabecera::after {
+  background: transparent;
+  border-color: var(--vidrio-borde);
 }
 .cabecera::after {
   content: '';
@@ -106,6 +194,17 @@ h1 {
 }
 
 .troquel { position: relative; height: 20px; background: var(--papel); }
+/* Sobre vidrio, la tira y sus dos muescas se vuelven ventanas reales a la
+   luz de atrás, no parches color --fondo: por eso pierden su propio fondo. */
+body:not(.panel) .troquel,
+body:not(.panel) .troquel::before,
+body:not(.panel) .troquel::after {
+  background: transparent;
+}
+body:not(.panel) .troquel::before,
+body:not(.panel) .troquel::after {
+  border-color: var(--vidrio-borde);
+}
 .troquel::before,
 .troquel::after {
   content: '';
@@ -187,6 +286,12 @@ h1 {
   border: 1px solid var(--linea);
   border-radius: 8px;
   padding: 8px 2px 6px;
+}
+/* Chips de vidrio ligero: sin blur propio —ya están dentro del blur de la
+   tarjeta—, solo traslúcidos sobre lo que el vidrio de arriba dejó pasar. */
+body:not(.panel) .cronometro > div {
+  background: var(--vidrio-tenue);
+  border-color: var(--vidrio-borde);
 }
 .cronometro span {
   display: block;
