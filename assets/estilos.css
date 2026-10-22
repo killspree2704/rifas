@@ -13,6 +13,7 @@
   --oro: #9a6f0a;
   --sello: #8d3b2f;
   --gana: #1f7a4d;
+  --gana-fondo: rgba(31, 122, 77, 0.14);
 
   /* El vidrio: translúcido sobre blanco, no sobre --papel, así se ve igual
      de «vidrio» en cualquier tema y solo cambia cuánto se nota. Bastante
@@ -50,6 +51,7 @@
     --oro: #e0a92e;
     --sello: #d4685a;
     --gana: #4ec38a;
+    --gana-fondo: rgba(78, 195, 138, 0.16);
 
     --vidrio: rgba(255, 255, 255, 0.09);
     --vidrio-tenue: rgba(255, 255, 255, 0.055);
@@ -72,6 +74,7 @@
   --oro: #e0a92e;
   --sello: #d4685a;
   --gana: #4ec38a;
+  --gana-fondo: rgba(78, 195, 138, 0.16);
 
   --vidrio: rgba(255, 255, 255, 0.07);
   --vidrio-tenue: rgba(255, 255, 255, 0.045);
@@ -242,29 +245,41 @@ body:not(.panel) .troquel::after {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px 14px;
+  gap: 10px;
   margin: 0 0 20px;
 }
+/* Cada número en su propio recuadro: con cuatro corridos uno detrás de
+   otro, el ojo no sabía dónde terminaba uno y empezaba el siguiente —
+   más al cotejar el ganador contra el talón de papel. */
 .folio {
   margin: 0;
+  padding: 9px 18px;
+  background: var(--vidrio-tenue);
+  border: 1.5px solid var(--vidrio-borde);
+  border-radius: 12px;
   font-family: var(--mono);
-  font-size: clamp(1.5rem, 8vw, 2.9rem);
+  font-size: clamp(1.3rem, 7vw, 2.3rem);
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
 }
-/* Un solo número: se queda del tamaño de antes. */
-.folios .folio:only-child { font-size: clamp(2.1rem, 11vw, 2.9rem); }
+/* Un solo número: se queda grande, como antes. */
+.folios .folio:only-child {
+  padding: 14px 28px;
+  font-size: clamp(1.9rem, 10vw, 2.6rem);
+}
 
 /*
- * El número que ganó. Se marca con color Y con un subrayado grueso: el color
- * solo no le sirve a quien no lo distingue. El subrayado hereda el color del
- * texto, así que se acomoda solo al tema claro y al oscuro.
+ * El número que ganó. Se marca con color Y con un recuadro propio —ya no
+ * solo subrayado—: el color solo no le sirve a quien no lo distingue, y el
+ * recuadro es lo que de verdad lo separa de los otros tres en un vistazo.
  */
 .folio.folioGanador {
   font-weight: 700;
   color: var(--gana);
+  background: var(--gana-fondo);
+  border-color: var(--gana);
   text-decoration: underline;
   text-decoration-thickness: 0.12em;
   text-underline-offset: 0.18em;
@@ -462,3 +477,35 @@ body:not(.panel) .cronometro > div {
   92% { opacity: 1; }
   100% { transform: translate3d(var(--deriva), 112vh, 0) rotate(var(--giro)); opacity: 0; }
 }
+
+/*
+ * El conmutador de tema: claro u oscuro a mano, en vez de solo seguir al
+ * sistema. Flotante y fijo para que esté en el mismo lugar sin importar
+ * qué tanto se haya bajado la pantalla, en el boleto y en el panel por
+ * igual —las dos páginas cargan esta hoja—.
+ */
+.conmutador-tema {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 80;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--tinta);
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 50%;
+  cursor: pointer;
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .conmutador-tema { background: var(--papel); }
+}
+.conmutador-tema:hover { border-color: var(--oro); }
+.conmutador-tema:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }

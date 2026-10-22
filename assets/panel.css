@@ -4,77 +4,77 @@
 
    La gama es OTRA que la del boleto, a propósito: el boleto es de tómbola
    —oro, cartulina, estampado de feria—, pero quien administra necesita algo
-   serio, no rústico. Aquí todo se vuelve azul noche / índigo / esmeralda:
-   la paleta de un tablero de control, no de un papelito de rifa. Se
-   redefinen las MISMAS variables que usa `estilos.css` —`--oro`, `--sello`,
-   `--luz-oro`…—, no otras nuevas: así cada regla que ya las usa (los
-   botones, el candado de contraste, las luces de fondo) cambia de color
-   sola, sin tocarla. El nombre de la variable quedó del boleto; lo que
-   vale aquí es la ranura que ocupa, no lo que el nombre sugiere. */
+   neutro y serio: blancos, azules, oscuros. Nada de violeta ni de colores
+   de fiesta — eso se quedó en el boleto. Se redefinen las MISMAS variables
+   que usa `estilos.css` —`--oro`, `--sello`, `--luz-oro`…—, no otras
+   nuevas: así cada regla que ya las usa (los botones, el candado de
+   contraste, las luces de fondo) cambia de color sola, sin tocarla. El
+   nombre de la variable quedó del boleto; lo que vale aquí es la ranura
+   que ocupa, no lo que el nombre sugiere. */
 body.panel {
-  --fondo: #eef1f7;
+  --fondo: #eef1f5;
   --papel: #ffffff;
-  --tinta: #161b2e;
-  --tinta-tenue: #5b6479;
-  --linea: #dde1ea;
-  --oro: #4f46e5;    /* antes dorado: ahora el índigo, acento y foco */
+  --tinta: #121722;
+  --tinta-tenue: #5a6372;
+  --linea: #dde2e9;
+  --oro: #2563eb;    /* antes dorado: ahora un azul limpio, acento y foco */
   --sello: #be123c;  /* antes terracota: ahora un rojo limpio, solo para peligro */
   --gana: #047857;   /* antes verde bosque: ahora esmeralda */
 
-  --vidrio: rgba(240, 244, 255, 0.42);
-  --vidrio-tenue: rgba(240, 244, 255, 0.26);
-  --vidrio-borde: rgba(255, 255, 255, 0.75);
-  --vidrio-brillo: rgba(255, 255, 255, 0.65);
-  --vidrio-sombra: rgba(16, 21, 42, 0.22);
+  --vidrio: rgba(244, 247, 252, 0.42);
+  --vidrio-tenue: rgba(244, 247, 252, 0.26);
+  --vidrio-borde: rgba(255, 255, 255, 0.78);
+  --vidrio-brillo: rgba(255, 255, 255, 0.68);
+  --vidrio-sombra: rgba(15, 23, 42, 0.2);
 
-  /* Tres luces frías —índigo, esmeralda, violeta— en vez de la noche de
-     tómbola cálida del boleto. */
-  --luz-oro: rgba(79, 70, 229, 0.5);
-  --luz-gana: rgba(4, 120, 87, 0.4);
-  --luz-sello: rgba(124, 58, 237, 0.34);
+  /* Dos luces de color —azul y esmeralda— y una tercera gris neutra en vez
+     del violeta: nada que lea como «de fiesta». */
+  --luz-oro: rgba(37, 99, 235, 0.46);
+  --luz-gana: rgba(4, 120, 87, 0.36);
+  --luz-sello: rgba(100, 116, 139, 0.26);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) body.panel {
-    --fondo: #0a0e1a;
-    --papel: #121a2d;
-    --tinta: #e8ebf5;
-    --tinta-tenue: #8992ab;
-    --linea: #232b42;
-    --oro: #818cf8;
+    --fondo: #0a0e15;
+    --papel: #11161f;
+    --tinta: #e7eaf0;
+    --tinta-tenue: #868fa0;
+    --linea: #212834;
+    --oro: #60a5fa;
     --sello: #fb7185;
     --gana: #34d399;
 
-    --vidrio: rgba(180, 195, 255, 0.08);
-    --vidrio-tenue: rgba(180, 195, 255, 0.05);
-    --vidrio-borde: rgba(180, 195, 255, 0.18);
-    --vidrio-brillo: rgba(200, 210, 255, 0.14);
+    --vidrio: rgba(205, 216, 235, 0.07);
+    --vidrio-tenue: rgba(205, 216, 235, 0.045);
+    --vidrio-borde: rgba(205, 216, 235, 0.17);
+    --vidrio-brillo: rgba(215, 224, 240, 0.12);
     --vidrio-sombra: rgba(0, 0, 2, 0.6);
 
-    --luz-oro: rgba(99, 102, 241, 0.32);
-    --luz-gana: rgba(16, 185, 129, 0.24);
-    --luz-sello: rgba(167, 139, 250, 0.24);
+    --luz-oro: rgba(59, 130, 246, 0.3);
+    --luz-gana: rgba(16, 185, 129, 0.22);
+    --luz-sello: rgba(148, 163, 184, 0.16);
   }
 }
 :root[data-theme="dark"] body.panel {
-  --fondo: #0a0e1a;
-  --papel: #121a2d;
-  --tinta: #e8ebf5;
-  --tinta-tenue: #8992ab;
-  --linea: #232b42;
-  --oro: #818cf8;
+  --fondo: #0a0e15;
+  --papel: #11161f;
+  --tinta: #e7eaf0;
+  --tinta-tenue: #868fa0;
+  --linea: #212834;
+  --oro: #60a5fa;
   --sello: #fb7185;
   --gana: #34d399;
 
-  --vidrio: rgba(180, 195, 255, 0.08);
-  --vidrio-tenue: rgba(180, 195, 255, 0.05);
-  --vidrio-borde: rgba(180, 195, 255, 0.18);
-  --vidrio-brillo: rgba(200, 210, 255, 0.14);
+  --vidrio: rgba(205, 216, 235, 0.07);
+  --vidrio-tenue: rgba(205, 216, 235, 0.045);
+  --vidrio-borde: rgba(205, 216, 235, 0.17);
+  --vidrio-brillo: rgba(215, 224, 240, 0.12);
   --vidrio-sombra: rgba(0, 0, 2, 0.6);
 
-  --luz-oro: rgba(99, 102, 241, 0.32);
-  --luz-gana: rgba(16, 185, 129, 0.24);
-  --luz-sello: rgba(167, 139, 250, 0.24);
+  --luz-oro: rgba(59, 130, 246, 0.3);
+  --luz-gana: rgba(16, 185, 129, 0.22);
+  --luz-sello: rgba(148, 163, 184, 0.16);
 }
 
 body.panel {

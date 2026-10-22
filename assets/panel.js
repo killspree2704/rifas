@@ -2423,4 +2423,36 @@
     if (!clave || !rifaActual || !ultimoEstado || $('paneSorteo').hidden) { return; }
     llamar('estado').then(pintar).catch(function () { /* el siguiente intento reintenta */ });
   }, 10000);
+
+  // ------------------------------------------------------------------
+  // Conmutador de tema: claro u oscuro a mano
+  // ------------------------------------------------------------------
+  // El script en el <head> ya aplicó lo guardado antes del primer pintado;
+  // esto solo conecta el botón para cambiarlo y acordarse. Mismo código que
+  // en el boleto: una sola cosa que hacer, no valía la pena un archivo aparte.
+  (function () {
+    var boton = $('btnTema');
+    if (!boton) { return; }
+    var raiz = document.documentElement;
+    var ICONOS = { light: '🌙', dark: '☀️' };
+    var ETIQUETAS = { light: 'Cambiar a tema oscuro', dark: 'Cambiar a tema claro' };
+
+    function temaActual() {
+      return raiz.dataset.theme ||
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+    function pintarBoton() {
+      var t = temaActual();
+      boton.firstElementChild.textContent = ICONOS[t];
+      boton.setAttribute('aria-label', ETIQUETAS[t]);
+      boton.setAttribute('aria-pressed', String(t === 'dark'));
+    }
+    boton.addEventListener('click', function () {
+      var nuevo = temaActual() === 'dark' ? 'light' : 'dark';
+      raiz.dataset.theme = nuevo;
+      try { localStorage.setItem('tema', nuevo); } catch (e) { /* modo privado */ }
+      pintarBoton();
+    });
+    pintarBoton();
+  })();
 })();
