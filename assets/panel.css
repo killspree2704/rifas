@@ -209,6 +209,26 @@ input[type="number"], input[type="datetime-local"] {
 .rifa-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .rifa-acciones .boton { font-size: 0.85rem; padding: 8px 13px; }
 
+/* --- Vendedores: misma tarjeta que una rifa, otro nombre de clase --------- */
+.vendedores { margin-top: 14px; }
+.vendedor {
+  border: 1px solid var(--linea);
+  border-left: 4px solid var(--linea);
+  border-radius: 10px;
+  padding: 13px 15px;
+  margin-bottom: 10px;
+}
+.vendedor-cabeza {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.vendedor-cabeza strong { font-size: 0.98rem; }
+.vendedor .nota { margin: 4px 0 0; }
+.vendedor-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.vendedor-acciones .boton { font-size: 0.85rem; padding: 8px 13px; }
+
 /* --- Veredicto de un boleto -------------------------------------------- */
 .veredicto-boleto {
   margin-top: 16px;

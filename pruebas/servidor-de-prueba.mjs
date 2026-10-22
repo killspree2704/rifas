@@ -7,12 +7,15 @@ import http from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, extname, join } from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 // El mismo normalizador que usa el panel: si él cambia, la prueba lo nota.
+// `fileURLToPath` y no `.pathname`: en Windows el pathname trae la unidad con
+// una barra delante («/C:/Users/…») y ni `require` ni `spawn` la resuelven.
 const normalizarYouTube = createRequire(import.meta.url)(
-  new URL('../assets/youtube.js', import.meta.url).pathname);
+  fileURLToPath(new URL('../assets/youtube.js', import.meta.url)));
 
-const RAIZ = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const RAIZ = fileURLToPath(new URL('..', import.meta.url)).replace(/[/\\]$/, '');
 // Cambia: el panel puede reemplazarla desde la pestaña «Perfil», y la prueba
 // necesita ver que el cambio surte efecto de verdad.
 let clavePanel = 'secreta';
@@ -30,12 +33,15 @@ const rifas = [{
   // Relativa a hoy, no fija: una fecha escrita a mano se vuelve pasado y la
   // prueba empieza a fallar sola, sin que nada se haya roto.
   fecha_sorteo: new Date(Date.now() + 3 * 86400000).toISOString(),
-  revelado_en: null, creada_en: '2026-09-01T00:00:00Z', precio_boleto: 50, folios_por_boleto: 4,
+  // Con desfase explícito y no «Z»: a medianoche UTC, la zona del evento
+  // (UTC-6) ya está en el día anterior, y una prueba que mida la fecha
+  // impresa fallaría sola sin que nada se hubiera roto.
+  revelado_en: null, creada_en: '2026-09-01T00:00:00-06:00', emision: null, precio_boleto: 50, folios_por_boleto: 4,
   transmision_url: null, transmite_desde: null,
 }, {
   id: 'vieja-2025-01', nombre: 'Rifa de estreno', serie: 'Z', estado: 'cerrado',
   activa: false, folio_ganador: '90001', fecha_sorteo: '2025-01-10T18:00:00-06:00',
-  revelado_en: '2025-01-10T18:30:00Z', creada_en: '2025-01-01T00:00:00Z', precio_boleto: null, folios_por_boleto: 2,
+  revelado_en: '2025-01-10T18:30:00Z', creada_en: '2025-01-01T00:00:00Z', emision: null, precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 }];
 rifas.push({
@@ -43,13 +49,13 @@ rifas.push({
   activa: false, folio_ganador: null,
   // A minuto y medio: la pantalla del boleto entra en su ritmo rápido.
   fecha_sorteo: new Date(Date.now() + 90000).toISOString(),
-  revelado_en: null, creada_en: new Date().toISOString(), precio_boleto: null, folios_por_boleto: 2,
+  revelado_en: null, creada_en: new Date().toISOString(), emision: null, precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 });
 rifas.push({
   id: 'suspendida', nombre: 'Rifa suspendida', serie: 'S', estado: 'cerrado',
   activa: false, folio_ganador: null, fecha_sorteo: '2025-06-01T18:00:00-06:00',
-  revelado_en: null, creada_en: '2025-05-01T00:00:00Z', precio_boleto: null, folios_por_boleto: 2,
+  revelado_en: null, creada_en: '2025-05-01T00:00:00Z', emision: null, precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 });
 // Una rifa de nueve números por boleto, ya con la disposición vertical puesta:
@@ -59,7 +65,11 @@ rifas.push({
 rifas.push({
   id: 'generosa', nombre: 'Rifa de nueve números', serie: 'G', estado: 'cerrado',
   activa: false, folio_ganador: null, fecha_sorteo: '2025-08-01T18:00:00-06:00',
-  revelado_en: null, creada_en: '2025-07-01T00:00:00Z', precio_boleto: 100,
+  // Una fecha de emisión distinta de la de creación, para probar que el
+  // boleto imprime ESA y no `creada_en` cuando la primera existe. Con
+  // desfase explícito: a medianoche UTC la zona del evento ya está en el
+  // día anterior.
+  revelado_en: null, creada_en: '2025-07-01T00:00:00-06:00', emision: '2025-07-15T00:00:00-06:00', precio_boleto: 100,
   folios_por_boleto: 9, transmision_url: null, transmite_desde: null,
   diseno: {
     disposicion: 'suertudito', tema: 'trebol', caducidad: '3 días',
@@ -68,24 +78,30 @@ rifas.push({
   },
 });
 // Un boleto de papel con varios números. Igual que en el servidor de verdad:
-// el código es del boleto, no de cada folio.
+// el código es del boleto, no de cada folio. `numero` es el orden dentro de
+// su rifa, lo que un vendedor entiende como «boleto número tanto».
 const boletos = {
-  suspendida: [{ id: '9000000301', codigo: 'SSSS', folios: ['33301', '33302'] }],
+  suspendida: [{ id: '9000000301', numero: 1, codigo: 'SSSS', folios: ['33301', '33302'] }],
   pronto: [
-    { id: '9000000501', codigo: 'PPPP', folios: ['55501', '55502'] },
-    { id: '9000000502', codigo: 'QQQQ', folios: ['55503', '55504'] },
+    { id: '9000000501', numero: 1, codigo: 'PPPP', folios: ['55501', '55502'] },
+    { id: '9000000502', numero: 2, codigo: 'QQQQ', folios: ['55503', '55504'] },
   ],
   'mm-2026-09': [
-    { id: '9000001052', codigo: 'R5VR', folios: ['11052', '11053', '11054', '11055'] },
-    { id: '9000001060', codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
+    { id: '9000001052', numero: 1, codigo: 'R5VR', folios: ['11052', '11053', '11054', '11055'] },
+    { id: '9000001060', numero: 2, codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
   ],
-  'vieja-2025-01': [{ id: '9000009001', codigo: 'ZZZZ', folios: ['90001', '90002'] }],
+  'vieja-2025-01': [{ id: '9000009001', numero: 1, codigo: 'ZZZZ', folios: ['90001', '90002'] }],
   generosa: [{
-    id: '9000007001', codigo: 'NUE9',
+    id: '9000007001', numero: 1, codigo: 'NUE9',
     folios: ['70001', '70002', '70003', '70004', '70005', '70006', '70007', '70008', '70009'],
   }],
 };
 let contadorNuevas = 0;
+
+// --- vendedores: catálogo global + reparto por rifa -------------------------
+let vendedores = [];
+let vendedorBoletos = [];
+let contadorVendedores = 0;
 
 function rifaDe(id) { return rifas.find((r) => r.id === id); }
 
@@ -162,7 +178,7 @@ function sorteo(cuerpo) {
     // en su `select`, pero aquí sí llegaba y la prueba pasaba igual.
     const ficha = {
       id: r.id, nombre: r.nombre, serie: r.serie, fecha_sorteo: r.fecha_sorteo,
-      creada_en: r.creada_en, precio_boleto: r.precio_boleto,
+      creada_en: r.creada_en, emision: r.emision ?? null, precio_boleto: r.precio_boleto,
       folios_por_boleto: r.folios_por_boleto, diseno: r.diseno,
     };
     return [200, { rifa: ficha, boletos: boletos[r.id] || [] }];
@@ -194,8 +210,8 @@ function sorteo(cuerpo) {
     const id = 'nueva-' + (++contadorNuevas);
     const porBoleto = cuerpo.folios_por_boleto || 4;
     const nueva = { id, nombre: cuerpo.nombre, serie: cuerpo.serie, estado: 'espera', activa: false,
-      folio_ganador: null, fecha_sorteo: cuerpo.fecha_sorteo, precio_boleto: cuerpo.precio,
-      folios_por_boleto: porBoleto,
+      folio_ganador: null, fecha_sorteo: cuerpo.fecha_sorteo, emision: cuerpo.fecha_emision || null,
+      precio_boleto: cuerpo.precio, folios_por_boleto: porBoleto,
       // El diseño se copia, no se referencia: igual que en el servidor real.
       diseno: disenoNuevo };
     rifas.unshift(nueva);
@@ -204,7 +220,10 @@ function sorteo(cuerpo) {
     for (let i = 0; i < cuerpo.cantidad; i++) {
       const suyos = [];
       for (let j = 0; j < porBoleto; j++) suyos.push(String(siguiente++));
-      lote.push({ id: String(8000000000 + contadorNuevas * 1000 + i), codigo: 'C' + String(i).padStart(3, '0'), folios: suyos });
+      lote.push({
+        id: String(8000000000 + contadorNuevas * 1000 + i), numero: i + 1,
+        codigo: 'C' + String(i).padStart(3, '0'), folios: suyos,
+      });
     }
     boletos[id] = lote;
     return [200, {
@@ -215,6 +234,91 @@ function sorteo(cuerpo) {
   if (a === 'activar') {
     rifas.forEach((r) => { r.activa = r.id === cuerpo.rifa; });
     return [200, { rifa: rifaDe(cuerpo.rifa) }];
+  }
+
+  // --- Vendedores: catálogo global, reparto por rifa ------------------------
+  if (a === 'vendedores') {
+    const asignados = {};
+    if (cuerpo.rifa) {
+      for (const asig of vendedorBoletos) {
+        if (asig.rifa_id === cuerpo.rifa) asignados[asig.vendedor_id] = (asignados[asig.vendedor_id] || 0) + 1;
+      }
+    }
+    return [200, {
+      vendedores: vendedores.filter((v) => v.activo)
+        .map((v) => ({ ...v, asignados: asignados[v.id] || 0 })),
+    }];
+  }
+  if (a === 'crear_vendedor') {
+    const nombre = String(cuerpo.nombre || '').trim();
+    if (!nombre) return [400, { error: 'falta el nombre del vendedor' }];
+    const v = {
+      id: 'v' + (++contadorVendedores), nombre, nota: cuerpo.nota || '',
+      activo: true, creado_en: new Date().toISOString(),
+    };
+    vendedores.push(v);
+    return [200, { vendedor: v }];
+  }
+  if (a === 'archivar_vendedor' || a === 'reactivar_vendedor') {
+    const v = vendedores.find((x) => x.id === cuerpo.vendedor);
+    if (!v) return [404, { error: 'vendedor no encontrado' }];
+    v.activo = a === 'reactivar_vendedor';
+    return [200, { vendedor: v }];
+  }
+  if (a === 'asignar') {
+    const r2 = rifaDe(cuerpo.rifa);
+    if (!r2) return [400, { error: 'falta la rifa' }];
+    const v = vendedores.find((x) => x.id === cuerpo.vendedor);
+    if (!v) return [404, { error: 'vendedor no encontrado' }];
+    if (!v.activo) return [400, { error: 'ese vendedor está archivado' }];
+    const numeros = new Set();
+    if (Number.isInteger(cuerpo.desde) && Number.isInteger(cuerpo.hasta)) {
+      for (let n = cuerpo.desde; n <= cuerpo.hasta; n++) numeros.add(n);
+    }
+    (cuerpo.numeros || []).forEach((n) => { if (Number.isInteger(n)) numeros.add(n); });
+    const lote = boletos[r2.id] || [];
+    const existentes = lote.filter((b) => numeros.has(b.numero));
+    if (!existentes.length) return [400, { error: 'ninguno de esos números existe en esta rifa' }];
+    const faltantes = [...numeros].filter((n) => !existentes.some((b) => b.numero === n));
+    const reasignados = [];
+    existentes.forEach((b) => {
+      const previo = vendedorBoletos.find((asig) => asig.boleto_id === b.id);
+      if (previo && previo.vendedor_id !== v.id) {
+        reasignados.push({
+          numero: b.numero,
+          de: (vendedores.find((x) => x.id === previo.vendedor_id) || {}).nombre || null,
+        });
+      }
+      if (previo) { previo.vendedor_id = v.id; }
+      else { vendedorBoletos.push({ boleto_id: b.id, rifa_id: r2.id, numero: b.numero, vendedor_id: v.id }); }
+    });
+    return [200, { asignados: existentes.length, faltantes, reasignados }];
+  }
+  if (a === 'quitar_asignacion') {
+    const r2 = rifaDe(cuerpo.rifa);
+    if (!r2) return [400, { error: 'falta la rifa' }];
+    const numeros = new Set(cuerpo.numeros || []);
+    const antes = vendedorBoletos.length;
+    vendedorBoletos = vendedorBoletos.filter((asig) => !(asig.rifa_id === r2.id && numeros.has(asig.numero)));
+    return [200, { quitados: antes - vendedorBoletos.length }];
+  }
+  if (a === 'asignaciones') {
+    const r2 = rifaDe(cuerpo.rifa);
+    if (!r2) return [400, { error: 'falta la rifa' }];
+    const lista = vendedorBoletos
+      .filter((asig) => asig.rifa_id === r2.id)
+      .map((asig) => ({
+        numero: asig.numero, boleto: asig.boleto_id, vendedor: asig.vendedor_id,
+        vendedor_nombre: (vendedores.find((v) => v.id === asig.vendedor_id) || {}).nombre || null,
+      }))
+      .sort((x, y) => x.numero - y.numero);
+    return [200, { asignaciones: lista }];
+  }
+  if (a === 'fijar_emision') {
+    const r2 = rifaDe(cuerpo.rifa);
+    if (!r2) return [400, { error: 'falta la rifa' }];
+    r2.emision = cuerpo.fecha_emision || null;
+    return [200, { rifa: { id: r2.id, emision: r2.emision } }];
   }
 
   const r = rifaDe(cuerpo.rifa);

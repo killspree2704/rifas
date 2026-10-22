@@ -42,14 +42,17 @@ Cada boleto sabe a qué rifa pertenece: la pantalla no está atada a ninguna
 rifa fija, la manda el boleto impreso. Un boleto de hace un año sigue abriendo
 su propio resultado, y uno recién impreso abre el sorteo que viene.
 
-**El organizador** entra a `…/panel.html` con la clave del panel. Tres
+**El organizador** entra a `…/panel.html` con la clave del panel. Seis
 pestañas:
 
 | Pestaña | Para qué |
 | --- | --- |
 | **Sorteo** | Guardar el enlace de la transmisión, salir al aire, revelar al ganador (capturando el folio de la tómbola o dejando que el sistema sortee) y cerrar |
 | **Rifas** | Crear una rifa nueva —eligiendo cuántos números lleva cada boleto— ver el historial completo y sacar la hoja de boletos para imprimir |
+| **Vendedores** | Dar de alta a quien reparte los boletos y asignarle un lote consecutivo o números sueltos de la rifa que se maneja. Solo bitácora de reparto: no toca folios ni ganador |
 | **Verificar** | Teclear el número del boleto —o cualquiera de sus folios— con su código, y saber si es original |
+| **Diseño** | El aspecto del boleto impreso: tema, colores, fondo, logo, disposición y, por rifa, la fecha de emisión |
+| **Perfil** | Cambiar la clave del panel |
 
 ### La transmisión en vivo
 
