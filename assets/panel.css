@@ -314,33 +314,6 @@ input[type="number"], input[type="datetime-local"] {
 .rifa-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .rifa-acciones .boton { font-size: 0.85rem; padding: 8px 13px; }
 
-/* --- Vendedores: misma tarjeta que una rifa, otro nombre de clase --------- */
-.vendedores { margin-top: 14px; }
-.vendedor {
-  background: var(--vidrio-tenue);
-  border: 1px solid var(--vidrio-borde);
-  border-left: 4px solid var(--linea);
-  border-radius: 10px;
-  padding: 13px 15px;
-  margin-bottom: 10px;
-  transition: transform 160ms ease, box-shadow 160ms ease;
-}
-.vendedor:hover { transform: translateY(-2px); box-shadow: 0 10px 26px var(--vidrio-sombra); }
-@media (prefers-reduced-motion: reduce) {
-  .vendedor { transition: none; }
-  .vendedor:hover { transform: none; }
-}
-.vendedor-cabeza {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-}
-.vendedor-cabeza strong { font-size: 0.98rem; }
-.vendedor .nota { margin: 4px 0 0; }
-.vendedor-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.vendedor-acciones .boton { font-size: 0.85rem; padding: 8px 13px; }
-
 /* --- Veredicto de un boleto -------------------------------------------- */
 .veredicto-boleto {
   margin-top: 16px;
@@ -580,38 +553,3 @@ textarea, select {
 .vista-boleto .envoltura { transform-origin: top left; }
 
 .fila { display: flex; gap: 8px; flex-wrap: wrap; }
-
-/* --- Eliminar una rifa: cuadro de diálogo, no vidrio ------------------- */
-/* A propósito OPACO y no translúcido como el resto del panel: es la única
-   acción que de verdad no tiene vuelta atrás, y el vidrio no es el tono
-   para eso. */
-.superposicion {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(8, 11, 18, 0.55);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-.dialogo {
-  width: 100%;
-  max-width: 420px;
-  padding: 22px;
-  background: var(--papel);
-  border: 1px solid var(--linea);
-  border-radius: 16px;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4);
-}
-.dialogo h2 {
-  margin: 0 0 10px;
-  font-family: var(--texto);
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-.dialogo .nota { margin: 8px 0 0; }
-.dialogo .campo { margin-top: 14px; }
-.dialogo .fila { margin-top: 16px; }
-.dialogo .boton { flex: 1 1 auto; }

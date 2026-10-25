@@ -70,21 +70,22 @@ Todo pasa por la función de borde `sorteo`, que exige la clave en cada acción.
 El público solo puede leer el estado de la rifa; `boletos` no tiene ni una
 política, así que los códigos no salen.
 
-**8. El reparto a vendedores es bitácora, no un candado.**
-*Añadida el 14 de octubre de 2026,* al agregar la pestaña «Vendedores».
-Se asigna por **boleto**, no por folio: el papel es la unidad física que se le
-entrega a alguien, y un boleto de cuatro números no se puede partir entre dos
-vendedores aunque sus folios vivan en filas separadas. El catálogo de
-vendedores vive **fuera de cualquier rifa** —el mismo equipo reparte en varios
-eventos—, y reasignar un boleto que ya era de otro vendedor **no se bloquea**,
-ni con la rifa cerrada: es la única acción del sistema que se parece a las
-demás del panel pero que deliberadamente NO lleva el candado de la decisión 4.
-La diferencia es qué protege cada una: el ganador es un hecho del sorteo que
-no puede mentir; a quién le tocó un boleto es contabilidad del organizador,
-que se corrige todo el tiempo —boletos que vuelven, vendedores que cambian de
-turno— y bloquearlo solo estorbaría. Lo que sí queda es la bitácora: quién
-tenía el número antes de la reasignación se le avisa a quien reasigna, para
-que un «robo» de lote entre vendedores no pase en silencio.
+**8. El panel nunca borra de verdad.**
+*Añadida el 25 de octubre de 2026.* «Archivar» una rifa solo le apaga un
+indicador (`archivada`) y la saca de la lista de siempre: sus boletos y
+folios se quedan exactamente donde estaban, así que la regla de «un folio
+no se repite jamás» sigue cumpliéndose contra rifas archivadas igual que
+contra las que se ven. El borrado de verdad —el que sí libera folios, y que
+de verdad no tiene vuelta atrás— **no tiene ninguna acción en el panel ni en
+la función de borde**. Solo pasa a mano, directo en la base, cuando quien
+administra el proyecto lo pide explícitamente fuera de la aplicación. Es la
+misma filosofía que la decisión 4 —el ganador no se puede tocar ni con la
+llave de servicio—, pero mirando al revés: ahí se protege un hecho del
+sorteo; aquí se protege a quien usa el panel de su propio clic de más. La
+primera versión de esto sí tenía un borrado real expuesto en el panel —con
+confirmación tecleada y todo—, pero se cambió antes de desplegarse de
+verdad a producción: guardar los datos para siempre y dejar el borrado
+fuera del alcance de un clic resultó ser la decisión correcta.
 
 ## Lo que se intentó y no funcionó
 
@@ -124,8 +125,10 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 | **Dejar el código solo dentro del QR** | El mismo boleto vertical llevaba el identificador y el código únicamente codificados en el QR. El procedimiento del día del sorteo es comparar el código que enseña el panel con el del talón del ganador ANTES de revelar, y eso con un QR mojado, arrugado o mal impreso no se puede hacer. Van impresos en letra al pie, como en el clásico |
 | **Confiar en una prueba geométrica que solo mira la mitad** | Al acomodar nueve números, la prueba de encimados pasó en verde y la imagen renderizada enseñaba el folio del boleto tachado por un trébol: la prueba comparaba las piezas legibles entre sí, pero no contra los adornos. Segunda vez en este proyecto que la prueba dice que sí y la imagen dice que no. Ahora hay dos medidas —legibles entre sí y adornos contra legibles— y se sigue mirando el PNG |
 | **Copiar un diseño a ojo** | El primer intento de reproducir el boleto «Suertudito» puso cada pieza donde parecía ir, y salió todo encimado: el texto de canto sobre una caja, el trébol cortado por el marco, el `$20` debajo de los números en vez de ENTRE ellos. Midiendo la imagen original se vio la estructura real —tres filas: caja·rana·caja, texto·QR·logo, caja·$20·caja— y las posiciones se pasaron a porcentaje. Medir antes de dibujar costó diez minutos y ahorró tres vueltas |
-| **Poner una columna en NOT NULL antes de que el código que la llena esté desplegado** | Al agregar `boletos.numero`, la migración la dejó NOT NULL de una vez. La función `sorteo` que ESTABA DESPLEGADA en ese momento no la escribía —ese código vivía en una rama sin publicar—, así que crear una rifa desde el panel real, en ese instante, habría fallado. Se cachó antes de que pasara, no después: la migración y el código que depende de ella no se despliegan solos ni a la vez. Se relajó a NULLABLE hasta que la función nueva se publique; queda anotado en CONTINUIDAD.md para volver a cerrarla después |
-| **Confiar en `new URL(...).pathname` para rutas de archivo en Windows** | Las pruebas (`panel.mjs`, `servidor-de-prueba.mjs`) usaban `.pathname` de una `file://` para encontrar sus propios archivos. En Linux/Mac da una ruta usable tal cual; en Windows da `/C:/Users/…`, con una barra antes de la unidad, y pasada a `spawn` o `require` sin más se resuelve como `C:\C:\Users\…` — una ruta que no existe. `fileURLToPath` sí entiende la diferencia entre sistemas; `.pathname` no. Sin este cambio, las 229 pruebas no corrían en Windows aunque el código sí funcionara |
+| **Poner una columna en NOT NULL antes de que el código que la llena esté desplegado** | Al agregar `boletos.numero`, la migración la dejó NOT NULL de una vez. La función `sorteo` que ESTABA DESPLEGADA en ese momento no la escribía —ese código vivía en una rama sin publicar—, así que crear una rifa desde el panel real, en ese instante, habría fallado. Se cachó antes de que pasara, no después: la migración y el código que depende de ella no se despliegan solos ni a la vez. Se relajó a NULLABLE hasta desplegar, se volvió a cerrar, y días después la columna entera se quitó junto con vendedores (ver abajo) |
+| **Confiar en `new URL(...).pathname` para rutas de archivo en Windows** | Las pruebas (`panel.mjs`, `servidor-de-prueba.mjs`) usaban `.pathname` de una `file://` para encontrar sus propios archivos. En Linux/Mac da una ruta usable tal cual; en Windows da `/C:/Users/…`, con una barra antes de la unidad, y pasada a `spawn` o `require` sin más se resuelve como `C:\C:\Users\…` — una ruta que no existe. `fileURLToPath` sí entiende la diferencia entre sistemas; `.pathname` no. Sin este cambio, las pruebas no corrían en Windows aunque el código sí funcionara |
+| **Vendedores: construido, probado, desplegado, y quitado días después** | La pestaña «Vendedores» —catálogo, asignar por lote o números sueltos, reasignar sin bloqueo— llegó a producción completa y probada (242 pruebas en verde). El dueño del proyecto, ya usándola, se dio cuenta de que la logística real —dos rifas el mismo día, un par de horas de diferencia, boletos que se reparten en montones, no en listas numeradas— no se parecía a cómo el reparto se había modelado: la pieza complicaba más de lo que ayudaba. Se quitó entera: tablas, acciones, pestaña, pruebas. Ninguna dato se perdió —ya no había vendedores de verdad dados de alta—, y la columna `boletos.numero`, que solo existía para esto, se fue con ella. La lección no es «no construir»: es que una pieza bien hecha igual puede no ser la pieza correcta, y enterarse de eso a veces solo pasa usándola de verdad, no diseñándola |
+| **Un borrado real, con confirmación tecleada, expuesto en el panel** | Se construyó primero así: «Eliminar» con candado de ganador revelado y un cuadro de diálogo que exigía teclear el nombre exacto. Antes de que el dueño lo usara de verdad para limpiar rifas de prueba, se dio cuenta de una consecuencia que el diseño no había puesto sobre la mesa: borrar de verdad libera los folios, y ese era justo el peligro que el proyecto llevaba meses evitando. Se cambió a «archivar» —ver decisión 8— antes de que causara daño. El borrado real que sí hizo falta esa tarde se hizo a mano, fuera del panel, con el dueño confirmando cada rifa por su nombre en el chat |
 
 ## Cómo llegó a ser lo que es
 
@@ -165,11 +168,11 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 
 ## Lo que queda pendiente
 
-- **Plantilla de diseño personalizada, cargable desde afuera.** Pedida junto
-  con vendedores y la fecha de emisión, pero es la pieza más grande de las
-  tres —un editor visual para posicionar QR, números, código y fechas sobre
-  una imagen que suba el organizador— y quedó para una siguiente entrega, no
-  se improvisó a medias.
+- **El boleto «Suertudito», con la foto real del cliente en vez del dibujo en
+  SVG.** El dibujo se parece —salió de medir esa misma foto—, pero no es
+  igual, y eso es lo que se pidió: usar la imagen tal cual, con el sistema
+  encargándose solo de los datos variables encima (QR, números, código,
+  fechas). Pendiente de construir.
 - **Supabase Pro** para el mes del evento (~25 USD) si serán 500 teléfonos a la
   vez: el plan gratis da 200 conexiones de Realtime. Sin Pro no se rompe —el
   sondeo cubre, y está medido— pero tardan unos segundos más.

@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=22" />
-  <link rel="stylesheet" href="assets/panel.css?v=22" />
+  <link rel="stylesheet" href="assets/estilos.css?v=23" />
+  <link rel="stylesheet" href="assets/panel.css?v=23" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -62,7 +62,6 @@
     <nav class="pestanas" id="pestanas" hidden>
       <button class="pestana activa" data-panel="paneSorteo">Sorteo</button>
       <button class="pestana" data-panel="paneRifas">Rifas</button>
-      <button class="pestana" data-panel="paneVendedores">Vendedores</button>
       <button class="pestana" data-panel="paneVerificar">Verificar</button>
       <button class="pestana" data-panel="paneDiseno">Diseño</button>
       <button class="pestana" data-panel="panePerfil">Perfil</button>
@@ -207,63 +206,21 @@
       </details>
 
       <h2 class="subtitulo-seccion">Historial</h2>
-      <p class="nota">Ninguna rifa se borra. Cada una guarda su ganador y sus folios para siempre.</p>
+      <p class="nota">
+        Ninguna rifa se borra de verdad. Archivar solo la saca de esta
+        lista —sus folios se quedan reservados para siempre, así nunca se
+        repite un número—. Si de verdad hace falta borrar algo, eso se
+        pide aparte, fuera del panel.
+      </p>
       <div id="listaRifas" class="rifas"></div>
       <p class="mensaje" id="mensajeRifas" role="status" aria-live="polite"></p>
-    </section>
 
-    <!-- 2.5 Vendedores -->
-    <section id="paneVendedores" class="caja" hidden>
-      <h2 class="subtitulo-seccion">Vendedores</h2>
-      <p class="nota">
-        Quién reparte los boletos de papel. Esto es solo bitácora de reparto
-        —de aquí no sale ningún dato del comprador—, así que se puede corregir
-        en cualquier momento: no toca folios ni el ganador.
-      </p>
-      <p class="nota" id="vendedoresDeQuien"></p>
-
-      <details class="bloque" id="cajaNuevoVendedor">
-        <summary><strong>Agregar vendedor</strong></summary>
-        <div class="rejilla-campos">
-          <label class="campo ancho">
-            <span>Nombre</span>
-            <input type="text" id="vdNombre" placeholder="Juan Pérez" />
-          </label>
-          <label class="campo ancho">
-            <span>Nota (opcional)</span>
-            <input type="text" id="vdNota" maxlength="200" placeholder="Turno de la tarde" />
-          </label>
-        </div>
-        <button class="boton primario" id="btnCrearVendedor">Agregar vendedor</button>
-        <p class="mensaje" id="mensajeVendedorNuevo" role="status" aria-live="polite"></p>
+      <details class="bloque" id="cajaArchivadas">
+        <summary><strong>Archivadas</strong></summary>
+        <p class="nota">Siguen en la base, con sus folios reservados; solo no aparecen arriba.</p>
+        <div id="listaArchivadas" class="rifas"></div>
+        <p class="mensaje" id="mensajeArchivadas" role="status" aria-live="polite"></p>
       </details>
-
-      <h3 class="subtitulo-menor">Asignar boletos</h3>
-      <p class="nota" id="resumenAsignacion"></p>
-      <div class="rejilla-campos">
-        <label class="campo ancho">
-          <span>Vendedor</span>
-          <select id="vdSelector"></select>
-        </label>
-        <label class="campo">
-          <span>Lote: del boleto Nº</span>
-          <input type="number" id="vdDesde" min="1" inputmode="numeric" />
-        </label>
-        <label class="campo">
-          <span>al Nº</span>
-          <input type="number" id="vdHasta" min="1" inputmode="numeric" />
-        </label>
-        <label class="campo ancho">
-          <span>O números sueltos, separados por coma</span>
-          <input type="text" id="vdSueltos" inputmode="numeric" placeholder="3, 17, 42" />
-        </label>
-      </div>
-      <button class="boton primario" id="btnAsignar">Asignar</button>
-      <p class="mensaje" id="mensajeAsignar" role="status" aria-live="polite"></p>
-
-      <h3 class="subtitulo-menor">Reparto de esta rifa</h3>
-      <div id="listaVendedores" class="vendedores"></div>
-      <p class="mensaje" id="mensajeVendedores" role="status" aria-live="polite"></p>
     </section>
 
     <!-- 3. Verificar -->
@@ -437,40 +394,9 @@
     </section>
   </main>
 
-  <!--
-    Eliminar una rifa: irreversible, así que la segunda confirmación no es
-    un botón más — hay que TECLEAR el nombre exacto para que el botón rojo
-    se encienda. Una rifa con ganador revelado ni llega a enseñar el botón
-    que abre esto: el servidor también lo rechaza, sin excepción.
-  -->
-  <div class="superposicion" id="modalEliminar" hidden>
-    <div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="tituloEliminar">
-      <h2 id="tituloEliminar">Eliminar «<span id="nombreAEliminar"></span>»</h2>
-      <p class="nota">
-        Esto borra la rifa, sus boletos, sus folios y su bitácora
-        <strong>para siempre</strong>: no hay forma de recuperarlos, solo de
-        volver a crear otra rifa desde cero. Sus folios dejan de estar
-        ocupados, y cualquier boleto ya impreso de esta rifa pasa a decir
-        «boleto no válido» en cuanto se confirme.
-      </p>
-      <p class="nota" id="avisoActivaEliminar" hidden>
-        <strong>Es la rifa que el panel está manejando ahora mismo.</strong>
-      </p>
-      <label class="campo">
-        <span>Escribe el nombre exacto para confirmar</span>
-        <input type="text" id="confirmarNombreEliminar" autocomplete="off" spellcheck="false" />
-      </label>
-      <div class="fila">
-        <button class="boton peligro" id="btnConfirmarEliminar" disabled>Eliminar para siempre</button>
-        <button class="boton fantasma" id="btnCancelarEliminar">Cancelar</button>
-      </div>
-      <p class="mensaje" id="mensajeEliminar" role="status" aria-live="polite"></p>
-    </div>
-  </div>
-
-  <script src="assets/config.js?v=22"></script>
-  <script src="assets/youtube.js?v=22"></script>
+  <script src="assets/config.js?v=23"></script>
+  <script src="assets/youtube.js?v=23"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=22"></script>
+  <script src="assets/panel.js?v=23"></script>
 </body>
 </html>
