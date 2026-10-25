@@ -695,6 +695,42 @@ Deno.serve(async (req) => {
     return responder({ rifa: data });
   }
 
+  /**
+   * Borrar una rifa por completo: sus boletos, sus folios, su bitácora y la
+   * rifa misma. IRREVERSIBLE a propósito —no hay «recuperar», solo
+   * «volver a crear»—, así que se niega de plano si ya tiene ganador
+   * revelado: ese es justo el registro que `proteger_ganador` existe para
+   * no perder, y borrar la rifa entera sería la forma de saltárselo por
+   * la puerta de atrás. El nombre escrito tiene que calzar EXACTO: esa es
+   * la segunda confirmación, no un adorno del cuadro de diálogo.
+   *
+   * Lo que se pierde de verdad: sus folios dejan de estar ocupados —la
+   * regla de «un folio no se repite jamás» se hace comparando contra lo
+   * que quede en la tabla—, así que un boleto ya impreso de esta rifa
+   * pasa a decir «no válido» en cuanto se borra.
+   */
+  if (accion === "eliminar_rifa") {
+    const rifaPedida = String(cuerpo.rifa ?? "");
+    if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
+    const { data: r } = await db
+      .from("rifas").select("id, nombre, folio_ganador, activa").eq("id", rifaPedida).maybeSingle();
+    if (!r) return responder({ error: "rifa no encontrada" }, 404);
+    if (r.folio_ganador) {
+      return responder({ error: "esta rifa ya tiene ganador revelado: no se puede borrar" }, 400);
+    }
+    const nombreEscrito = String(cuerpo.confirmar_nombre ?? "");
+    if (nombreEscrito !== r.nombre) {
+      return responder({ error: "el nombre escrito no coincide con el de la rifa" }, 400);
+    }
+    // La bitácora no tiene borrado en cascada desde `rifas` a propósito en
+    // ningún otro camino: aquí sí, porque es la rifa ENTERA la que se va.
+    // `boletos`/`folios`/`vendedor_boletos` sí cascadean solos.
+    await db.from("sorteo_log").delete().eq("rifa_id", rifaPedida);
+    const { error } = await db.from("rifas").delete().eq("id", rifaPedida);
+    if (error) return responder({ error: error.message }, 400);
+    return responder({ eliminada: rifaPedida, era_activa: r.activa });
+  }
+
   /** Cuál rifa maneja el panel por omisión. Solo puede haber una. */
   if (accion === "activar") {
     const rifa = String(cuerpo.rifa ?? "");

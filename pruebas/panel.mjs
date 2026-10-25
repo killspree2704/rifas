@@ -1339,6 +1339,81 @@ await ctxD.close();
   await ctxV.close();
 }
 
+// ------------------------------------------------------------ ELIMINAR ----
+// Aparte y con su propio navegador: de verdad borra una rifa en el
+// servidor de prueba, y eso le movería el conteo a las pruebas de más
+// arriba si se colara en medio de ellas. «Rifa suspendida» no la usa
+// ninguna otra prueba — es justo la fija para que se pueda destruir aquí.
+{
+  console.log('\n== Eliminar una rifa ==');
+  const ctxE = await navegador.newContext({ serviceWorkers: 'block' });
+  const pe = await ctxE.newPage();
+  const errE = [];
+  pe.on('pageerror', (e) => errE.push(String(e)));
+  await pe.goto(BASE + '/panel.html');
+  await pe.fill('#clave', 'secreta');
+  await pe.click('#btnEntrar');
+  await pe.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pe.click('.pestana[data-panel="paneRifas"]');
+  await pe.waitForSelector('#listaRifas .rifa');
+
+  ok('una rifa con ganador revelado no enseña el botón de eliminar',
+     (await pe.locator('.rifa', { hasText: 'Rifa de estreno' }).getByText('Eliminar').count()) === 0);
+
+  // Se pone a manejar «Rifa suspendida» primero, para probar de paso que
+  // borrar justo la rifa activa deja dicho que no hay ninguna, en vez de
+  // adivinar otra en su lugar.
+  await pe.locator('.rifa', { hasText: 'Rifa suspendida' }).getByText('Manejar esta').click();
+  await pe.waitForFunction(() =>
+    document.getElementById('tituloRifa').textContent === 'Rifa suspendida', null, { timeout: 10000 });
+
+  const antes = (await pe.locator('#listaRifas .rifa').count());
+  await pe.locator('.rifa', { hasText: 'Rifa suspendida' }).getByText('Eliminar').click();
+  await pe.waitForSelector('#modalEliminar:not([hidden])');
+  ok('el cuadro de diálogo se abre con el nombre de la rifa',
+     (await pe.textContent('#nombreAEliminar')) === 'Rifa suspendida',
+     await pe.textContent('#nombreAEliminar'));
+  ok('avisa que es la rifa que se está manejando',
+     await pe.isVisible('#avisoActivaEliminar'));
+  ok('el botón de borrar nace apagado', await pe.isDisabled('#btnConfirmarEliminar'));
+
+  await pe.fill('#confirmarNombreEliminar', 'rifa suspendida');   // mal escrito
+  ok('un nombre que no calza letra por letra lo deja apagado',
+     await pe.isDisabled('#btnConfirmarEliminar'));
+
+  await pe.fill('#confirmarNombreEliminar', 'Rifa suspendida');   // exacto
+  ok('y escrito tal cual, se enciende', !(await pe.isDisabled('#btnConfirmarEliminar')));
+
+  await pe.click('#btnConfirmarEliminar');
+  await pe.waitForFunction(() =>
+    document.getElementById('mensajeRifas').textContent.includes('se eliminó para siempre'),
+    null, { timeout: 10000 });
+  ok('se borra y lo dice en voz alta', true);
+  ok('el cuadro de diálogo se cierra solo', await pe.isHidden('#modalEliminar'));
+  ok('desaparece del historial',
+     (await pe.locator('#listaRifas .rifa').count()) === antes - 1);
+  ok('ya no está, ni rastro del nombre',
+     !(await pe.textContent('#listaRifas')).includes('Rifa suspendida'));
+
+  // Era la que se estaba manejando: el panel no adivina otra, deja dicho
+  // que no hay ninguna — igual que con la base recién vaciada.
+  ok('al borrar la rifa activa, el panel deja de manejar cualquiera',
+     (await pe.textContent('#tituloRifa')) === 'Todavía no hay ninguna rifa',
+     await pe.textContent('#tituloRifa'));
+
+  // Cancelar también cierra, sin borrar nada. «Rifa de nueve números»: la
+  // única, de las que quedan sin ganador, que ninguna otra prueba revela.
+  await pe.locator('.rifa', { hasText: 'Rifa de nueve números' }).getByText('Eliminar').click();
+  await pe.waitForSelector('#modalEliminar:not([hidden])');
+  await pe.click('#btnCancelarEliminar');
+  ok('cancelar cierra el cuadro sin tocar nada', await pe.isHidden('#modalEliminar'));
+  ok('y la rifa sigue en el historial',
+     (await pe.textContent('#listaRifas')).includes('Rifa de nueve números'));
+
+  ok('sin errores de JavaScript al eliminar', errE.length === 0, errE.join(' | '));
+  await ctxE.close();
+}
+
 // ---------------------------------------------------------------- PERFIL ---
 // Aparte y con su propio navegador: esta prueba cambia la clave del servidor
 // de verdad, y si se colara en medio de las otras las dejaría fuera.

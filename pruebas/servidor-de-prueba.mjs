@@ -235,6 +235,19 @@ function sorteo(cuerpo) {
     rifas.forEach((r) => { r.activa = r.id === cuerpo.rifa; });
     return [200, { rifa: rifaDe(cuerpo.rifa) }];
   }
+  if (a === 'eliminar_rifa') {
+    const r = rifaDe(cuerpo.rifa);
+    if (!r) return [404, { error: 'rifa no encontrada' }];
+    if (r.folio_ganador) return [400, { error: 'esta rifa ya tiene ganador revelado: no se puede borrar' }];
+    if (String(cuerpo.confirmar_nombre ?? '') !== r.nombre) {
+      return [400, { error: 'el nombre escrito no coincide con el de la rifa' }];
+    }
+    const eraActiva = r.activa;
+    rifas.splice(rifas.indexOf(r), 1);
+    delete boletos[r.id];
+    vendedorBoletos = vendedorBoletos.filter((asig) => asig.rifa_id !== r.id);
+    return [200, { eliminada: r.id, era_activa: eraActiva }];
+  }
 
   // --- Vendedores: catálogo global, reparto por rifa ------------------------
   if (a === 'vendedores') {

@@ -14,10 +14,24 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=21" />
-  <link rel="stylesheet" href="assets/panel.css?v=21" />
+  <link rel="stylesheet" href="assets/estilos.css?v=22" />
+  <link rel="stylesheet" href="assets/panel.css?v=22" />
+  <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
+       primer pintado, para que no parpadee del tema de siempre al elegido. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('tema');
+        if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+      } catch (e) { /* modo privado: se queda con el del sistema */ }
+    })();
+  </script>
 </head>
 <body class="panel">
+  <button class="conmutador-tema" id="btnTema" type="button">
+    <span aria-hidden="true">🌙</span>
+  </button>
+
   <main class="tablero">
     <header>
       <p class="eyebrow">Panel de sorteo</p>
@@ -423,9 +437,40 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=21"></script>
-  <script src="assets/youtube.js?v=21"></script>
+  <!--
+    Eliminar una rifa: irreversible, así que la segunda confirmación no es
+    un botón más — hay que TECLEAR el nombre exacto para que el botón rojo
+    se encienda. Una rifa con ganador revelado ni llega a enseñar el botón
+    que abre esto: el servidor también lo rechaza, sin excepción.
+  -->
+  <div class="superposicion" id="modalEliminar" hidden>
+    <div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="tituloEliminar">
+      <h2 id="tituloEliminar">Eliminar «<span id="nombreAEliminar"></span>»</h2>
+      <p class="nota">
+        Esto borra la rifa, sus boletos, sus folios y su bitácora
+        <strong>para siempre</strong>: no hay forma de recuperarlos, solo de
+        volver a crear otra rifa desde cero. Sus folios dejan de estar
+        ocupados, y cualquier boleto ya impreso de esta rifa pasa a decir
+        «boleto no válido» en cuanto se confirme.
+      </p>
+      <p class="nota" id="avisoActivaEliminar" hidden>
+        <strong>Es la rifa que el panel está manejando ahora mismo.</strong>
+      </p>
+      <label class="campo">
+        <span>Escribe el nombre exacto para confirmar</span>
+        <input type="text" id="confirmarNombreEliminar" autocomplete="off" spellcheck="false" />
+      </label>
+      <div class="fila">
+        <button class="boton peligro" id="btnConfirmarEliminar" disabled>Eliminar para siempre</button>
+        <button class="boton fantasma" id="btnCancelarEliminar">Cancelar</button>
+      </div>
+      <p class="mensaje" id="mensajeEliminar" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <script src="assets/config.js?v=22"></script>
+  <script src="assets/youtube.js?v=22"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=21"></script>
+  <script src="assets/panel.js?v=22"></script>
 </body>
 </html>
