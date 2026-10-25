@@ -165,9 +165,6 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 
 ## Lo que queda pendiente
 
-- **Desplegar la función `sorteo` y el sitio de la rama de vendedores**, la
-  función primero: ver el pendiente anotado en CONTINUIDAD.md, con el detalle
-  de qué migración relajada hay que volver a cerrar después.
 - **Plantilla de diseño personalizada, cargable desde afuera.** Pedida junto
   con vendedores y la fecha de emisión, pero es la pieza más grande de las
   tres —un editor visual para posicionar QR, números, código y fechas sobre
