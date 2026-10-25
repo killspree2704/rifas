@@ -222,13 +222,11 @@ sí vive aquí es el del **vendedor** —de quien reparte, no de quien compra—
 es un alias que el organizador elige para llevar la cuenta del reparto, no un
 dato que alguien entregó para participar.
 
-> ⚠️ **`boletos.numero` está en NULLABLE a propósito, de forma temporal.** La
-> función `sorteo` desplegada en producción todavía no lo escribe al crear una
-> rifa —ese código vive en la rama `worktree-rifas-vendedores-plantillas` /
-> PR correspondiente, no desplegado—. Se relajó la columna para que crear una
-> rifa con la función VIEJA no falle mientras tanto. **En cuanto se despliegue
-> la función nueva, puede volver a ponerse NOT NULL** (y conviene hacerlo,
-> para que un futuro descuido no vuelva a dejar boletos sin número).
+**Resuelto el 25 de octubre de 2026:** `boletos.numero` pasó por NULLABLE
+unos días —mientras la función vieja seguía desplegada y no la escribía—, y
+ya volvió a NOT NULL en cuanto la función nueva (vendedores, fecha de
+emisión, eliminar rifa) se publicó. Se comprobó antes de endurecerla: los
+20 boletos que había la tenían todos, ninguno en blanco.
 
 ## ⚠️ El plan gratis PAUSA el proyecto a los 7 días sin actividad
 
@@ -497,16 +495,6 @@ número uno es el caché del navegador, no la base.
 
 ### Pendientes
 
-- **Desplegar la función `sorteo` y el sitio de la rama de vendedores
-  (`worktree-rifas-vendedores-plantillas` / su PR), en ese orden.** La función
-  AGREGA acciones nuevas (vendedores, `fijar_emision`) y columnas al `select`
-  de `rifas`/`boletos` que el panel nuevo necesita: por eso **la función va
-  primero**, siguiendo la regla de siempre. Ya se aplicaron las migraciones a
-  producción (tablas `vendedores`/`vendedor_boletos`, columnas
-  `boletos.numero` y `rifas.emision`) para que estén listas cuando el código
-  llegue; `boletos.numero` quedó deliberadamente NULLABLE mientras tanto —ver
-  el aviso en «En la base de datos»— y conviene volver a ponerla NOT NULL
-  después de desplegar.
 - **Supabase Pro para el mes del evento, por DOS razones.** La primera y más
   grave: **el plan gratis pausa el proyecto a los 7 días sin actividad** —ya
   pasó una vez— y los de pago no se pausan nunca; un proyecto pausado el día
