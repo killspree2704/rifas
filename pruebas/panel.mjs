@@ -1217,135 +1217,13 @@ await ctxD.close();
   await ctxN.close();
 }
 
-// ------------------------------------------------------------ VENDEDORES ---
-// Aparte y con su propio navegador: pasa a manejar «Rifa El Muerde Manos»
-// (dos boletos, números 1 y 2) para tener un lote chico y predecible.
-{
-  console.log('\n== Vendedores ==');
-  const ctxV = await navegador.newContext({ serviceWorkers: 'block' });
-  const pv = await ctxV.newPage();
-  const errV = [];
-  pv.on('pageerror', (e) => errV.push(String(e)));
-  await pv.goto(BASE + '/panel.html');
-  await pv.fill('#clave', 'secreta');
-  await pv.click('#btnEntrar');
-  await pv.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
-
-  await pv.click('.pestana[data-panel="paneRifas"]');
-  await pv.waitForSelector('#listaRifas .rifa');
-  // La sección de Diseño, que corre antes, puede haber dejado esta misma
-  // rifa activa: solo se toca el botón si hace falta.
-  const filaMM = pv.locator('.rifa', { hasText: 'Rifa El Muerde Manos' });
-  if (!(await filaMM.getAttribute('class')).includes('manejando')) {
-    await filaMM.getByText('Manejar esta').click();
-    await pv.waitForFunction(() =>
-      document.getElementById('tituloRifa').textContent === 'Rifa El Muerde Manos', null, { timeout: 10000 });
-  }
-
-  await pv.click('.pestana[data-panel="paneVendedores"]');
-  ok('hay una pestaña Vendedores y se abre', await pv.isVisible('#paneVendedores'));
-  ok('dice de cuál rifa es el reparto',
-     (await pv.textContent('#vendedoresDeQuien')).includes('Rifa El Muerde Manos'),
-     await pv.textContent('#vendedoresDeQuien'));
-  await pv.waitForFunction(() =>
-    document.getElementById('listaVendedores').textContent.includes('Todavía no hay ningún vendedor'));
-  ok('sin vendedores, lo dice en vez de enseñar una lista vacía', true);
-
-  // Alta de dos vendedores.
-  await pv.click('#cajaNuevoVendedor > summary');
-  await pv.fill('#vdNombre', 'Juan Pérez');
-  await pv.fill('#vdNota', 'Turno de la tarde');
-  await pv.click('#btnCrearVendedor');
-  await pv.waitForSelector('#listaVendedores .vendedor');
-  ok('el vendedor nuevo aparece en la lista',
-     (await pv.textContent('#listaVendedores')).includes('Juan Pérez'));
-  ok('y en el selector de asignar', (await pv.locator('#vdSelector option')).count() &&
-     (await pv.textContent('#vdSelector')).includes('Juan Pérez'));
-  ok('nace sin boletos', (await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).textContent())
-     .includes('Sin boletos asignados todavía'));
-
-  // Crear uno cierra el desplegable de alta: hay que volver a abrirlo.
-  await pv.click('#cajaNuevoVendedor > summary');
-  await pv.fill('#vdNombre', 'Ana López');
-  await pv.fill('#vdNota', '');
-  await pv.click('#btnCrearVendedor');
-  await pv.waitForFunction(() =>
-    document.getElementById('listaVendedores').textContent.includes('Ana López'));
-  ok('se pueden agregar varios vendedores', true);
-
-  // Lote consecutivo: el boleto Nº 1 para Juan.
-  await pv.selectOption('#vdSelector', { label: 'Juan Pérez' });
-  await pv.fill('#vdDesde', '1');
-  await pv.fill('#vdHasta', '1');
-  await pv.click('#btnAsignar');
-  await pv.waitForFunction(() =>
-    document.getElementById('mensajeAsignar').textContent.includes('Asignados: 1'));
-  ok('asigna un lote consecutivo', true);
-  ok('el resumen cuenta cuántos boletos tienen ya vendedor',
-     (await pv.textContent('#resumenAsignacion')) === '1 de 2 boletos ya tienen vendedor; 1 sin asignar.',
-     await pv.textContent('#resumenAsignacion'));
-  ok('la tarjeta de Juan ya muestra su número',
-     (await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).textContent()).includes('Nº 1'));
-
-  // Números sueltos: el boleto Nº 2 para Ana.
-  await pv.selectOption('#vdSelector', { label: 'Ana López' });
-  await pv.fill('#vdSueltos', '2');
-  await pv.click('#btnAsignar');
-  await pv.waitForFunction(() =>
-    document.getElementById('resumenAsignacion').textContent.includes('0 sin asignar'));
-  ok('asigna por números sueltos, y ya no queda ninguno libre', true);
-
-  // Reasignar: Ana se queda también con el Nº 1, que era de Juan. No se
-  // bloquea —es bitácora de reparto—, pero avisa a quién se lo quitó.
-  await pv.fill('#vdSueltos', '1');
-  await pv.click('#btnAsignar');
-  await pv.waitForFunction(() =>
-    document.getElementById('mensajeAsignar').textContent.includes('Se los quitaron'));
-  ok('reasignar un boleto no se bloquea',
-     (await pv.textContent('#mensajeAsignar')).includes('Nº 1') &&
-     (await pv.textContent('#mensajeAsignar')).includes('Juan Pérez'),
-     await pv.textContent('#mensajeAsignar'));
-  ok('y a Juan ya no le queda ese número',
-     (await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).textContent())
-       .includes('Sin boletos asignados todavía'));
-
-  // Un número que no existe en esta rifa de dos boletos.
-  await pv.fill('#vdSueltos', '1, 99');
-  await pv.click('#btnAsignar');
-  await pv.waitForFunction(() =>
-    document.getElementById('mensajeAsignar').textContent.includes('No existen en esta rifa'));
-  ok('avisa de los números que no existen en la rifa, sin tronar con los demás',
-     (await pv.textContent('#mensajeAsignar')).includes('99'), await pv.textContent('#mensajeAsignar'));
-
-  // Quitarle a Ana sus boletos: doble toque, como el resto del panel.
-  await pv.locator('.vendedor', { hasText: 'Ana López' }).getByText('Quitarle todos los boletos').click();
-  await pv.waitForFunction(() =>
-    document.getElementById('mensajeVendedores').textContent.includes('Toca otra vez'));
-  ok('pide confirmar antes de quitar boletos', true);
-  await pv.locator('.vendedor', { hasText: 'Ana López' }).getByText('Quitarle todos los boletos').click();
-  await pv.waitForFunction(() =>
-    document.getElementById('resumenAsignacion').textContent.includes('0 de 2'));
-  ok('quita los boletos y el resumen vuelve a cero', true);
-
-  // Archivar: deja de salir en el selector, sin tocar su historial.
-  await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).getByText('Archivar').click();
-  await pv.locator('.vendedor', { hasText: 'Juan Pérez' }).getByText('Archivar').click();
-  await pv.waitForFunction(() =>
-    !document.getElementById('listaVendedores').textContent.includes('Juan Pérez'));
-  ok('archivar lo saca de la lista y del selector',
-     !(await pv.textContent('#vdSelector')).includes('Juan Pérez'));
-
-  ok('sin errores de JavaScript en Vendedores', errV.length === 0, errV.join(' | '));
-  await ctxV.close();
-}
-
-// ------------------------------------------------------------ ELIMINAR ----
-// Aparte y con su propio navegador: de verdad borra una rifa en el
+// ------------------------------------------------------------ ARCHIVAR ----
+// Aparte y con su propio navegador: de verdad archiva una rifa en el
 // servidor de prueba, y eso le movería el conteo a las pruebas de más
 // arriba si se colara en medio de ellas. «Rifa suspendida» no la usa
-// ninguna otra prueba — es justo la fija para que se pueda destruir aquí.
+// ninguna otra prueba — es justo la fija para tocarla aquí.
 {
-  console.log('\n== Eliminar una rifa ==');
+  console.log('\n== Archivar una rifa ==');
   const ctxE = await navegador.newContext({ serviceWorkers: 'block' });
   const pe = await ctxE.newPage();
   const errE = [];
@@ -1357,60 +1235,54 @@ await ctxD.close();
   await pe.click('.pestana[data-panel="paneRifas"]');
   await pe.waitForSelector('#listaRifas .rifa');
 
-  ok('una rifa con ganador revelado no enseña el botón de eliminar',
-     (await pe.locator('.rifa', { hasText: 'Rifa de estreno' }).getByText('Eliminar').count()) === 0);
+  // Archivar no borra nada, así que sirve igual con ganador revelado que
+  // sin él: el botón no se esconde en ninguna tarjeta.
+  ok('una rifa con ganador revelado también enseña el botón de archivar',
+     (await pe.locator('.rifa', { hasText: 'Rifa de estreno' }).getByText('Archivar').count()) === 1);
 
   // Se pone a manejar «Rifa suspendida» primero, para probar de paso que
-  // borrar justo la rifa activa deja dicho que no hay ninguna, en vez de
+  // archivar justo la rifa activa deja dicho que no hay ninguna, en vez de
   // adivinar otra en su lugar.
   await pe.locator('.rifa', { hasText: 'Rifa suspendida' }).getByText('Manejar esta').click();
   await pe.waitForFunction(() =>
     document.getElementById('tituloRifa').textContent === 'Rifa suspendida', null, { timeout: 10000 });
 
   const antes = (await pe.locator('#listaRifas .rifa').count());
-  await pe.locator('.rifa', { hasText: 'Rifa suspendida' }).getByText('Eliminar').click();
-  await pe.waitForSelector('#modalEliminar:not([hidden])');
-  ok('el cuadro de diálogo se abre con el nombre de la rifa',
-     (await pe.textContent('#nombreAEliminar')) === 'Rifa suspendida',
-     await pe.textContent('#nombreAEliminar'));
-  ok('avisa que es la rifa que se está manejando',
-     await pe.isVisible('#avisoActivaEliminar'));
-  ok('el botón de borrar nace apagado', await pe.isDisabled('#btnConfirmarEliminar'));
-
-  await pe.fill('#confirmarNombreEliminar', 'rifa suspendida');   // mal escrito
-  ok('un nombre que no calza letra por letra lo deja apagado',
-     await pe.isDisabled('#btnConfirmarEliminar'));
-
-  await pe.fill('#confirmarNombreEliminar', 'Rifa suspendida');   // exacto
-  ok('y escrito tal cual, se enciende', !(await pe.isDisabled('#btnConfirmarEliminar')));
-
-  await pe.click('#btnConfirmarEliminar');
+  const botonArchivar = pe.locator('.rifa', { hasText: 'Rifa suspendida' }).getByText('Archivar');
+  await botonArchivar.click();
   await pe.waitForFunction(() =>
-    document.getElementById('mensajeRifas').textContent.includes('se eliminó para siempre'),
-    null, { timeout: 10000 });
-  ok('se borra y lo dice en voz alta', true);
-  ok('el cuadro de diálogo se cierra solo', await pe.isHidden('#modalEliminar'));
-  ok('desaparece del historial',
+    document.getElementById('mensajeRifas').textContent.includes('Toca otra vez para confirmar'));
+  ok('pide confirmar antes de archivar', true);
+  await botonArchivar.click();
+  await pe.waitForFunction(() =>
+    document.getElementById('mensajeRifas').textContent.includes('se archivó'), null, { timeout: 10000 });
+  ok('se archiva y lo dice en voz alta', true);
+  ok('desaparece del historial de siempre',
      (await pe.locator('#listaRifas .rifa').count()) === antes - 1);
-  ok('ya no está, ni rastro del nombre',
+  ok('ya no está ahí, ni rastro del nombre',
      !(await pe.textContent('#listaRifas')).includes('Rifa suspendida'));
 
   // Era la que se estaba manejando: el panel no adivina otra, deja dicho
   // que no hay ninguna — igual que con la base recién vaciada.
-  ok('al borrar la rifa activa, el panel deja de manejar cualquiera',
+  ok('al archivar la rifa activa, el panel deja de manejar cualquiera',
      (await pe.textContent('#tituloRifa')) === 'Todavía no hay ninguna rifa',
      await pe.textContent('#tituloRifa'));
 
-  // Cancelar también cierra, sin borrar nada. «Rifa de nueve números»: la
-  // única, de las que quedan sin ganador, que ninguna otra prueba revela.
-  await pe.locator('.rifa', { hasText: 'Rifa de nueve números' }).getByText('Eliminar').click();
-  await pe.waitForSelector('#modalEliminar:not([hidden])');
-  await pe.click('#btnCancelarEliminar');
-  ok('cancelar cierra el cuadro sin tocar nada', await pe.isHidden('#modalEliminar'));
-  ok('y la rifa sigue en el historial',
-     (await pe.textContent('#listaRifas')).includes('Rifa de nueve números'));
+  // Pero sigue en la base: aparece en «Archivadas», con sus folios intactos.
+  await pe.click('#cajaArchivadas > summary');
+  await pe.waitForFunction(() =>
+    document.getElementById('listaArchivadas').textContent.includes('Rifa suspendida'), null, { timeout: 10000 });
+  ok('sigue existiendo, solo que en la pila de archivadas', true);
 
-  ok('sin errores de JavaScript al eliminar', errE.length === 0, errE.join(' | '));
+  await pe.locator('#listaArchivadas .rifa', { hasText: 'Rifa suspendida' }).getByText('Reactivar').click();
+  await pe.waitForFunction(() =>
+    document.getElementById('mensajeRifas').textContent.includes('volvió al historial'), null, { timeout: 10000 });
+  ok('reactivar la regresa al historial de siempre',
+     (await pe.textContent('#listaRifas')).includes('Rifa suspendida'));
+  ok('y sale de la pila de archivadas',
+     !(await pe.textContent('#listaArchivadas')).includes('Rifa suspendida'));
+
+  ok('sin errores de JavaScript al archivar', errE.length === 0, errE.join(' | '));
   await ctxE.close();
 }
 

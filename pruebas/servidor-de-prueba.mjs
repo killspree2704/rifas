@@ -78,30 +78,24 @@ rifas.push({
   },
 });
 // Un boleto de papel con varios números. Igual que en el servidor de verdad:
-// el código es del boleto, no de cada folio. `numero` es el orden dentro de
-// su rifa, lo que un vendedor entiende como «boleto número tanto».
+// el código es del boleto, no de cada folio.
 const boletos = {
-  suspendida: [{ id: '9000000301', numero: 1, codigo: 'SSSS', folios: ['33301', '33302'] }],
+  suspendida: [{ id: '9000000301', codigo: 'SSSS', folios: ['33301', '33302'] }],
   pronto: [
-    { id: '9000000501', numero: 1, codigo: 'PPPP', folios: ['55501', '55502'] },
-    { id: '9000000502', numero: 2, codigo: 'QQQQ', folios: ['55503', '55504'] },
+    { id: '9000000501', codigo: 'PPPP', folios: ['55501', '55502'] },
+    { id: '9000000502', codigo: 'QQQQ', folios: ['55503', '55504'] },
   ],
   'mm-2026-09': [
-    { id: '9000001052', numero: 1, codigo: 'R5VR', folios: ['11052', '11053', '11054', '11055'] },
-    { id: '9000001060', numero: 2, codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
+    { id: '9000001052', codigo: 'R5VR', folios: ['11052', '11053', '11054', '11055'] },
+    { id: '9000001060', codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
   ],
-  'vieja-2025-01': [{ id: '9000009001', numero: 1, codigo: 'ZZZZ', folios: ['90001', '90002'] }],
+  'vieja-2025-01': [{ id: '9000009001', codigo: 'ZZZZ', folios: ['90001', '90002'] }],
   generosa: [{
-    id: '9000007001', numero: 1, codigo: 'NUE9',
+    id: '9000007001', codigo: 'NUE9',
     folios: ['70001', '70002', '70003', '70004', '70005', '70006', '70007', '70008', '70009'],
   }],
 };
 let contadorNuevas = 0;
-
-// --- vendedores: catálogo global + reparto por rifa -------------------------
-let vendedores = [];
-let vendedorBoletos = [];
-let contadorVendedores = 0;
 
 function rifaDe(id) { return rifas.find((r) => r.id === id); }
 
@@ -132,8 +126,9 @@ function sorteo(cuerpo) {
   }
 
   if (a === 'rifas') {
+    const verArchivadas = cuerpo.archivadas === true;
     return [200, {
-      rifas: rifas.map((r) => ({
+      rifas: rifas.filter((r) => !!r.archivada === verArchivadas).map((r) => ({
         ...r, boletos: (boletos[r.id] || []).length, folios: foliosDe(r.id).length,
       })),
       diseno_nuevo: disenoNuevo,
@@ -221,7 +216,7 @@ function sorteo(cuerpo) {
       const suyos = [];
       for (let j = 0; j < porBoleto; j++) suyos.push(String(siguiente++));
       lote.push({
-        id: String(8000000000 + contadorNuevas * 1000 + i), numero: i + 1,
+        id: String(8000000000 + contadorNuevas * 1000 + i),
         codigo: 'C' + String(i).padStart(3, '0'), folios: suyos,
       });
     }
@@ -235,97 +230,16 @@ function sorteo(cuerpo) {
     rifas.forEach((r) => { r.activa = r.id === cuerpo.rifa; });
     return [200, { rifa: rifaDe(cuerpo.rifa) }];
   }
-  if (a === 'eliminar_rifa') {
+  // Archivar NO borra nada: solo deja de salir en el historial de siempre.
+  // El borrado de verdad no tiene acción aquí a propósito — solo pasa a
+  // mano, directo en la base, cuando lo pide quien administra el proyecto.
+  if (a === 'archivar_rifa' || a === 'reactivar_rifa') {
     const r = rifaDe(cuerpo.rifa);
     if (!r) return [404, { error: 'rifa no encontrada' }];
-    if (r.folio_ganador) return [400, { error: 'esta rifa ya tiene ganador revelado: no se puede borrar' }];
-    if (String(cuerpo.confirmar_nombre ?? '') !== r.nombre) {
-      return [400, { error: 'el nombre escrito no coincide con el de la rifa' }];
-    }
+    r.archivada = a === 'archivar_rifa';
     const eraActiva = r.activa;
-    rifas.splice(rifas.indexOf(r), 1);
-    delete boletos[r.id];
-    vendedorBoletos = vendedorBoletos.filter((asig) => asig.rifa_id !== r.id);
-    return [200, { eliminada: r.id, era_activa: eraActiva }];
-  }
-
-  // --- Vendedores: catálogo global, reparto por rifa ------------------------
-  if (a === 'vendedores') {
-    const asignados = {};
-    if (cuerpo.rifa) {
-      for (const asig of vendedorBoletos) {
-        if (asig.rifa_id === cuerpo.rifa) asignados[asig.vendedor_id] = (asignados[asig.vendedor_id] || 0) + 1;
-      }
-    }
-    return [200, {
-      vendedores: vendedores.filter((v) => v.activo)
-        .map((v) => ({ ...v, asignados: asignados[v.id] || 0 })),
-    }];
-  }
-  if (a === 'crear_vendedor') {
-    const nombre = String(cuerpo.nombre || '').trim();
-    if (!nombre) return [400, { error: 'falta el nombre del vendedor' }];
-    const v = {
-      id: 'v' + (++contadorVendedores), nombre, nota: cuerpo.nota || '',
-      activo: true, creado_en: new Date().toISOString(),
-    };
-    vendedores.push(v);
-    return [200, { vendedor: v }];
-  }
-  if (a === 'archivar_vendedor' || a === 'reactivar_vendedor') {
-    const v = vendedores.find((x) => x.id === cuerpo.vendedor);
-    if (!v) return [404, { error: 'vendedor no encontrado' }];
-    v.activo = a === 'reactivar_vendedor';
-    return [200, { vendedor: v }];
-  }
-  if (a === 'asignar') {
-    const r2 = rifaDe(cuerpo.rifa);
-    if (!r2) return [400, { error: 'falta la rifa' }];
-    const v = vendedores.find((x) => x.id === cuerpo.vendedor);
-    if (!v) return [404, { error: 'vendedor no encontrado' }];
-    if (!v.activo) return [400, { error: 'ese vendedor está archivado' }];
-    const numeros = new Set();
-    if (Number.isInteger(cuerpo.desde) && Number.isInteger(cuerpo.hasta)) {
-      for (let n = cuerpo.desde; n <= cuerpo.hasta; n++) numeros.add(n);
-    }
-    (cuerpo.numeros || []).forEach((n) => { if (Number.isInteger(n)) numeros.add(n); });
-    const lote = boletos[r2.id] || [];
-    const existentes = lote.filter((b) => numeros.has(b.numero));
-    if (!existentes.length) return [400, { error: 'ninguno de esos números existe en esta rifa' }];
-    const faltantes = [...numeros].filter((n) => !existentes.some((b) => b.numero === n));
-    const reasignados = [];
-    existentes.forEach((b) => {
-      const previo = vendedorBoletos.find((asig) => asig.boleto_id === b.id);
-      if (previo && previo.vendedor_id !== v.id) {
-        reasignados.push({
-          numero: b.numero,
-          de: (vendedores.find((x) => x.id === previo.vendedor_id) || {}).nombre || null,
-        });
-      }
-      if (previo) { previo.vendedor_id = v.id; }
-      else { vendedorBoletos.push({ boleto_id: b.id, rifa_id: r2.id, numero: b.numero, vendedor_id: v.id }); }
-    });
-    return [200, { asignados: existentes.length, faltantes, reasignados }];
-  }
-  if (a === 'quitar_asignacion') {
-    const r2 = rifaDe(cuerpo.rifa);
-    if (!r2) return [400, { error: 'falta la rifa' }];
-    const numeros = new Set(cuerpo.numeros || []);
-    const antes = vendedorBoletos.length;
-    vendedorBoletos = vendedorBoletos.filter((asig) => !(asig.rifa_id === r2.id && numeros.has(asig.numero)));
-    return [200, { quitados: antes - vendedorBoletos.length }];
-  }
-  if (a === 'asignaciones') {
-    const r2 = rifaDe(cuerpo.rifa);
-    if (!r2) return [400, { error: 'falta la rifa' }];
-    const lista = vendedorBoletos
-      .filter((asig) => asig.rifa_id === r2.id)
-      .map((asig) => ({
-        numero: asig.numero, boleto: asig.boleto_id, vendedor: asig.vendedor_id,
-        vendedor_nombre: (vendedores.find((v) => v.id === asig.vendedor_id) || {}).nombre || null,
-      }))
-      .sort((x, y) => x.numero - y.numero);
-    return [200, { asignaciones: lista }];
+    if (r.archivada && r.activa) r.activa = false;
+    return [200, { id: r.id, archivada: r.archivada, era_activa: eraActiva }];
   }
   if (a === 'fijar_emision') {
     const r2 = rifaDe(cuerpo.rifa);

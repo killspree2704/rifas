@@ -194,15 +194,13 @@ El boleto de papel                El teléfono                    El panel
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió, el **diseño del boleto impreso** y, si se fijó, la **fecha de emisión** del lote (`emision`; nula usa `creada_en`, como siempre) |
-| `boletos` | El boleto de papel: su identificador (el del QR), su **número de orden dentro de la rifa** (`numero`, 1..cantidad — para hablar de lotes con un vendedor, distinto del identificador aleatorio) y su código. **Sin políticas: nadie lo lee desde fuera** |
-| `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas. **Sin políticas** |
+| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió, el **diseño del boleto impreso**, si se fijó la **fecha de emisión** del lote (`emision`; nula usa `creada_en`) y si está **archivada** (`archivada`; sacada del historial del panel, sin borrar nada) |
+| `boletos` | El boleto de papel: su identificador (el del QR) y su código. **Sin políticas: nadie lo lee desde fuera** |
+| `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas, **archivadas o no**. **Sin políticas** |
 | `sorteo_log` | Cada acción del panel con su hora, **y también cada número tecleado en «Revelar» que no pertenecía a la rifa** (`intento_rechazado`) — la prueba de que un papelito ajeno a lo impreso queda rechazado y registrado, no solo rechazado |
 | `panel_clave` | El hash de la clave. Sin políticas |
 | `panel_ajustes` | Lo que no cuelga de una rifa: hoy, el diseño que heredará la próxima. Sin políticas |
 | `llave_firma` | La llave HMAC. Sin políticas |
-| `vendedores` | Catálogo de quién reparte boletos. Vive fuera de cualquier rifa: el mismo equipo reparte en varios eventos. Sin políticas |
-| `vendedor_boletos` | A qué vendedor le toca cada boleto, por rifa. Clave primaria el boleto —un papel físico solo está en una mano—, así que reasignar sobrescribe la fila. No se bloquea ni con la rifa cerrada: es bitácora de reparto, no toca folios ni ganador. Sin políticas |
 
 | Función | Qué hace |
 | --- | --- |
@@ -212,21 +210,56 @@ El boleto de papel                El teléfono                    El panel
 Migraciones aplicadas, en orden: `esquema_rifas`, `realtime_rifas`,
 `endurecer_trigger`, `rifa_activa_y_llave`, `rifa_de_folio`, `transmision`,
 `rifa_de_folio_con_transmision`, `boleto_con_varios_folios`,
-`diseno_del_boleto`, `ajustes_del_panel`, `vendedores_y_numero_de_boleto`,
-`fecha_de_emision_del_lote`, `numero_de_boleto_nullable_hasta_desplegar`.
+`diseno_del_boleto`, `ajustes_del_panel`, `fecha_de_emision_del_lote`.
 
 **Aquí no hay ningún dato personal del comprador.** Ni nombres, ni teléfonos,
 ni correos. Solo números. Quién compró cada boleto lo lleva el vendedor en su
-libreta, y ese es el diseño, no una omisión. Lo único parecido a un nombre que
-sí vive aquí es el del **vendedor** —de quien reparte, no de quien compra—, y
-es un alias que el organizador elige para llevar la cuenta del reparto, no un
-dato que alguien entregó para participar.
+libreta, y ese es el diseño, no una omisión.
 
-**Resuelto el 25 de octubre de 2026:** `boletos.numero` pasó por NULLABLE
-unos días —mientras la función vieja seguía desplegada y no la escribía—, y
-ya volvió a NOT NULL en cuanto la función nueva (vendedores, fecha de
-emisión, eliminar rifa) se publicó. Se comprobó antes de endurecerla: los
-20 boletos que había la tenían todos, ninguno en blanco.
+## Archivar una rifa, y por qué no hay «borrar» en el panel
+
+Desde el historial de la pestaña Rifas, **«Archivar»** saca una rifa de la
+lista de siempre — sin teclear nada, con el doble toque de siempre para
+confirmar. **No borra nada**: sus boletos y folios se quedan en la base tal
+cual, y por eso sus números nunca se vuelven a repetir en otra rifa. Una
+rifa archivada se puede ver y traer de vuelta en el desplegable
+**«Archivadas»**, con su botón **«Reactivar»**.
+
+Sirve lo mismo con una rifa recién creada por error que con una ya cerrada y
+con ganador: archivar no tiene el candado del ganador, porque no toca ni el
+ganador ni ningún folio — solo deja de aparecer en la lista.
+
+**El borrado de verdad —el que sí libera folios para reusarlos, y que de
+verdad no tiene vuelta atrás— no vive en el panel.** Se decidió así a
+propósito: es la única manera de que un clic de más en el panel nunca
+destruya nada. Si hace falta de verdad (rifas de prueba, un ensayo que se
+coló en producción), se pide directo en el chat con quien mantiene el
+proyecto, y se hace a mano contra la base. Así pasó el 25 de octubre de
+2026: se crearon sin querer dos rifas de prueba («PRUEBA 1», «PRUEBA2») y,
+confirmado explícitamente, también se borró la primera rifa real de
+octubre para dejar la base en cero otra vez.
+
+## Dos rifas el mismo día
+
+**Sí se puede**, sin tocar nada del sistema: cada boleto impreso resuelve su
+propia rifa por sí solo, no existe «la rifa del día». Para un segundo sorteo
+una o dos horas después del primero:
+
+1. Antes del evento, **crea las dos rifas** desde la pestaña Rifas —cada una
+   con su propio lote de boletos y su propia hoja para imprimir—.
+2. Reparte los boletos de cada una por separado: a simple vista son
+   distintos (nombre, serie, diseño si se eligió uno distinto), pero lo que
+   de verdad los distingue es el folio impreso.
+3. Para el primer sorteo, **«Manejar esta»** sobre la primera rifa, transmite,
+   revela, cierra.
+4. Para el segundo, **«Manejar esta»** sobre la segunda —ahí el panel cambia
+   de cuál maneja, nada más—, y se repite el mismo guion.
+
+Lo único a cuidar: cada boleto trae impreso a qué rifa pertenece por su
+folio, así que repartir los boletos de la rifa equivocada en la mesa
+equivocada confundiría a quien participa, aunque el sistema en sí no se
+rompe. Conviene que el diseño o el nombre dejen clara la diferencia a
+simple vista.
 
 ## ⚠️ El plan gratis PAUSA el proyecto a los 7 días sin actividad
 
@@ -352,31 +385,6 @@ Todo desde el panel, sin tocar código ni publicar nada:
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
-## Vendedores: quién reparte los boletos
-
-Pestaña **«Vendedores»**, junto a Rifas. Es solo bitácora de reparto —de aquí
-no sale ningún dato de quien compra—, así que se puede corregir en cualquier
-momento sin que toque folios ni al ganador.
-
-1. **Agregar vendedor**: nombre (el alias que uses para identificarlo) y una
-   nota si quieres. Vive fuera de cualquier rifa: el mismo vendedor sirve para
-   la próxima también, no hay que darlo de alta cada vez.
-2. **Asignar boletos**, de dos formas, se pueden combinar en una sola llamada:
-   - **Lote consecutivo**: «del boleto Nº… al Nº…». El número es el orden del
-     boleto dentro de ESTA rifa (1 en adelante), no el identificador largo del
-     QR.
-   - **Números sueltos**: una lista separada por comas, para repartos que no
-     son un bloque parejo.
-3. **Reasignar no se bloquea.** Si un número que ya era de alguien se le da a
-   otro vendedor, el panel lo avisa —a quién se lo quitó— pero lo deja pasar:
-   es bitácora de reparto, no el candado del ganador. Un número que no existe
-   en la rifa también se avisa, sin tronar con los demás que sí existan.
-4. **Archivar** saca a un vendedor del selector sin tocar lo que ya tenía
-   asignado; **reactivar** lo regresa. No hay forma de borrarlo del todo: eso
-   rompería la pregunta «a quién le tocó este boleto» en una rifa pasada.
-5. El resumen arriba de la lista dice cuántos boletos de la rifa ya tienen
-   vendedor y cuántos siguen libres.
-
 ## Fecha de emisión del lote
 
 Antes, el boleto imprimía «Emisión» con la fecha en que la rifa se creó en el
@@ -393,58 +401,39 @@ imprenta otro—. Ahora:
 - La caducidad (cuántos días vale el boleto) sigue siendo el texto libre de
   siempre: esto solo tocó la fecha de EMISIÓN, no la de caducidad.
 
-## Estado al 14 de octubre de 2026
+## Estado al 25 de octubre de 2026
 
 Comprobado consultando Supabase, no de memoria.
 
-El proyecto está **ACTIVE_HEALTHY** —no pausado— y ya corrió **una rifa de
-verdad**, la primera desde que se vació la base.
+**La base está vacía de rifas, por segunda vez y a propósito.** La tarde del
+25 de octubre se crearon sin querer dos rifas de prueba («PRUEBA 1»,
+«PRUEBA2», 250 boletos cada una) mientras se probaba el panel, y de paso se
+decidió —confirmado explícitamente con el dueño, que entendía que esto
+incluía borrar un ganador ya revelado— borrar también «Rifa El muerde
+manos», la del 12 de octubre, para dejar todo en cero otra vez antes de
+usar el sistema de verdad.
 
 | Tabla | Filas |
 | --- | --- |
-| `rifas` | 1 |
-| `boletos` | 20 |
-| `folios` | 80 |
-| `sorteo_log` | 4 |
-| `panel_ajustes` | 1, **sin diseño guardado**: la próxima rifa nacería con el clásico |
+| `rifas` | 0 |
+| `boletos` | 0 |
+| `folios` | 0 |
+| `sorteo_log` | 0 |
+| `panel_ajustes` | 1, sin diseño guardado: la próxima rifa nace con el clásico |
 | `llave_firma` | 1 — intacta |
 | `panel_clave` | 1 — con la clave de arriba |
 
-La rifa que hay:
-
-| | |
-| --- | --- |
-| Nombre | Rifa El muerde manos |
-| Identificador | `rifa-el-muerde-manos-20261012` |
-| Serie | A |
-| Boletos / folios | 20 boletos, 4 números cada uno = 80 folios |
-| Precio | $20 |
-| Sorteo | 12-oct-2026, 03:00 UTC |
-| Estado | **cerrado, con ganador revelado: folio 76966** |
-| Diseño | ninguno guardado, así que salió con el boleto clásico |
-
-Qué significa en la práctica:
-
-- **Esos 80 folios ya no vuelven a salir nunca.** La regla de «un folio no se
-  repite jamás» compara contra la tabla `folios`, y esas filas se quedan.
-- **El ganador ya está revelado y la rifa cerrada**, así que esa rifa no se
-  puede modificar: el servidor rechaza cualquier cambio sobre una rifa con
-  ganador. Es a propósito.
-- **Sigue marcada como activa**, o sea que es la que el panel maneja por
-  omisión. Al crear la siguiente, «Manejar esta» la cambia.
-- **No tiene diseño guardado**, así que se imprimió con el boleto clásico. El
-  boleto vertical «Suertudito» llegó después; para usarlo en la siguiente, hay
-  que dejarlo elegido en la pestaña «Diseño» **antes** de crearla, que es
-  cuando se le copia.
+Ese borrado se hizo **a mano, directo en la base**, no desde el panel: el
+panel ya no tiene ni una acción para borrar de verdad (ver «Archivar una
+rifa» más arriba). Es el único camino que queda para un borrado real, y
+existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 ### Dónde está cada pieza hoy
 
 | | |
 | --- | --- |
-| Función de borde `sorteo` | **versión 14** |
-| Service worker | `rifa-v20` |
-| Etiquetas del panel | `?v=20` |
-| Pruebas de punta a punta | **204**, todas en verde |
+| Service worker | `rifa-v23` |
+| Etiquetas del panel | `?v=23` |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -464,15 +453,9 @@ De ahí salen las dos reglas de publicación que están arriba, en «Retomar des
 otro equipo». Si vuelve a aparecer un «undefined» en la hoja, el sospechoso
 número uno es el caché del navegador, no la base.
 
-### El resto del sistema
-
-- Las **10 migraciones** aplicadas; la función de borde `sorteo` en su
-  **versión 13**; la clave del panel y la llave de firma en su lugar.
-- El trabajador de servicio va en **`rifa-v18`**, a la par del `?v=18` de
-  `panel.html`.
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **187 comprobaciones** automáticas
+- El panel y el boleto pasan **221 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
@@ -508,10 +491,14 @@ número uno es el caché del navegador, no la base.
 - **Borrar la rama vieja** `claude/qr-code-raffle-ticket-ks2mxd` en el
   repositorio de Koppert. Su PR está cerrado y `main` quedó intacto, pero la
   rama sigue ahí.
-- **Dejar el diseño elegido ANTES de crear la próxima rifa.** La de octubre
-  salió con el boleto clásico porque no había diseño guardado cuando nació. El
-  diseño se copia a la rifa al crearla, no después: si se quiere el boleto
-  «Suertudito», hay que elegirlo en la pestaña «Diseño» y guardarlo primero.
+- **Dejar el diseño elegido ANTES de crear la próxima rifa.** El diseño se
+  copia a la rifa al crearla, no después: si se quiere el boleto
+  «Suertudito», hay que elegirlo en la pestaña «Diseño» y guardarlo primero,
+  o la rifa nace con el clásico.
+- **Reemplazar el boleto «Suertudito» dibujado por la foto real del cliente,
+  tal cual, con solo los datos variables encima (QR, números, código,
+  fechas).** Pedido el 25 de octubre: el dibujo en SVG se parece, pero no es
+  igual, y lo que hace falta es la imagen exacta. Pendiente de construir.
 - **Decidir si el adorno del boleto vertical se queda dibujado o calcado.** Se
   probaron los dos: el dibujado en SVG (el que está puesto) y uno calcado de la
   foto del boleto del cliente. Puestos lado a lado la diferencia es mínima

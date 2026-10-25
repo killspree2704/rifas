@@ -106,7 +106,7 @@
   // ------------------------------------------------------------------
   // Pestañas
   // ------------------------------------------------------------------
-  var PANES = ['paneSorteo', 'paneRifas', 'paneVendedores', 'paneVerificar', 'paneDiseno', 'panePerfil'];
+  var PANES = ['paneSorteo', 'paneRifas', 'paneVerificar', 'paneDiseno', 'panePerfil'];
 
   function abrirPestana(id) {
     PANES.forEach(function (p) { $(p).hidden = (p !== id); });
@@ -118,7 +118,6 @@
     });
     if (id === 'paneRifas') { cargarRifas(); }
     if (id === 'paneDiseno') { abrirDiseno(); }
-    if (id === 'paneVendedores') { cargarVendedores(); }
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('.pestana'), function (b) {
@@ -506,16 +505,31 @@
       });
       acciones.appendChild(papelitos);
 
-      // Con ganador revelado, el botón ni aparece: el servidor también lo
-      // rechaza, pero no tiene caso enseñar una puerta que va a dar a un
-      // error. Ese registro ya no se toca.
-      if (!r.folio_ganador) {
-        var eliminar = document.createElement('button');
-        eliminar.className = 'boton fantasma chico';
-        eliminar.textContent = 'Eliminar';
-        eliminar.addEventListener('click', function () { abrirEliminar(r); });
-        acciones.appendChild(eliminar);
-      }
+      // Archivar no borra nada —sus folios se quedan reservados para
+      // siempre—, así que no hace falta el candado del ganador: sirve
+      // igual para una rifa ya cerrada que para una que apenas se creó.
+      var archivar = document.createElement('button');
+      archivar.className = 'boton fantasma chico';
+      archivar.textContent = 'Archivar';
+      archivar.addEventListener('click', function () {
+        if (!confirmarArchivar('archivar «' + r.nombre + '». Sigue en la base, solo deja de salir aquí.')) {
+          return;
+        }
+        var eraManejada = r.id === rifaActual;
+        mensaje('Archivando…', '', 'mensajeRifas');
+        llamar('archivar_rifa', { rifa: r.id })
+          .then(function () {
+            if (eraManejada) {
+              rifaActual = null;
+              ultimoEstado = null;
+              $('tituloRifa').textContent = 'Todavía no hay ninguna rifa';
+              $('subtitulo').textContent = 'Crea una o maneja otra desde aquí abajo.';
+            }
+            return cargarRifas('«' + r.nombre + '» se archivó.');
+          })
+          .catch(function (e) { mensaje(e.message, 'error', 'mensajeRifas'); });
+      });
+      acciones.appendChild(archivar);
 
       fila.appendChild(acciones);
       caja.appendChild(fila);
@@ -540,69 +554,86 @@
   }
 
   // ------------------------------------------------------------------
-  // Eliminar una rifa: irreversible, con confirmación tecleada
+  // Archivar una rifa: no borra nada, solo la saca del historial
   // ------------------------------------------------------------------
-  // El botón rojo nace apagado: solo se enciende cuando lo que se tecleó
-  // calza letra por letra con el nombre de la rifa. Eso es la segunda
-  // confirmación, no el clic en sí — un clic de más no basta para borrar
-  // nada por accidente.
-  var rifaEnBorrado = null;
-
-  function abrirEliminar(r) {
-    rifaEnBorrado = r;
-    $('nombreAEliminar').textContent = r.nombre;
-    $('avisoActivaEliminar').hidden = r.id !== rifaActual;
-    $('confirmarNombreEliminar').value = '';
-    $('btnConfirmarEliminar').disabled = true;
-    mensaje('', '', 'mensajeEliminar');
-    $('modalEliminar').hidden = false;
-    $('confirmarNombreEliminar').focus();
+  // No hace falta teclear el nombre: a diferencia de un borrado de verdad,
+  // esto se puede deshacer con «Reactivar», así que basta con el mismo
+  // doble toque que se usa en el resto del panel.
+  var pendienteArchivar = null;
+  function confirmarArchivar(texto) {
+    if (pendienteArchivar === texto) { pendienteArchivar = null; return true; }
+    pendienteArchivar = texto;
+    mensaje('Vas a ' + texto + ' Toca otra vez para confirmar.', 'error', 'mensajeRifas');
+    setTimeout(function () { if (pendienteArchivar === texto) { pendienteArchivar = null; } }, 8000);
+    return false;
   }
 
-  function cerrarEliminar() {
-    $('modalEliminar').hidden = true;
-    rifaEnBorrado = null;
-  }
-
-  $('confirmarNombreEliminar').addEventListener('input', function () {
-    $('btnConfirmarEliminar').disabled = !rifaEnBorrado ||
-      $('confirmarNombreEliminar').value !== rifaEnBorrado.nombre;
+  // La lista de archivadas se pide solo al abrir el desplegable: nadie la
+  // necesita antes de preguntar por ella.
+  $('cajaArchivadas').addEventListener('toggle', function () {
+    if ($('cajaArchivadas').open) { cargarArchivadas(); }
   });
 
-  $('btnCancelarEliminar').addEventListener('click', cerrarEliminar);
-
-  // Tocar el fondo oscurecido cancela, igual que Escape; tocar el cuadro
-  // mismo no, para que un clic dentro del cuadro no lo cierre por error.
-  $('modalEliminar').addEventListener('click', function (ev) {
-    if (ev.target === $('modalEliminar')) { cerrarEliminar(); }
-  });
-  document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape' && !$('modalEliminar').hidden) { cerrarEliminar(); }
-  });
-
-  $('btnConfirmarEliminar').addEventListener('click', function () {
-    if (!rifaEnBorrado) { return; }
-    var r = rifaEnBorrado;
-    $('btnConfirmarEliminar').disabled = true;
-    mensaje('Eliminando…', '', 'mensajeEliminar');
-    llamar('eliminar_rifa', { rifa: r.id, confirmar_nombre: $('confirmarNombreEliminar').value })
+  function cargarArchivadas() {
+    mensaje('Cargando…', '', 'mensajeArchivadas');
+    llamar('rifas', { archivadas: true })
       .then(function (datos) {
-        cerrarEliminar();
-        // Era la que el panel manejaba: no se adivina otra en su lugar, se
-        // deja dicho que no hay ninguna, igual que con la base vacía.
-        if (datos.era_activa) {
-          rifaActual = null;
-          ultimoEstado = null;
-          $('tituloRifa').textContent = 'Todavía no hay ninguna rifa';
-          $('subtitulo').textContent = 'Crea una o maneja otra desde aquí abajo.';
-        }
-        return cargarRifas('«' + r.nombre + '» se eliminó para siempre.');
+        pintarArchivadas(datos.rifas || []);
+        mensaje('', '', 'mensajeArchivadas');
       })
-      .catch(function (e) {
-        $('btnConfirmarEliminar').disabled = false;
-        mensaje(e.message, 'error', 'mensajeEliminar');
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeArchivadas'); });
+  }
+
+  function pintarArchivadas(rifas) {
+    var caja = $('listaArchivadas');
+    caja.textContent = '';
+    if (!rifas.length) {
+      caja.textContent = 'No hay ninguna archivada.';
+      return;
+    }
+    rifas.forEach(function (r) {
+      var fila = document.createElement('article');
+      fila.className = 'rifa';
+
+      var cabeza = document.createElement('div');
+      cabeza.className = 'rifa-cabeza';
+      var nombre = document.createElement('strong');
+      nombre.textContent = r.nombre;
+      cabeza.appendChild(nombre);
+      fila.appendChild(cabeza);
+
+      var detalle = document.createElement('p');
+      detalle.className = 'nota';
+      detalle.textContent = 'Serie ' + r.serie + ' · ' + r.boletos + ' boletos · ' + fecha(r.fecha_sorteo);
+      fila.appendChild(detalle);
+
+      if (r.folio_ganador) {
+        var gana = document.createElement('p');
+        gana.className = 'ganador';
+        gana.textContent = 'Ganador: ' + r.serie + '-' + r.folio_ganador;
+        fila.appendChild(gana);
+      }
+
+      var acciones = document.createElement('div');
+      acciones.className = 'rifa-acciones';
+      var reactivar = document.createElement('button');
+      reactivar.className = 'boton';
+      reactivar.textContent = 'Reactivar';
+      reactivar.addEventListener('click', function () {
+        mensaje('Reactivando…', '', 'mensajeArchivadas');
+        llamar('reactivar_rifa', { rifa: r.id })
+          .then(function () {
+            cargarArchivadas();
+            return cargarRifas('«' + r.nombre + '» volvió al historial.');
+          })
+          .catch(function (e) { mensaje(e.message, 'error', 'mensajeArchivadas'); });
       });
-  });
+      acciones.appendChild(reactivar);
+      fila.appendChild(acciones);
+
+      caja.appendChild(fila);
+    });
+  }
 
   // ------------------------------------------------------------------
   // Nueva rifa
@@ -782,218 +813,6 @@
     var desfase = enZona - comoUtc;
     return new Date(comoUtc - desfase).toISOString();
   }
-
-  // ------------------------------------------------------------------
-  // Pestaña: vendedores
-  // ------------------------------------------------------------------
-  var vendedoresConocidos = [];    // el catálogo activo, con cuántos boletos tiene cada uno aquí
-  var asignacionesConocidas = [];  // el reparto completo de la rifa que se está manejando
-
-  function cargarVendedores() {
-    if (!rifaActual) {
-      $('vendedoresDeQuien').textContent =
-        'Todavía no hay ninguna rifa que manejar. Crea una en la pestaña «Rifas».';
-      $('listaVendedores').textContent = '';
-      $('resumenAsignacion').textContent = '';
-      vendedoresConocidos = [];
-      pintarSelectorVendedores();
-      return;
-    }
-    var r = rifaConocida(rifaActual);
-    $('vendedoresDeQuien').textContent = r
-      ? 'Repartiendo los boletos de «' + r.nombre + '», serie ' + r.serie + '.' : '';
-    mensaje('Cargando…', '', 'mensajeVendedores');
-    return Promise.all([llamar('vendedores'), llamar('asignaciones')])
-      .then(function (resultados) {
-        vendedoresConocidos = resultados[0].vendedores || [];
-        asignacionesConocidas = resultados[1].asignaciones || [];
-        pintarSelectorVendedores();
-        pintarVendedores();
-        mensaje('', '', 'mensajeVendedores');
-      })
-      .catch(function (e) { mensaje(e.message, 'error', 'mensajeVendedores'); });
-  }
-
-  function pintarSelectorVendedores() {
-    var sel = $('vdSelector');
-    var elegido = sel.value;
-    sel.textContent = '';
-    if (!vendedoresConocidos.length) {
-      var vacia = document.createElement('option');
-      vacia.textContent = 'Agrega un vendedor primero';
-      vacia.value = '';
-      sel.appendChild(vacia);
-      return;
-    }
-    vendedoresConocidos.forEach(function (v) {
-      var opcion = document.createElement('option');
-      opcion.value = v.id;
-      opcion.textContent = v.nombre + (v.asignados ? ' (' + v.asignados + ')' : '');
-      sel.appendChild(opcion);
-    });
-    if (elegido) { sel.value = elegido; }
-  }
-
-  /** «3, 4, 5, 8» se lee mejor como «Nº 3–5, Nº 8». */
-  function rangosDeTexto(numeros) {
-    var trozos = [];
-    var inicio = numeros[0];
-    var previo = numeros[0];
-    for (var i = 1; i <= numeros.length; i++) {
-      var actual = numeros[i];
-      if (actual === previo + 1) { previo = actual; continue; }
-      trozos.push(inicio === previo ? ('Nº ' + inicio) : ('Nº ' + inicio + '–' + previo));
-      inicio = actual;
-      previo = actual;
-    }
-    return trozos.join(', ');
-  }
-
-  function pintarVendedores() {
-    var caja = $('listaVendedores');
-    caja.textContent = '';
-
-    var totalBoletos = (rifaConocida(rifaActual) || {}).boletos || 0;
-    var sinAsignar = Math.max(0, totalBoletos - asignacionesConocidas.length);
-    $('resumenAsignacion').textContent = totalBoletos
-      ? asignacionesConocidas.length + ' de ' + totalBoletos + ' boletos ya tienen vendedor; ' +
-        sinAsignar + ' sin asignar.'
-      : '';
-
-    if (!vendedoresConocidos.length) {
-      caja.textContent = 'Todavía no hay ningún vendedor. Agrega el primero arriba.';
-      return;
-    }
-
-    // Agrupar el reparto por vendedor, para enseñar sus números juntos.
-    var porVendedor = {};
-    asignacionesConocidas.forEach(function (a) {
-      (porVendedor[a.vendedor] = porVendedor[a.vendedor] || []).push(a.numero);
-    });
-
-    vendedoresConocidos.forEach(function (v) {
-      var numeros = (porVendedor[v.id] || []).slice().sort(function (a, b) { return a - b; });
-
-      var fila = document.createElement('article');
-      fila.className = 'vendedor';
-
-      var cabeza = document.createElement('div');
-      cabeza.className = 'vendedor-cabeza';
-      var nombre = document.createElement('strong');
-      nombre.textContent = v.nombre;
-      cabeza.appendChild(nombre);
-      var cuenta = document.createElement('span');
-      cuenta.className = 'marca-estado';
-      cuenta.textContent = numeros.length + ' boleto' + (numeros.length === 1 ? '' : 's');
-      cabeza.appendChild(cuenta);
-      fila.appendChild(cabeza);
-
-      if (v.nota) {
-        var nota = document.createElement('p');
-        nota.className = 'nota';
-        nota.textContent = v.nota;
-        fila.appendChild(nota);
-      }
-
-      var rango = document.createElement('p');
-      rango.className = 'nota';
-      rango.textContent = numeros.length ? rangosDeTexto(numeros) : 'Sin boletos asignados todavía.';
-      fila.appendChild(rango);
-
-      var acciones = document.createElement('div');
-      acciones.className = 'vendedor-acciones';
-
-      if (numeros.length) {
-        var quitar = document.createElement('button');
-        quitar.className = 'boton fantasma chico';
-        quitar.textContent = 'Quitarle todos los boletos';
-        quitar.addEventListener('click', function () {
-          if (!confirmarVendedor('quitarle ' + numeros.length + ' boletos a «' + v.nombre + '».')) { return; }
-          llamar('quitar_asignacion', { numeros: numeros })
-            .then(function () { return cargarVendedores(); })
-            .catch(function (e) { mensaje(e.message, 'error', 'mensajeVendedores'); });
-        });
-        acciones.appendChild(quitar);
-      }
-
-      var archivar = document.createElement('button');
-      archivar.className = 'boton fantasma chico';
-      archivar.textContent = 'Archivar';
-      archivar.addEventListener('click', function () {
-        if (!confirmarVendedor('archivar a «' + v.nombre + '». Sus boletos ya asignados no se tocan.')) { return; }
-        llamar('archivar_vendedor', { vendedor: v.id })
-          .then(function () { return cargarVendedores(); })
-          .catch(function (e) { mensaje(e.message, 'error', 'mensajeVendedores'); });
-      });
-      acciones.appendChild(archivar);
-
-      fila.appendChild(acciones);
-      caja.appendChild(fila);
-    });
-  }
-
-  var pendienteVendedor = null;
-  function confirmarVendedor(texto) {
-    if (pendienteVendedor === texto) { pendienteVendedor = null; return true; }
-    pendienteVendedor = texto;
-    mensaje('Vas a ' + texto + ' Toca otra vez para confirmar.', 'error', 'mensajeVendedores');
-    setTimeout(function () { if (pendienteVendedor === texto) { pendienteVendedor = null; } }, 8000);
-    return false;
-  }
-
-  $('btnCrearVendedor').addEventListener('click', function () {
-    var nombre = $('vdNombre').value.trim();
-    var nota = $('vdNota').value.trim();
-    if (!nombre) { return mensaje('Ponle nombre al vendedor.', 'error', 'mensajeVendedorNuevo'); }
-    mensaje('Guardando…', '', 'mensajeVendedorNuevo');
-    llamar('crear_vendedor', { nombre: nombre, nota: nota })
-      .then(function () {
-        $('vdNombre').value = '';
-        $('vdNota').value = '';
-        $('cajaNuevoVendedor').open = false;
-        mensaje('', '', 'mensajeVendedorNuevo');
-        return cargarVendedores();
-      })
-      .catch(function (e) { mensaje(e.message, 'error', 'mensajeVendedorNuevo'); });
-  });
-
-  $('btnAsignar').addEventListener('click', function () {
-    var vendedorId = $('vdSelector').value;
-    if (!vendedorId) { return mensaje('Elige a quién se le asigna.', 'error', 'mensajeAsignar'); }
-
-    var desde = parseInt($('vdDesde').value, 10);
-    var hasta = parseInt($('vdHasta').value, 10);
-    var sueltos = $('vdSueltos').value.split(',')
-      .map(function (t) { return parseInt(t.trim(), 10); })
-      .filter(function (n) { return n > 0; });
-
-    var extra = { vendedor: vendedorId };
-    if (desde > 0 && hasta > 0) { extra.desde = desde; extra.hasta = hasta; }
-    if (sueltos.length) { extra.numeros = sueltos; }
-    if (!extra.desde && !extra.numeros) {
-      return mensaje('Escribe un lote (del/al) o números sueltos.', 'error', 'mensajeAsignar');
-    }
-
-    mensaje('Asignando…', '', 'mensajeAsignar');
-    llamar('asignar', extra)
-      .then(function (datos) {
-        var texto = 'Asignados: ' + datos.asignados + '.';
-        if (datos.faltantes && datos.faltantes.length) {
-          texto += ' No existen en esta rifa: ' + datos.faltantes.join(', ') + '.';
-        }
-        if (datos.reasignados && datos.reasignados.length) {
-          texto += ' Se los quitaron a quien los tenía: ' + datos.reasignados.map(function (x) {
-            return 'Nº ' + x.numero + ' (era de ' + (x.de || '—') + ')';
-          }).join(', ') + '.';
-        }
-        mensaje(texto, 'ok', 'mensajeAsignar');
-        $('vdDesde').value = '';
-        $('vdHasta').value = '';
-        $('vdSueltos').value = '';
-        return cargarVendedores();
-      })
-      .catch(function (e) { mensaje(e.message, 'error', 'mensajeAsignar'); });
-  });
 
   // ------------------------------------------------------------------
   // Hoja de boletos para imprimir
