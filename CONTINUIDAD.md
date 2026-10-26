@@ -510,6 +510,31 @@ lista de rifas—, así que vive en su propia acción del servidor
 dentro de `diseno`. No toca folios ni boletos, así que corregirlo sigue
 siendo válido aunque la rifa ya esté cerrada.
 
+## Estado al 26 de octubre de 2026
+
+Comprobado consultando Supabase, no de memoria.
+
+**La base está vacía de rifas, por tercera vez y a propósito.** Mientras se
+probaba en producción el flujo de admin y la transmisión en vivo (ver
+secciones de arriba), quedó creada «PRUEBA1» (250 boletos, estado `en_vivo`).
+El dueño pidió borrarla para dejar la base lista para la rifa real. El MCP de
+Supabase conectado a esta sesión **seguía sin poder autenticarse en segundo
+plano** —mismo problema de sesiones anteriores—, así que el borrado se hizo
+con el CLI de Supabase (`npx supabase db query --project-ref ... --linked
+--file ...`), que sí tenía sesión iniciada en esta máquina. Antes de borrar
+se listaron las llaves foráneas que de verdad apuntan a `rifas` (consultando
+`information_schema`, no adivinando): `folios`, `boletos` y `sorteo_log` —
+esta última casi se queda fuera, el primer intento de borrado falló por
+violar esa llave—. Orden correcto: `folios` → `boletos` → `sorteo_log` →
+`rifas`, confirmado con un conteo antes y después.
+
+| Tabla | Filas |
+| --- | --- |
+| `rifas` | 0 |
+| `boletos` | 0 |
+| `folios` | 0 |
+| `sorteo_log` | 0 |
+
 ## Estado al 25 de octubre de 2026
 
 Comprobado consultando Supabase, no de memoria.
