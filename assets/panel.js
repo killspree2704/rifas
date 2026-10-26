@@ -661,35 +661,56 @@
     return (n >= 1 && n <= 10) ? n : 4;
   }
 
+  /** El tope escrito a mano, o nulo si se deja vacío (modo de siempre). */
+  function topeEscrito() {
+    var n = parseInt($('nvTope').value, 10);
+    return n > 0 ? n : null;
+  }
+
   function resumenNueva() {
     var cantidad = parseInt($('nvCantidad').value, 10);
-    var digitos = parseInt($('nvDigitos').value, 10) || 5;
+    var digitos = parseInt($('nvDigitos').value, 10) || 4;
     var porBoleto = foliosPorBoleto();
-    var tope = Math.floor((Math.pow(10, digitos) - Math.pow(10, digitos - 1)) * 0.3);
-    // Lo que tiene que caber en los dígitos son los NÚMEROS, no los boletos:
-    // con 4 por boleto, 500 boletos son 2000 folios.
+    var elegido = topeEscrito();
+    var usaTope = elegido !== null;
+    // Sin tope: el 30% de siempre, para que el número siga siendo raro de
+    // adivinar. Con tope: el límite de verdad del sorteo de canastas.
+    var tope = usaTope ? elegido : Math.floor((Math.pow(10, digitos) - Math.pow(10, digitos - 1)) * 0.3);
     var topeBoletos = Math.floor(tope / porBoleto);
     var caja = $('cuentaNueva');
 
+    if (usaTope && elegido > Math.pow(10, digitos) - 1) {
+      caja.textContent = 'El tope ' + elegido.toLocaleString('es-MX') + ' no cabe en ' + digitos +
+        ' dígitos (el máximo con ' + digitos + ' dígitos es ' +
+        (Math.pow(10, digitos) - 1).toLocaleString('es-MX') + '). Sube los dígitos o baja el tope.';
+      caja.className = 'mensaje error';
+      return;
+    }
+
     if (!(cantidad > 0)) {
-      caja.textContent = 'Con ' + digitos + ' dígitos y ' + porBoleto +
-        ' números por boleto caben hasta ' + topeBoletos.toLocaleString('es-MX') + ' boletos.';
+      caja.textContent = (usaTope ? 'Con tope ' + tope.toLocaleString('es-MX')
+                                   : 'Con ' + digitos + ' dígitos') +
+        ' y ' + porBoleto + ' números por boleto caben hasta ' +
+        topeBoletos.toLocaleString('es-MX') + ' boletos.';
       caja.className = 'nota';
       return;
     }
     var totalFolios = cantidad * porBoleto;
     if (totalFolios > tope) {
       caja.textContent = cantidad.toLocaleString('es-MX') + ' boletos de ' + porBoleto +
-        ' números son ' + totalFolios.toLocaleString('es-MX') + ' folios, y no caben en ' +
-        digitos + ' dígitos (el tope es ' + tope.toLocaleString('es-MX') +
-        '). Sube los dígitos del folio o baja los números por boleto.';
+        ' números son ' + totalFolios.toLocaleString('es-MX') + ' folios, y no caben en el tope de ' +
+        tope.toLocaleString('es-MX') + '. ' +
+        (usaTope ? 'Sube el tope o baja la cantidad.' : 'Sube los dígitos del folio o baja los números por boleto.');
       caja.className = 'mensaje error';
       return;
     }
     var precio = parseFloat($('nvPrecio').value);
     var texto = 'Se van a generar ' + cantidad.toLocaleString('es-MX') +
       ' boletos con ' + porBoleto + ' números cada uno: ' +
-      totalFolios.toLocaleString('es-MX') + ' folios de ' + digitos + ' dígitos';
+      totalFolios.toLocaleString('es-MX') + ' folios' +
+      (usaTope
+        ? (', de 1 a ' + tope.toLocaleString('es-MX') + ' — SÍ se repetirán en la siguiente rifa')
+        : (' de ' + digitos + ' dígitos, únicos para toda la vida del proyecto'));
     if (precio > 0) {
       texto += ', que a $' + precio + ' suman $' +
         (precio * cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 });
@@ -698,7 +719,7 @@
     caja.className = 'nota';
   }
 
-  ['nvCantidad', 'nvDigitos', 'nvPrecio', 'nvFoliosPorBoleto'].forEach(function (id) {
+  ['nvCantidad', 'nvDigitos', 'nvTope', 'nvPrecio', 'nvFoliosPorBoleto'].forEach(function (id) {
     $(id).addEventListener('input', resumenNueva);
   });
   resumenNueva();
@@ -734,6 +755,7 @@
       cantidad: cantidad,
       digitos: digitos,
       folios_por_boleto: porBoleto,
+      tope: topeEscrito(),
       precio: precio === '' ? null : Number(precio),
       // Mediodía y no medianoche: a medianoche, en una zona con desfase
       // negativo, convertir a UTC puede caer en el día anterior y el boleto
@@ -766,12 +788,18 @@
       });
   });
 
-  /** Deja el formulario listo para la siguiente, sin arrastrar lo anterior. */
+  /**
+   * Deja el formulario listo para la siguiente, sin arrastrar lo anterior.
+   *
+   * `nvTope` NO se limpia a propósito: refleja las canastas físicas que ya
+   * se tienen armadas, y esas no cambian de una rifa a la siguiente —solo
+   * cuando de verdad se le agrega una bolita más a una canasta—.
+   */
   function limpiarFormularioNueva() {
     ['nvNombre', 'nvSerie', 'nvFecha', 'nvFechaEmision', 'nvCantidad', 'nvPrecio'].forEach(function (id) {
       $(id).value = '';
     });
-    $('nvDigitos').value = '5';
+    $('nvDigitos').value = '4';
     $('nvFoliosPorBoleto').value = '4';
     resumenNueva();
     mensaje('', '', 'mensajeNueva');

@@ -151,8 +151,11 @@
       <details class="bloque" id="cajaNueva">
         <summary><strong>Nueva rifa</strong></summary>
         <p class="nota">
-          El servidor inventa los folios y los firma. Nunca repite uno usado en
-          otra rifa, así que un boleto viejo jamás pasa por nuevo.
+          El servidor inventa los folios y los firma. Sin tope, nunca repite
+          uno usado en otra rifa; con tope (el sorteo de canastas con bolitas
+          por dígito), los números sí se repiten entre rifas a propósito —lo
+          que distingue un boleto de otro es su código firmado, no que el
+          número sea raro.
         </p>
         <div class="rejilla-campos">
           <label class="campo ancho">
@@ -187,7 +190,16 @@
           </label>
           <label class="campo">
             <span>Dígitos del folio</span>
-            <input type="number" id="nvDigitos" min="4" max="8" value="5" />
+            <input type="number" id="nvDigitos" min="4" max="8" value="4" />
+          </label>
+          <label class="campo">
+            <span>Tope del sorteo (opcional)</span>
+            <input type="number" id="nvTope" min="1" inputmode="numeric" placeholder="ej. 999, 1999" />
+            <small class="ayuda">El número más alto que puede caer en el sorteo de
+              canastas (una por dígito). Con 999, los folios van de 0001 a 0999, y
+              SÍ se repiten en la siguiente rifa — adrede. Vacío usa el modo de
+              siempre: números grandes y al azar, únicos para toda la vida del
+              proyecto.</small>
           </label>
           <label class="campo">
             <span>Números por boleto</span>

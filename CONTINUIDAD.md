@@ -212,6 +212,13 @@ Migraciones aplicadas, en orden: `esquema_rifas`, `realtime_rifas`,
 `rifa_de_folio_con_transmision`, `boleto_con_varios_folios`,
 `diseno_del_boleto`, `ajustes_del_panel`, `fecha_de_emision_del_lote`.
 
+> El 25 de octubre de 2026 se aplicaron dos cambios más directo por SQL
+> —composite PK de `folios` para el sorteo de canastas, y `rifas.archivada`—
+> sin pasar por el flujo de migraciones con nombre de siempre, porque el
+> MCP de Supabase estaba sin autenticar en ese momento. El esquema real ya
+> los tiene; lo que falta es el registro con nombre en el historial de
+> migraciones, que no afecta a nada en producción.
+
 **Aquí no hay ningún dato personal del comprador.** Ni nombres, ni teléfonos,
 ni correos. Solo números. Quién compró cada boleto lo lleva el vendedor en su
 libreta, y ese es el diseño, no una omisión.
@@ -221,8 +228,11 @@ libreta, y ese es el diseño, no una omisión.
 Desde el historial de la pestaña Rifas, **«Archivar»** saca una rifa de la
 lista de siempre — sin teclear nada, con el doble toque de siempre para
 confirmar. **No borra nada**: sus boletos y folios se quedan en la base tal
-cual, y por eso sus números nunca se vuelven a repetir en otra rifa. Una
-rifa archivada se puede ver y traer de vuelta en el desplegable
+cual. En el modo de siempre (sin tope), eso es lo que hace que sus números
+nunca se repitan en otra rifa; en el sorteo de canastas (con tope) los
+números SÍ se repiten entre rifas a propósito, archivadas o no — ver
+«Sorteo de canastas» más abajo. Una rifa archivada se puede ver y traer de
+vuelta en el desplegable
 **«Archivadas»**, con su botón **«Reactivar»**.
 
 Sirve lo mismo con una rifa recién creada por error que con una ya cerrada y
@@ -321,21 +331,59 @@ Si algo sale mal con la red: la pantalla del participante funciona con el
 reloj del teléfono y se guarda sola para abrirse sin conexión. Lo único que
 necesita señal es enterarse del ganador.
 
+## Sorteo de canastas: números chicos que se repiten entre rifas
+
+Pedido el 25 de octubre de 2026, para que el sorteo físico se parezca al de
+una rifa tradicional: una canasta por dígito, con sus bolitas, en vez de un
+solo bombo con un papelito por boleto vendido. Por ejemplo, con 4 canastas:
+la primera con bolitas 0 y 1 (tope 1999), las otras tres con las diez
+bolitas 0-9 cada una. Sacar una bolita de cada canasta arma el número
+ganador, dígito por dígito.
+
+**Cómo se usa:** al crear la rifa, campo **«Tope del sorteo»**. Puesto un
+número (por ejemplo 999, o 1999 si la primera canasta ya trae una bolita
+más), los folios salen de 1 a ese tope, con tantos ceros a la izquierda
+como hagan falta. **Vacío, sigue el modo de siempre**: números grandes y al
+azar, únicos para toda la vida del proyecto —el de antes de este cambio.
+
+**Lo que cambia de fondo:** con tope puesto, el folio **ya no es único
+entre rifas, a propósito** —el mismo 0347 puede salir en esta rifa y en la
+siguiente—. Lo que antes impedía la falsificación era que el número fuera
+raro de adivinar entre 90,000 posibles; ahora lo sigue impidiendo el
+**código firmado** que lleva cada boleto (el de 4 letras, HMAC, imposible de
+calcular sin la llave del servidor), que no depende para nada de qué tan
+grande sea el folio. Por eso la pantalla «Verificar» del panel, cuando
+alguien solo trae el número suelto —sin el identificador largo del QR—,
+ahora busca la pareja **folio + código** entre TODAS las rifas, no solo
+dentro de una: que dos boletos de rifas distintas compartan folio Y código
+firmado es, en la práctica, imposible.
+
+**Cuántos boletos caben:** el tope ES el límite real —no hay margen extra
+como en el modo grande—. Con tope 999 y 4 números por boleto, caben 999÷4 ≈
+249 boletos. Si se agrega una bolita más a la primera canasta (tope 1999),
+caben hasta 499. El panel avisa si lo que se pide no cabe en el tope, antes
+de generar nada.
+
+**El campo «Tope» no se limpia solo entre una rifa y la siguiente**: representa
+las canastas físicas que ya se tienen armadas, que no cambian de una rifa a
+otra —solo cuando de verdad se le agrega una bolita más a alguna—.
+
 ## Para la siguiente rifa
 
 Todo desde el panel, sin tocar código ni publicar nada:
 
 1. **Rifas → Nueva rifa**: nombre, serie, día y hora, cuántos boletos,
-   **cuántos números lleva cada boleto** (4 de omisión), dígitos del folio y
-   precio si quieres llevar la cuenta. Ojo con el tope: lo que tiene que caber
-   en los dígitos son los *números*, no los boletos. Con 4 por boleto y 5
-   dígitos caben 6,750 boletos; el panel te lo dice antes de generar nada.
+   **cuántos números lleva cada boleto** (4 de omisión), dígitos del folio,
+   **tope del sorteo** (ver «Sorteo de canastas» más abajo) y precio si
+   quieres llevar la cuenta. Sin tope, lo que tiene que caber en los dígitos
+   son los *números*, no los boletos: con 4 por boleto y 4 dígitos caben 675
+   boletos; el panel te lo dice antes de generar nada.
 2. Se abre la hoja: **Imprimir → Guardar como PDF**, y de ahí a la imprenta.
 3. **Papelitos de tómbola**, en la misma fila del historial: un papelito por
-   cada número, listos para recortar y echar al bombo. Salen de la misma
-   consulta que los boletos, así que no puede sobrar ni faltar ninguno.
-   **Cuenta las hojas antes de echarlos**: cada una dice cuál es y cuántas
-   son, y una hoja que no se imprimió es un boleto que jamás podría ganar.
+   cada número, listos para recortar y echar a una tómbola de un solo bombo.
+   Salen de la misma consulta que los boletos, así que no puede sobrar ni
+   faltar ninguno. **Si usas el sorteo de canastas (tope puesto), esto no
+   hace falta**: el sorteo ya no es de un solo bombo, es dígito por dígito.
 4. **Manejar esta** para que el panel opere esa rifa.
 5. Si quieres darle aspecto, **pestaña «Diseño»**. Lo primero que se elige
    ahí es la **disposición**, que es la plantilla entera:
@@ -455,7 +503,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **221 comprobaciones** automáticas
+- El panel y el boleto pasan **226 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

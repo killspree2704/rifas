@@ -73,19 +73,39 @@ política, así que los códigos no salen.
 **8. El panel nunca borra de verdad.**
 *Añadida el 25 de octubre de 2026.* «Archivar» una rifa solo le apaga un
 indicador (`archivada`) y la saca de la lista de siempre: sus boletos y
-folios se quedan exactamente donde estaban, así que la regla de «un folio
-no se repite jamás» sigue cumpliéndose contra rifas archivadas igual que
-contra las que se ven. El borrado de verdad —el que sí libera folios, y que
-de verdad no tiene vuelta atrás— **no tiene ninguna acción en el panel ni en
-la función de borde**. Solo pasa a mano, directo en la base, cuando quien
-administra el proyecto lo pide explícitamente fuera de la aplicación. Es la
-misma filosofía que la decisión 4 —el ganador no se puede tocar ni con la
-llave de servicio—, pero mirando al revés: ahí se protege un hecho del
-sorteo; aquí se protege a quien usa el panel de su propio clic de más. La
-primera versión de esto sí tenía un borrado real expuesto en el panel —con
-confirmación tecleada y todo—, pero se cambió antes de desplegarse de
-verdad a producción: guardar los datos para siempre y dejar el borrado
-fuera del alcance de un clic resultó ser la decisión correcta.
+folios se quedan exactamente donde estaban. El borrado de verdad —el que sí
+libera folios, y que de verdad no tiene vuelta atrás— **no tiene ninguna
+acción en el panel ni en la función de borde**. Solo pasa a mano, directo en
+la base, cuando quien administra el proyecto lo pide explícitamente fuera de
+la aplicación. Es la misma filosofía que la decisión 4 —el ganador no se
+puede tocar ni con la llave de servicio—, pero mirando al revés: ahí se
+protege un hecho del sorteo; aquí se protege a quien usa el panel de su
+propio clic de más. La primera versión de esto sí tenía un borrado real
+expuesto en el panel —con confirmación tecleada y todo—, pero se cambió
+antes de desplegarse de verdad a producción: guardar los datos para siempre
+y dejar el borrado fuera del alcance de un clic resultó ser la decisión
+correcta.
+
+**9. El folio es único POR RIFA, no entre todas — y lo que impide
+falsificar un boleto es el código firmado, no que el número sea raro.**
+*Añadida el 25 de octubre de 2026,* al agregar el sorteo de canastas (una
+bolita por dígito, números de 1 a un tope — ver CONTINUIDAD.md). Hasta
+entonces, el folio era único para toda la vida del proyecto, y esa rareza
+—90,000 números posibles, usando como máximo el 30%— era parte de lo que
+hacía difícil adivinar uno real. Pedir números chicos y tradicionales
+(0001 a 0999, por ejemplo) rompe esa rareza a propósito: con un tope de
+999 solo hay 999 posibilidades, y la próxima rifa va a volver a usar el
+mismo rango. La pregunta de fondo era si eso debilitaba la seguridad del
+sistema, y la respuesta es que no: el código de 4 caracteres que lleva
+cada boleto, firmado con HMAC sobre su identificador, nunca dependió del
+tamaño del folio para ser imposible de adivinar. Lo único que cambió de
+verdad es que `folios` pasó de tener el folio solo como llave primaria a
+tener `(rifa_id, folio)` compuesta, y que verificar un boleto solo con su
+número —sin el identificador largo del QR— ahora busca la pareja
+**folio + código** entre todas las rifas en vez de suponer que el folio ya
+identifica una sola. Que dos boletos de rifas distintas compartan folio Y
+código firmado es, en la práctica, tan improbable como siempre lo fue
+adivinar un código a secas.
 
 ## Lo que se intentó y no funcionó
 
@@ -129,6 +149,7 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 | **Confiar en `new URL(...).pathname` para rutas de archivo en Windows** | Las pruebas (`panel.mjs`, `servidor-de-prueba.mjs`) usaban `.pathname` de una `file://` para encontrar sus propios archivos. En Linux/Mac da una ruta usable tal cual; en Windows da `/C:/Users/…`, con una barra antes de la unidad, y pasada a `spawn` o `require` sin más se resuelve como `C:\C:\Users\…` — una ruta que no existe. `fileURLToPath` sí entiende la diferencia entre sistemas; `.pathname` no. Sin este cambio, las pruebas no corrían en Windows aunque el código sí funcionara |
 | **Vendedores: construido, probado, desplegado, y quitado días después** | La pestaña «Vendedores» —catálogo, asignar por lote o números sueltos, reasignar sin bloqueo— llegó a producción completa y probada (242 pruebas en verde). El dueño del proyecto, ya usándola, se dio cuenta de que la logística real —dos rifas el mismo día, un par de horas de diferencia, boletos que se reparten en montones, no en listas numeradas— no se parecía a cómo el reparto se había modelado: la pieza complicaba más de lo que ayudaba. Se quitó entera: tablas, acciones, pestaña, pruebas. Ninguna dato se perdió —ya no había vendedores de verdad dados de alta—, y la columna `boletos.numero`, que solo existía para esto, se fue con ella. La lección no es «no construir»: es que una pieza bien hecha igual puede no ser la pieza correcta, y enterarse de eso a veces solo pasa usándola de verdad, no diseñándola |
 | **Un borrado real, con confirmación tecleada, expuesto en el panel** | Se construyó primero así: «Eliminar» con candado de ganador revelado y un cuadro de diálogo que exigía teclear el nombre exacto. Antes de que el dueño lo usara de verdad para limpiar rifas de prueba, se dio cuenta de una consecuencia que el diseño no había puesto sobre la mesa: borrar de verdad libera los folios, y ese era justo el peligro que el proyecto llevaba meses evitando. Se cambió a «archivar» —ver decisión 8— antes de que causara daño. El borrado real que sí hizo falta esa tarde se hizo a mano, fuera del panel, con el dueño confirmando cada rifa por su nombre en el chat |
+| **Códigos de boleto que se repetían entre rifas, pero solo en el servidor de prueba** | Al probar que el sorteo de canastas distingue folios repetidos por su código, dos rifas de prueba distintas generaron boletos con el MISMO código («C000»): el servidor de prueba numeraba los códigos otra vez desde cero en cada rifa nueva, cosa que el servidor real nunca hace —ahí el código sale de firmar el identificador del boleto, que es único para siempre—. La prueba lo cachó sola: el segundo «verificar» nunca cambiaba de rifa. Se corrigió metiendo el número de rifa en el código de prueba también. Sin esta prueba exacta —mismo folio, dos rifas, cotejar que cada código apunte a la suya— el hueco no se habría visto: por fuera, cualquier código de 4 letras se ve igual de válido |
 
 ## Cómo llegó a ser lo que es
 

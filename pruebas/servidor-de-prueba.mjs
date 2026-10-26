@@ -105,9 +105,15 @@ function foliosDe(id) {
 }
 
 /** De un folio al boleto de papel que lo lleva, en cualquier rifa. */
-function boletoConFolio(folio) {
+/**
+ * El folio ya no es único entre rifas —el sorteo de rango chico lo repite a
+ * propósito—, así que puede haber VARIOS boletos, en rifas distintas, con el
+ * mismo número. El código es lo que de verdad desempata: se busca el que
+ * calce con los dos a la vez, igual que hace el servidor real.
+ */
+function boletoConFolio(folio, codigo) {
   for (const [id, lote] of Object.entries(boletos)) {
-    const hit = lote.find((b) => b.folios.includes(folio));
+    const hit = lote.find((b) => b.folios.includes(folio) && b.codigo === codigo);
     if (hit) return [id, hit];
   }
   return [null, null];
@@ -188,7 +194,7 @@ function sorteo(cuerpo) {
         if (b) { id = rid; hit = b; break; }
       }
     } else {
-      [id, hit] = boletoConFolio(cuerpo.folio);
+      [id, hit] = boletoConFolio(cuerpo.folio, String(cuerpo.codigo || '').toUpperCase());
     }
     if (!hit) return [200, { valido: false }];
     // El código se exige por los dos caminos: sin él esto no confirma nada.
@@ -202,22 +208,47 @@ function sorteo(cuerpo) {
   }
   if (a === 'crear_rifa') {
     if (!cuerpo.nombre) return [400, { error: 'falta el nombre de la rifa' }];
-    const id = 'nueva-' + (++contadorNuevas);
     const porBoleto = cuerpo.folios_por_boleto || 4;
+    const digitos = cuerpo.digitos || 4;
+    const tope = Number.isInteger(cuerpo.tope) && cuerpo.tope > 0 ? cuerpo.tope : null;
+    const totalFolios = cuerpo.cantidad * porBoleto;
+    if (tope && totalFolios > tope) {
+      return [400, { error: `${totalFolios} folios no caben en un tope de ${tope}` }];
+    }
+    const id = 'nueva-' + (++contadorNuevas);
     const nueva = { id, nombre: cuerpo.nombre, serie: cuerpo.serie, estado: 'espera', activa: false,
       folio_ganador: null, fecha_sorteo: cuerpo.fecha_sorteo, emision: cuerpo.fecha_emision || null,
       precio_boleto: cuerpo.precio, folios_por_boleto: porBoleto,
       // El diseño se copia, no se referencia: igual que en el servidor real.
       diseno: disenoNuevo };
     rifas.unshift(nueva);
+
+    // Con tope: sorteo de rango chico, números que SÍ se repiten entre
+    // rifas —barajado de 1 a `tope`, igual que hace el servidor real—.
+    // Sin tope: la numeración de siempre del servidor de prueba, única
+    // dentro de esta corrida.
+    let numeros = null;
+    if (tope) {
+      numeros = Array.from({ length: tope }, (_, i) => i + 1);
+      for (let i = numeros.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [numeros[i], numeros[j]] = [numeros[j], numeros[i]];
+      }
+      numeros = numeros.slice(0, totalFolios).map((n) => String(n).padStart(digitos, '0'));
+    }
+
     const lote = [];
     let siguiente = 70000 + contadorNuevas * 1000;
+    let cursor = 0;
     for (let i = 0; i < cuerpo.cantidad; i++) {
       const suyos = [];
-      for (let j = 0; j < porBoleto; j++) suyos.push(String(siguiente++));
+      for (let j = 0; j < porBoleto; j++) suyos.push(tope ? numeros[cursor++] : String(siguiente++));
       lote.push({
         id: String(8000000000 + contadorNuevas * 1000 + i),
-        codigo: 'C' + String(i).padStart(3, '0'), folios: suyos,
+        // Con el número de rifa adentro, no solo el del boleto: el código
+        // real se firma sobre el id del boleto y nunca se repite entre
+        // rifas, así que el de prueba tampoco debe repetirse.
+        codigo: 'C' + String(contadorNuevas).padStart(2, '0') + String(i).padStart(2, '0'), folios: suyos,
       });
     }
     boletos[id] = lote;
