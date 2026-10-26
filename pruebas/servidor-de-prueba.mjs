@@ -24,7 +24,7 @@ let clavePanel = 'secreta';
 let disenoNuevo = null;
 
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png' };
 
 // --- estado fingido ---------------------------------------------------------
 const rifas = [{
@@ -60,8 +60,7 @@ rifas.push({
 });
 // Una rifa de nueve números por boleto, ya con la disposición vertical puesta:
 // el boleto del cliente trae cuatro, pero el formulario acepta hasta diez y
-// los nueve tienen que caber impresos. Trae logo porque el sello también se
-// mueve de lugar cuando el boleto va apretado.
+// los nueve tienen que caber impresos.
 rifas.push({
   id: 'generosa', nombre: 'Rifa de nueve números', serie: 'G', estado: 'cerrado',
   activa: false, folio_ganador: null, fecha_sorteo: '2025-08-01T18:00:00-06:00',
@@ -71,11 +70,7 @@ rifas.push({
   // día anterior.
   revelado_en: null, creada_en: '2025-07-01T00:00:00-06:00', emision: '2025-07-15T00:00:00-06:00', precio_boleto: 100,
   folios_por_boleto: 9, transmision_url: null, transmite_desde: null,
-  diseno: {
-    disposicion: 'suertudito', tema: 'trebol', caducidad: '3 días',
-    logo: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"'
-      + ' viewBox="0 0 40 60"><rect width="40" height="60" fill="gray"/></svg>',
-  },
+  diseno: { disposicion: 'suertudito', tema: 'trebol', caducidad: '3 días' },
 });
 // Un boleto de papel con varios números. Igual que en el servidor de verdad:
 // el código es del boleto, no de cada folio.

@@ -81,9 +81,11 @@ async function fuera(hoja, sel) {
   }, sel);
 }
 
-// Lo que hay que poder leer en el boleto impreso, y lo que solo adorna.
-const LEIBLE = '.caja, .qr, .precio, .pie, .aviso, .fechas, .sello, .titulo';
-const ADORNO = '.trebol, .moneda, .rana';
+// Lo que hay que poder leer en el boleto impreso. El marco, el título, la
+// rana y demás adorno ya no son elementos del DOM: vienen impresos en la
+// foto de fondo del boleto «suertudito», así que no hay nada que comprobar
+// ahí aparte de que no se encimen con lo que SÍ se pinta encima.
+const LEIBLE = '.caja, .qr, .precio, .pie, .aviso, .fechas';
 
 // El navegador. En un entorno donde Chromium ya viene instalado —como el de
 // integración continua— se le pasa su ruta en CHROMIUM_BIN en vez de que
@@ -1045,17 +1047,31 @@ await ctxD.close();
   await pg.waitForSelector('#vistaBoleto .boleto');
   ok('la caducidad está escondida mientras la disposición es la clásica',
      await pg.isHidden('#campoCaducidad'));
+  ok('y el logo se ve, porque la clásica sí tiene dónde ponerlo',
+     await pg.isVisible('#campoLogo'));
 
   await pg.click('#disposiciones .tema[data-disposicion="suertudito"]');
-  await pg.waitForSelector('#vistaBoleto .boleto .titulo');
-  ok('el boleto vertical trae su marco doble, su rana y su título',
-     (await pg.locator('#vistaBoleto .marco').count()) === 1 &&
-     (await pg.locator('#vistaBoleto .rana').count()) === 1 &&
-     (await pg.locator('#vistaBoleto .titulo').count()) === 1);
+  await pg.waitForSelector('#vistaBoleto .boleto .caja');
+  ok('el boleto vertical trae de fondo la foto real del boleto, no un dibujo',
+     (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e).backgroundImage))
+       .includes('boleto-suertudito-colon.png'),
+     await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e).backgroundImage));
   ok('con los cuatro números en sus cuatro recuadros',
      (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim())))
        .join(',') === '1018,4307,2850,3267',
      (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim()))).join(','));
+  // El panel ya tenía una regla genérica `.caja { padding: 20px; }` para las
+  // tarjetas del panel —coincide el nombre de clase con el recuadro del
+  // número por pura casualidad— y ese relleno nunca se sobreescribía: con
+  // `box-sizing: border-box` la altura no podía bajar de padding + borde
+  // (42px en pantalla), por más que `height` dijera otra cosa. Esta prueba
+  // es justo para que ese 42px no vuelva a colarse sin que nadie lo note.
+  const altoCaja = await pg.$eval('#vistaBoleto .boleto .caja', (e) => {
+    const c = e.closest('.boleto').getBoundingClientRect();
+    return (e.getBoundingClientRect().height / c.height) * 100;
+  });
+  ok('la caja del número mide lo que el boleto dice, no el mínimo del relleno',
+     Math.abs(altoCaja - 7.1) < 0.5, altoCaja.toFixed(2) + '% del boleto');
   ok('el QR sigue sobre blanco también en el boleto vertical',
      (await pg.$eval('#vistaBoleto .qr', (e) => getComputedStyle(e).backgroundColor))
        === 'rgb(255, 255, 255)');
@@ -1064,6 +1080,8 @@ await ctxD.close();
      await pg.$eval('#vistaBoleto .boleto', (e) => e.offsetWidth + '×' + e.offsetHeight));
   ok('ahora sí aparece la caducidad, que solo existe en esta disposición',
      await pg.isVisible('#campoCaducidad'));
+  ok('y el logo se esconde: el sello ya viene impreso en la foto',
+     await pg.isHidden('#campoLogo'));
   ok('y los boletos por renglón saltan a 3, que es el tamaño del original',
      (await pg.inputValue('#dsColumnas')) === '3', await pg.inputValue('#dsColumnas'));
   // La disposición no es una forma: es el boleto del cliente entero, y ese
@@ -1075,34 +1093,12 @@ await ctxD.close();
      (await pg.inputValue('#dsBorde')) === '#2e7d32',
      [await pg.inputValue('#dsFondo'), await pg.inputValue('#dsTinta'),
       await pg.inputValue('#dsAcento'), await pg.inputValue('#dsBorde')].join(' '));
-  // El título del original es una romana cursiva. La primera versión pedía
-  // letra manuscrita y en la máquina del cliente salía escrito a mano.
-  const letraTitulo = await pg.$eval('#vistaBoleto .titulo',
-    (e) => getComputedStyle(e).fontFamily + ' | ' + getComputedStyle(e).fontStyle);
-  ok('y el título va en romana cursiva, no en manuscrita',
-     /Times|serif/i.test(letraTitulo) && /italic/.test(letraTitulo) &&
-     !/script|cursive|handwriting|chancery/i.test(letraTitulo), letraTitulo);
-
   await pg.fill('#dsCaducidad', '2 días');
   await pg.waitForFunction(() => {
     const f = document.querySelector('#vistaBoleto .fechas');
     return f && f.textContent.includes('2 días');
   }, null, { timeout: 5000 });
   ok('la caducidad escrita se ve en el boleto', true);
-
-  // El aviso del boleto vertical tiene su renglón medido: lo que sobra se
-  // recorta sin decir nada, y un aviso legal a medias no sirve de aviso.
-  await pg.fill('#dsAviso', 'A'.repeat(150));
-  await pg.waitForFunction(() => {
-    const c = document.getElementById('avisoContraste');
-    return !c.hidden && c.textContent.includes('no cabe completo');
-  }, null, { timeout: 5000 });
-  ok('avisa cuando el aviso no cabe en el boleto vertical', true);
-  await pg.fill('#dsAviso',
-    'El boleto se anulará si se encuentra roto, con tachones, borrones o enmendaduras.');
-  await pg.waitForFunction(() =>
-    document.getElementById('avisoContraste').hidden, null, { timeout: 5000 });
-  ok('y deja de avisar cuando el aviso vuelve a caber', true);
 
   // Lo que importa: que la hoja impresa salga vertical igual que la vista.
   await pg.click('#btnGuardarDiseno');
@@ -1116,9 +1112,10 @@ await ctxD.close();
     pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
   ]);
   await hojaV.waitForLoadState('domcontentloaded');
-  await hojaV.waitForSelector('.boleto .titulo');
+  await hojaV.waitForSelector('.boleto .caja');
   ok('la hoja impresa sale con el boleto vertical, no con el clásico',
-     (await hojaV.locator('.boleto .rana').count()) > 0 &&
+     (await hojaV.$eval('.boleto', (e) => getComputedStyle(e).backgroundImage))
+       .includes('boleto-suertudito-colon.png') &&
      (await hojaV.locator('.boleto .caja').count()) === 8,
      (await hojaV.locator('.boleto .caja').count()) + ' recuadros en 2 boletos');
   ok('y con la caducidad que se escribió',
@@ -1144,10 +1141,9 @@ await ctxD.close();
              Math.round((r.top - caja.top) / caja.height * 1000) / 10;
     }).join(' ');
   });
-  ok('y los cuatro caen en las cuatro esquinas del original',
-     esquinas === '7.2,39.4 66.3,39.4 7.2,76.5 66.3,76.5', esquinas);
-  const choca4 = (await encimadas(hojaV, LEIBLE))
-    .concat(await encimadas(hojaV, ADORNO, '.caja, .pie, .precio, .aviso, .qr'));
+  ok('y los cuatro caen en las cuatro esquinas de la foto real',
+     esquinas === '6.8,39.2 68.2,39.2 6.8,77.6 68.2,77.6', esquinas);
+  const choca4 = await encimadas(hojaV, LEIBLE);
   ok('y en el boleto de cuatro tampoco se encima nada', choca4.length === 0,
      choca4.join(' | '));
   const sale4 = await fuera(hojaV, LEIBLE + ', .pie span');
@@ -1157,12 +1153,12 @@ await ctxD.close();
   // enseña el boleto al doble— se veían diminutas, así que lo que el cliente
   // revisaba no era lo que iba a imprimir.
   const proporcion = await hojaV.$eval('.boleto', (art) => {
-    const aviso = art.querySelector('.aviso');
-    return parseFloat(getComputedStyle(aviso).fontSize) / art.getBoundingClientRect().width;
+    const precio = art.querySelector('.precio');
+    return parseFloat(getComputedStyle(precio).fontSize) / art.getBoundingClientRect().width;
   });
   ok('y la letra crece con el boleto, no se queda en milímetros fijos',
-     Math.abs(proporcion - 1.85 / 60) < 0.0004,
-     'el aviso mide ' + (proporcion * 60).toFixed(2) + ' mm en un boleto de 60 mm');
+     Math.abs(proporcion - 5.25 / 60) < 0.0004,
+     'el precio mide ' + (proporcion * 60).toFixed(2) + ' mm en un boleto de 60 mm');
   await hojaV.close();
 
   // Fecha de emisión: corrige la de esta rifa. Es de LA RIFA, no del diseño,
@@ -1258,7 +1254,7 @@ await ctxD.close();
     pn.locator('.rifa', { hasText: 'Rifa de nueve números' }).getByText('Hoja de boletos').click(),
   ]);
   await hojaN.waitForLoadState('domcontentloaded');
-  await hojaN.waitForSelector('.boleto .titulo');
+  await hojaN.waitForSelector('.boleto .caja');
 
   const impresos = await hojaN.$$eval('.boleto .caja', (n) => n.map((e) => e.textContent.trim()));
   ok('imprime los nueve números del boleto, no los primeros cuatro',
@@ -1282,8 +1278,6 @@ await ctxD.close();
      (await hojaN.textContent('.boleto .fechas-pie')).includes('15-jul-2025') &&
      !(await hojaN.textContent('.boleto .fechas-pie')).includes('01-jul-2025'),
      await hojaN.textContent('.boleto .fechas-pie'));
-  ok('y el sello del logo sigue en el boleto, en su otro lugar',
-     (await hojaN.locator('.boleto .sello').count()) === 1);
 
   // La prueba de verdad: medir. Un número tapado por el QR o por el precio se
   // imprime igual y no se puede leer, y de eso uno se entera con los boletos
@@ -1291,9 +1285,6 @@ await ctxD.close();
   const encimados = await encimadas(hojaN, LEIBLE);
   ok('nada de lo que hay que leer se encima con nada', encimados.length === 0,
      encimados.join(' | '));
-  const adornos = await encimadas(hojaN, ADORNO, '.caja, .pie, .precio, .aviso, .qr');
-  ok('ni los adornos se le montan encima a un número o al código',
-     adornos.length === 0, adornos.join(' | '));
 
   // Y todo adentro del marco: lo que se sale lo recorta `overflow: hidden` y
   // desaparece sin avisar.

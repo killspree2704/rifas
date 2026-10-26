@@ -6,6 +6,7 @@ hoja-boletos*.html
 *.png
 *.svg
 !vendor/*.svg
+!assets/boleto-suertudito-colon.png
 
 # Llaves
 CLAVE-*.txt

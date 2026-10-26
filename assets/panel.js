@@ -1149,10 +1149,6 @@
     return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
   }
 
-  // Dos renglones de 49.2 mm a 1.85 mm de letra. Medido sobre el boleto
-  // impreso, no a ojo.
-  var AVISO_CABE = 90;
-
   /** Qué habría que arreglar antes de imprimir, en palabras. */
   function avisosDeContraste(d) {
     var avisos = [];
@@ -1163,14 +1159,10 @@
     if (contraste(d.acento, d.fondo) < 3) {
       avisos.push('los números se pierden contra el fondo');
     }
-    if (contraste(d.borde, d.fondo) < 1.6) {
+    // El marco de la disposición «suertudito» viene impreso en la foto, no
+    // se dibuja con `d.borde`: ahí ese contraste no aplica.
+    if (d.disposicion !== 'suertudito' && contraste(d.borde, d.fondo) < 1.6) {
       avisos.push('el marco del boleto va a quedar invisible, y es la línea por donde se recorta');
-    }
-    // En la disposición vertical el aviso tiene su renglón medido: lo que no
-    // cabe se recorta sin decir nada, y un aviso legal a medias no sirve.
-    if (d.disposicion === 'suertudito' && String(d.aviso || '').length > AVISO_CABE) {
-      avisos.push('el aviso no cabe completo en el boleto vertical: déjalo en ' +
-        AVISO_CABE + ' letras o menos');
     }
     return avisos;
   }
@@ -1179,61 +1171,30 @@
   // Disposición «Suertudito»: el boleto vertical
   // ------------------------------------------------------------------
   /*
-   * Una reproducción del boleto que trajo el dueño: marco verde doble,
-   * tréboles, la rana, el título en cursiva, cuatro recuadros para los
-   * números y el QR al centro.
+   * La foto real del boleto que trajo el dueño va de fondo, tal cual —marco,
+   * tréboles, rana, título, «Cel. ...» y el aviso van impresos en ella, no
+   * se dibujan—. Encima solo se ponen los datos que cambian de boleto a
+   * boleto: los números, el QR, las fechas, el precio y, al pie, el
+   * identificador y el código. Donde la foto trae una MUESTRA (el QR de
+   * ejemplo, «$20», las fechas de ejemplo) el elemento que va encima lleva
+   * su propio fondo opaco para taparla: nunca debe verse un dato de muestra
+   * en un boleto real.
    *
-   * Todo el adorno va dibujado en SVG aquí mismo, no como imágenes: pesa
-   * cero, sale nítido a cualquier resolución de impresora y se imprime igual
-   * sin red. Lo único que viene de fuera es el logo, que se sube desde el
-   * panel y vive en el mismo campo `logo` de siempre.
-   *
-   * Las medidas van en porcentaje del boleto, tomadas del original midiendo
-   * la imagen. Así el boleto se puede imprimir a uno, dos o tres por renglón
-   * y conserva sus proporciones.
+   * Las medidas son en porcentaje del alto/ancho de la foto, tomadas
+   * midiendo sus píxeles (no a ojo): la relación de aspecto del `.boleto` es
+   * la de la imagen misma, así que el porcentaje cae siempre en el mismo
+   * sitio sin importar a qué tamaño se imprima.
    */
-  /*
-   * El trébol del original: seis hojas redondas repartidas cada 60°, con la
-   * muesca justo arriba y justo abajo, y el tallito saliendo de la de abajo.
-   * Medido sobre la foto del boleto, no inventado.
-   */
-  var HOJA_TREBOL = 'M50,50 C59,40 77,34 87,40 C95,45 95,55 87,60 C77,66 59,60 50,50 Z';
-
-  function trebolSvg(color) {
-    return '<svg class="trebol" viewBox="0 0 100 101">' +
-      [0, 60, 120, 180, 240, 300].map(function (g) {
-        return '<path d="' + HOJA_TREBOL + '" transform="rotate(' + g + ' 50 50)" fill="' +
-          color + '"/>';
-      }).join('') +
-      '<path d="M51,78 C54,85 55,91 52,97" fill="none" stroke="' + color +
-      '" stroke-width="6" stroke-linecap="round"/></svg>';
-  }
-
-  /*
-   * La rana del original, calcada de la foto: la caja mide 21.8 % de ancho
-   * por 11.7 % de alto —más ancha que alta—, los ojos son grandes y los
-   * brazos bajan casi hasta abajo antes de engancharse.
-   */
-  function ranaSvg(color) {
-    return '<svg class="rana" viewBox="0 0 132 96">' +
-      '<g fill="none" stroke="' + color + '" stroke-width="3.2" stroke-linecap="round" ' +
-      'stroke-linejoin="round">' +
-      '<circle cx="50" cy="12" r="10.5"/><circle cx="82" cy="12" r="10.5"/>' +
-      '<path d="M40,20 C41,36 52,46 66,46 C80,46 91,36 92,20"/>' +
-      '<path d="M43,30 C20,34 5,54 4,72 C3,86 14,93 21,86 C28,79 29,68 27,59"/>' +
-      '<path d="M89,30 C112,34 127,54 128,72 C129,86 118,93 111,86 C104,79 103,68 105,59"/>' +
-      '<path d="M21,86 C16,92 10,94 3,93"/><path d="M111,86 C116,92 122,94 129,93"/></g>' +
-      '<circle cx="50" cy="12" r="3.2" fill="' + color + '"/>' +
-      '<circle cx="82" cy="12" r="3.2" fill="' + color + '"/></svg>';
-  }
-
-  function monedaSvg(color) {
-    return '<svg class="moneda" viewBox="0 0 100 100">' +
-      '<circle cx="50" cy="50" r="45" fill="none" stroke="' + color + '" stroke-width="5"/>' +
-      '<circle cx="50" cy="50" r="35" fill="none" stroke="' + color + '" stroke-width="4"/>' +
-      '<text x="50" y="72" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" ' +
-      'font-size="60" font-weight="700" fill="' + color + '">$</text></svg>';
-  }
+  var FOTO_SUERTUDITO = 'assets/boleto-suertudito-colon.png';
+  // La proporción de la foto (896×1200) como relleno de arriba de un
+  // pseudo-elemento, no como `aspect-ratio`: varios navegadores —Chromium
+  // entre ellos, comprobado a mano— no le dan una altura «definida» a un
+  // elemento que solo trae `aspect-ratio`, así que los hijos con `height`
+  // en porcentaje (las cajas de número, el QR, las fechas...) se quedan en
+  // 0 aunque el boleto se vea perfecto. El truco del `padding-top` es viejo
+  // pero funciona siempre: ese relleno se calcula contra el ANCHO, que
+  // nunca tiene este problema.
+  var FOTO_SUERTUDITO_PADDING_TOP = (1200 / 896 * 100).toFixed(4);
 
   /*
    * Las medidas del boleto vertical, en porcentaje de su alto y de su ancho.
@@ -1245,10 +1206,11 @@
    * adentro. Imprimir solo los primeros cuatro no es opción: los demás siguen
    * valiendo y pueden salir ganadores sin que el papel los muestre.
    */
-  var CAJA_PRIMER = 39.4;
-  var CAJA_ULTIMO = 76.5;
-  var CAJA_ALTO = 7.8;
-  var CAJA_COLUMNA = [7.2, 66.3];
+  var CAJA_PRIMER = 39.25;
+  var CAJA_ULTIMO = 77.58;
+  var CAJA_ALTO = 7.1;
+  var CAJA_ANCHO = 26.3;
+  var CAJA_COLUMNA = [6.81, 68.19];
 
   /** El lugar de cada número, para un boleto de `cuantos` folios. */
   function cajasSuerte(cuantos) {
@@ -1282,7 +1244,6 @@
    * casos, en vez de estirarse.
    */
   function estiloSuerte(d, p) {
-    var tenue = conAlfa(d.borde, 0.55);
     return (
       // Todo el boleto se mide en `--u`, que vale un milímetro del boleto
       // impreso a 60 mm de ancho... y, donde el navegador sepa de
@@ -1295,80 +1256,72 @@
       //
       // El milímetro va primero: un navegador viejo que no entienda
       // `@container` se queda con él y el papel sale igual que siempre.
-      p + '.boleto { position: relative; aspect-ratio: 1 / 1.4142; box-sizing: border-box;' +
+      //
+      // El relleno de arriba es el de la FOTO (896×1200), no un valor
+      // inventado: si la foto cambiara de tamaño algún día, este número hay
+      // que volverlo a medir junto con todo lo demás de aquí abajo.
+      p + '.boleto { position: relative; box-sizing: border-box;' +
       ' container-type: inline-size; --u: 1mm;' +
-      ' background-color: ' + d.fondo + '; color: ' + d.tinta + '; overflow: hidden;' +
-      ' break-inside: avoid; ' + fondoDe(d) + ' }' +
+      ' background-color: ' + d.fondo + ';' +
+      ' background-image: url(\'' + baseDelSitio() + FOTO_SUERTUDITO + '\');' +
+      ' background-size: 100% 100%; background-repeat: no-repeat;' +
+      ' color: ' + d.tinta + '; overflow: hidden; break-inside: avoid; }' +
+      p + '.boleto::before { content: ""; display: block;' +
+      ' padding-top: ' + FOTO_SUERTUDITO_PADDING_TOP + '%; }' +
       p + '.boleto > * { --u: 1mm; }' +
       '@container (min-width: 1px) { ' + p + '.boleto > * { --u: 1.6667cqw; } }' +
-      // Los dos marcos: el grueso a 1.84 % y el fino a 3.4 %, medidos.
-      p + '.marco { position: absolute; inset: 1.84%;' +
-      ' border: calc(var(--u) * 0.52) solid ' + d.borde + '; }' +
-      p + '.marco2 { position: absolute; inset: 3.4%;' +
-      ' border: calc(var(--u) * 0.23) solid ' + tenue + '; }' +
-      // El título del original es una ROMANA NEGRITA CURSIVA, no una letra
-      // manuscrita. La primera versión pedía `Segoe Script` y en la máquina
-      // del cliente salía escrito a mano: otro boleto.
-      p + '.titulo { position: absolute; left: 24%; right: 24%; top: 7.2%; text-align: center;' +
-      ' line-height: 1; font-family: "Times New Roman", "Liberation Serif", Times, serif;' +
-      ' font-weight: 700; font-style: italic; color: ' + d.tinta + '; }' +
-      p + '.titulo span { display: block; white-space: nowrap; }' +
-      // `border-box`: el 7.8 % medido en el original es el recuadro ENTERO,
-      // con su línea. Sin esto el borde se suma y el recuadro roza las fechas.
-      p + '.caja { position: absolute; box-sizing: border-box; width: 27.2%;' +
-      ' height: ' + CAJA_ALTO + '%; border: calc(var(--u) * 0.26) solid ' + d.borde + ';' +
+      // `border-box`: el recuadro vacío que trae la foto ya incluye su
+      // propia línea; sin esto el borde se suma y el número no cae encima.
+      //
+      // `padding: 0` no es cosmético: el panel YA tiene una regla genérica
+      // `.caja { padding: 20px; }` para las tarjetas de vidrio de cada
+      // pestaña —coincide el nombre de clase con estos recuadros de número
+      // por pura casualidad—, y con `box-sizing: border-box` esos 20px por
+      // lado nunca se sobreescribían: la altura no podía bajar de padding +
+      // borde (42px) sin importar lo que dijera `height`. Se vio igual con
+      // 7.1%, con `calc()`, hasta con `aspect-ratio` —la caja de verdad SE
+      // ACHICABA, pero el relleno la volvía a estirar—. Este `padding: 0`
+      // es lo que de verdad arregla el tamaño del recuadro.
+      p + '.caja { position: absolute; box-sizing: border-box; padding: 0;' +
+      ' width: ' + CAJA_ANCHO + '%; height: ' + CAJA_ALTO + '%;' +
+      ' border: calc(var(--u) * 0.26) solid ' + d.borde + ';' +
       ' border-radius: calc(var(--u) * 0.85); display: flex;' +
       ' align-items: center; justify-content: center; background: ' + d.fondo + ';' +
       ' font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700;' +
       ' font-size: calc(var(--u) * 2.8); color: ' + d.acento + '; }' +
-      p + '.rana { position: absolute; left: 39%; width: 21.8%; top: 35.8%; }' +
       // El QR, siempre sobre blanco y con su margen: no se negocia ni aquí.
-      p + '.qr { position: absolute; left: 36.7%; width: 29.2%; top: 49.8%; background: #fff;' +
-      ' box-sizing: border-box; padding: calc(var(--u) * 0.9);' +
+      // Tapa el QR de muestra que trae la foto, por eso es opaco y no un
+      // poco más grande que la malla real: tiene que cubrirlo entero.
+      p + '.qr { position: absolute; left: 34%; width: 31%; top: 50%; height: 23%;' +
+      ' background: #fff; box-sizing: border-box; padding: calc(var(--u) * 0.9);' +
       ' border-radius: calc(var(--u) * 0.8); }' +
       p + '.qr svg { width: 100%; height: auto; display: block; }' +
-      // `max-height` y `object-fit`: un logo vertical con `width` a secas se
-      // estiraba hasta encimarse con el renglón de abajo.
-      p + '.sello { position: absolute; left: 71.7%; width: 18.8%; top: 52.5%;' +
-      ' height: auto; max-height: 13.3%; object-fit: contain; }' +
-      // Apretado el sello no cabe al costado: se sube al hueco que queda
-      // entre el título y la rana.
-      p + '.apretado .sello { left: 43%; width: 14%; top: 24.3%; max-height: 10%; }' +
-      p + '.trebol { position: absolute; }' +
-      p + '.tr1 { left: 3.4%; top: 3.5%; width: 14%; }' +
-      p + '.tr2 { left: 76%; top: 14.5%; width: 15.1%; }' +
-      p + '.tr3 { left: 1.8%; top: 85.9%; width: 8.9%; }' +
-      p + '.moneda { position: absolute; }' +
-      p + '.mo1 { left: 5.4%; top: 31.5%; width: 7.2%; }' +
-      p + '.mo2 { left: 88%; top: 68.3%; width: 8.6%; }' +
-      // Apretado, la moneda de la derecha cae justo detrás de un número.
-      p + '.apretado .mo2 { display: none; }' +
-      // 47.4 % y no 46.8 %: en el original el texto de canto empieza justo a
-      // la altura del borde de abajo del recuadro y lo roza. Medio milímetro
-      // más abajo no se nota y deja de rozarlo.
-      p + '.fechas { position: absolute; left: 6.7%; top: 47.4%; height: 21.6%;' +
+      // Las fechas verticales tapan la muestra «Emisión: 30-sep-2026 /
+      // Caducidad: 1 día» que trae la foto, de ahí el fondo opaco. Empieza en
+      // 46.5 % y no antes: el recuadro de arriba a la izquierda termina en
+      // 46.35 % y un pelo más arriba se le monta encima.
+      p + '.fechas { position: absolute; left: 4.5%; width: 12%; top: 46.5%; height: 30.5%;' +
+      ' box-sizing: border-box; background: ' + d.fondo + ';' +
       ' writing-mode: vertical-rl; font-size: calc(var(--u) * 1.5); font-weight: 700;' +
-      ' line-height: 1.3; white-space: nowrap; }' +
-      // El precio es una PALO SECO negrita cursiva con sombra suave, no una
-      // romana con relieve duro.
-      p + '.precio { position: absolute; left: 35.2%; width: 29.6%; top: 77.1%; height: 6.1%;' +
+      ' line-height: 1.3; white-space: nowrap; color: ' + d.tinta + '; }' +
+      // El precio tapa la muestra «$20» de la foto, mismo motivo. Empieza en
+      // 33.5 % y no antes: el recuadro de abajo a la izquierda llega hasta
+      // 33.11 % y un pelo más a la izquierda se le monta encima.
+      p + '.precio { position: absolute; left: 33.5%; width: 28.5%; top: 75%; height: 9%;' +
+      ' box-sizing: border-box; background: ' + d.fondo + ';' +
       ' display: flex; align-items: center; justify-content: center;' +
       ' font-size: calc(var(--u) * 5.25); font-weight: 800; font-style: italic;' +
       ' color: ' + d.acento + '; text-shadow: calc(var(--u) * 0.35) calc(var(--u) * 0.4)' +
       ' calc(var(--u) * 0.45) rgba(0, 0, 0, 0.45); }' +
-      p + '.aviso { position: absolute; left: 12%; right: 6%; top: 86.4%; height: 5.6%;' +
-      ' overflow: hidden; display: flex; align-items: flex-start; justify-content: center;' +
-      ' text-align: center; font-size: calc(var(--u) * 1.85); font-weight: 700;' +
-      ' line-height: 1.15; }' +
       // El identificador y el código, impresos. El día del sorteo hay que
       // cotejar el código del panel contra el talón que trae el ganador, y un
       // boleto que solo los lleve dentro del QR no se puede cotejar si el
-      // teléfono no lo lee. Empieza en 13 % porque en la esquina de abajo a la
-      // izquierda vive el trébol, y encima de un trébol no se lee un folio.
-      p + '.pie { position: absolute; left: 13%; right: 6%; top: 92.4%; height: 2.9%;' +
+      // teléfono no lo lee. Va bajo el aviso de la foto, pegado al borde de
+      // abajo: es el único hueco en blanco que queda ahí.
+      p + '.pie { position: absolute; left: 13%; right: 6%; top: 93.6%; height: 2.4%;' +
       ' display: flex; align-items: center; justify-content: space-between;' +
       ' gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.6); line-height: 1;' +
-      ' opacity: 0.85; }' +
+      ' color: ' + d.tinta + '; opacity: 0.85; }' +
       p + '.pie span { font-family: ui-monospace, Menlo, Consolas, monospace;' +
       ' white-space: nowrap; }' +
       p + '.serial { letter-spacing: 0.04em; }' +
@@ -1381,61 +1334,6 @@
       // boleto normal la de emisión salía cortada con puntos suspensivos.
       p + '.apretado .pie { font-size: calc(var(--u) * 1.4); }'
     );
-  }
-
-  // El título del original, «Suertudito», mide 6.1 mm de alto y ocupa 44 %
-  // del ancho del boleto.
-  var TITULO_MM = 6.1;
-  // Lo ancho que puede ser un renglón sin montarse al trébol de arriba a la
-  // derecha, que empieza en el 76 %: 2 × (76 − 50) % de 60 mm, menos un pelo.
-  var TITULO_ANCHO_MM = 30.6;
-  var FUENTE_TITULO = 'italic 700 100px "Times New Roman","Liberation Serif",Times,serif';
-
-  var medidor = null;
-
-  /**
-   * Lo que mide un texto, en emes, con la letra que de verdad tenga esta
-   * máquina.
-   *
-   * Contar letras no sirve: «Suertudito» y «Muerde Manos» tienen casi las
-   * mismas y la segunda mide un tercio más, porque las emes son anchas. Con
-   * la cuenta de letras el título se le montaba al trébol.
-   */
-  function anchoEm(texto, fuente) {
-    try {
-      if (!medidor) { medidor = document.createElement('canvas').getContext('2d'); }
-      medidor.font = fuente;
-      var w = medidor.measureText(texto).width / 100;
-      if (w > 0) { return w; }
-    } catch (e) { /* sin canvas se cae a la cuenta de letras */ }
-    return texto.length * 0.52;
-  }
-
-  /**
-   * El nombre partido en dos renglones, como el original, con el tamaño que
-   * le toca.
-   *
-   * Se corta por el espacio más cercano a la mitad y no por el último: con
-   * «Rifa El Muerde Manos», cortar por el último deja «Rifa El Muerde» arriba
-   * y «Manos» solo abajo, y el título se ve chueco.
-   */
-  function tituloEnDos(nombre) {
-    var texto = String(nombre || '').trim();
-    var mitad = texto.length / 2;
-    var corte = -1;
-    for (var i = 0; i < texto.length; i++) {
-      if (texto[i] === ' ' && (corte < 0 || Math.abs(i - mitad) < Math.abs(corte - mitad))) {
-        corte = i;
-      }
-    }
-    var renglones = corte < 1 ? [texto] : [texto.slice(0, corte), texto.slice(corte + 1)];
-    var ancho = renglones.reduce(function (n, r) {
-      return Math.max(n, anchoEm(r, FUENTE_TITULO));
-    }, 0.1);
-    var tam = Math.max(2.5, Math.min(TITULO_MM, TITULO_ANCHO_MM / ancho));
-    return '<div class="titulo" style="font-size: calc(var(--u) * ' + tam.toFixed(2) + ')">' +
-      renglones.map(function (r) { return '<span>' + escapar(r) + '</span>'; }).join('') +
-      '</div>';
   }
 
   var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
@@ -1479,23 +1377,16 @@
     if (d.caducidad) { fechas.push('Caducidad: ' + escapar(d.caducidad)); }
     if (emision) { fechas.push('Emisión: ' + escapar(emision)); }
     return '<article class="boleto' + (apretado ? ' apretado' : '') + '">' +
-      '<div class="marco"></div><div class="marco2"></div>' +
-      trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr1"') +
-      trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr2"') +
-      trebolSvg(d.borde).replace('class="trebol"', 'class="trebol tr3"') +
-      tituloEnDos(rifa.nombre) +
-      monedaSvg(d.borde).replace('class="moneda"', 'class="moneda mo1"') +
-      monedaSvg(d.borde).replace('class="moneda"', 'class="moneda mo2"') +
-      ranaSvg(d.tinta) +
       numeros.map(function (f, i) {
         return '<div class="caja" style="left: ' + lugares[i].izq + '%; top: ' +
           lugares[i].arriba + '%">' + escapar(f) + '</div>';
       }).join('') +
       '<div class="qr">' + qrSvg(url) + '</div>' +
-      (d.logo ? '<img class="sello" src="' + escapar(d.logo) + '" alt="" />' : '') +
-      (!apretado && fechas.length ? '<div class="fechas">' + fechas.join('<br />') + '</div>' : '') +
-      (precio ? '<div class="precio">' + escapar(precio) + '</div>' : '') +
-      (d.aviso ? '<div class="aviso">' + escapar(d.aviso) + '</div>' : '') +
+      // Siempre se pinta, aunque no haya fechas que mostrar: la foto trae
+      // una fecha de MUESTRA justo ahí y hay que taparla sin excepción.
+      (!apretado ? '<div class="fechas">' + fechas.join('<br />') + '</div>' : '') +
+      // Igual el precio: la foto trae «$20» de muestra en ese lugar.
+      '<div class="precio">' + escapar(precio || '') + '</div>' +
       '<div class="pie">' +
       '<span class="serial">' + escapar(boleto.id) + '</span>' +
       (apretado && fechas.length
@@ -1945,6 +1836,10 @@
     // La caducidad solo existe en el boleto vertical: en el clásico no hay
     // dónde ponerla, y un control que no hace nada confunde.
     $('campoCaducidad').hidden = d.disposicion !== 'suertudito';
+    // El logo, al revés: en «Suertudito» el sello «Grupo Rural» ya viene
+    // impreso en la foto, así que no hay dónde poner uno propio —subirlo no
+    // haría nada, y un control que no hace nada confunde igual—.
+    $('campoLogo').hidden = d.disposicion === 'suertudito';
     $('btnQuitarLogo').hidden = !d.logo;
     pintarDisposiciones();
     pintarTemas();
