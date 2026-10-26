@@ -388,22 +388,29 @@ Todo desde el panel, sin tocar código ni publicar nada:
 5. Si quieres darle aspecto, **pestaña «Diseño»**. Lo primero que se elige
    ahí es la **disposición**, que es la plantilla entera:
    - **Clásica**: horizontal y sobria, la de siempre.
-   - **Suertudito**: vertical, con marco verde doble, tréboles, rana, el
-     nombre de la rifa en romana cursiva a dos renglones, los números en sus
-     recuadros, el QR al centro, el logo a un lado y la caducidad y la fecha
-     de emisión impresas de canto. Reproduce el boleto que trajo el dueño:
-     cada pieza está donde la foto del original dice que va, medida en
-     porcentaje, y los cuatro colores salieron con cuentagotas de esa foto.
-     Al elegirla, los boletos por renglón saltan a 3 —el tamaño del
-     original— y los colores se ponen solos en el verde del boleto. Las dos
-     cosas son sugerencia: se cambian enseguida desde los controles.
+   - **Suertudito**: la FOTO REAL que trajo el dueño (marco verde doble,
+     tréboles, rana, «Suertudito Colón», «Cel. 4461258246», el aviso de
+     siempre) va de fondo tal cual, sin dibujarse de nuevo —no es una
+     recreación, es la imagen `assets/boleto-suertudito-colon.png`—. Encima
+     se ponen solo los datos que cambian de boleto a boleto: los números en
+     sus recuadros, el QR, las fechas, el precio y, al pie, el identificador
+     y el código. Donde la foto trae una MUESTRA (el QR de ejemplo, «$20»,
+     las fechas de ejemplo «30-sep-2026» / «1 día»), lo que va encima lleva
+     su propio fondo opaco para taparla del todo: nunca debe asomar un dato
+     de muestra en un boleto real. El logo del dueño, «Grupo Rural», viene
+     impreso en la foto —no se toca ni se reemplaza por el logo que se sube
+     desde el panel, que es un adorno aparte de esta disposición—.
+     Cada pieza está donde la foto dice que va, medida en píxeles sobre la
+     imagen, no a ojo. Al elegirla, los boletos por renglón saltan a 3 —el
+     tamaño del original— y los colores se ponen solos en el verde del
+     boleto, para que el QR, las cajas y las fechas combinen con la foto. Las
+     dos cosas son sugerencia: se cambian enseguida desde los controles.
 
      Los números van en dos columnas: con cuatro caen exactamente en las
      cuatro esquinas del original, y **con más de cuatro el boleto se
      aprieta** —tantos renglones como hagan falta hasta diez— y entonces la
-     caducidad y la emisión bajan al pie y el logo se sube bajo el título,
-     porque los costados se llenaron de números. Ninguna rifa imprime menos
-     números de los que vendió.
+     caducidad y la emisión bajan al pie. Ninguna rifa imprime menos números
+     de los que vendió.
 
      Abajo, en las dos disposiciones, van **el identificador del boleto y su
      código impresos en letra**. No es decoración: el día del sorteo el panel
@@ -480,8 +487,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v23` |
-| Etiquetas del panel | `?v=23` |
+| Service worker | `rifa-v24` |
+| Etiquetas del panel | `?v=24` |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -503,7 +510,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **226 comprobaciones** automáticas
+- El panel y el boleto pasan **224 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
@@ -543,14 +550,10 @@ número uno es el caché del navegador, no la base.
   copia a la rifa al crearla, no después: si se quiere el boleto
   «Suertudito», hay que elegirlo en la pestaña «Diseño» y guardarlo primero,
   o la rifa nace con el clásico.
-- **Reemplazar el boleto «Suertudito» dibujado por la foto real del cliente,
-  tal cual, con solo los datos variables encima (QR, números, código,
-  fechas).** Pedido el 25 de octubre: el dibujo en SVG se parece, pero no es
-  igual, y lo que hace falta es la imagen exacta. Pendiente de construir.
-- **Decidir si el adorno del boleto vertical se queda dibujado o calcado.** Se
-  probaron los dos: el dibujado en SVG (el que está puesto) y uno calcado de la
-  foto del boleto del cliente. Puestos lado a lado la diferencia es mínima
-  —porque el dibujo salió de medir esa misma foto—, y el dibujado gana en
-  impresión: sale nítido a cualquier tamaño, mientras que la imagen se queda en
-  los 195 puntos por pulgada que trae. Queda elegido el dibujado; si se quiere
-  el calcado, el recorte limpio ya está hecho y es media hora de trabajo.
+- ~~Reemplazar el boleto «Suertudito» dibujado por la foto real del cliente~~
+  **Hecho (26 de octubre de 2026).** `assets/boleto-suertudito-colon.png` es
+  ahora el fondo del boleto, tal cual, incluyendo el logo «Grupo Rural» (el
+  dueño pidió explícitamente conservarlo, no omitirlo). Encima solo van los
+  datos que cambian: números, QR, fechas, precio, y al pie el identificador +
+  código en letra chica. Ver la disposición «Suertudito», dentro de «Para la
+  siguiente rifa» más arriba, para el detalle completo.
