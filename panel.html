@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=26" />
-  <link rel="stylesheet" href="assets/panel.css?v=26" />
+  <link rel="stylesheet" href="assets/estilos.css?v=27" />
+  <link rel="stylesheet" href="assets/panel.css?v=27" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -268,9 +268,10 @@
 
       <h3 class="subtitulo-menor">Disposición</h3>
       <p class="nota">
-        Cómo está repartido el boleto. La clásica es horizontal y sobria; la
-        «Suertudito» es vertical, con marco doble, tréboles, rana y el nombre
-        de la rifa en cursiva.
+        Cómo está repartido el boleto. La clásica es horizontal y sobria; las
+        demás son la foto real de un boleto físico, con los números, el QR,
+        la caducidad, el precio y el código impresos encima en el lugar que
+        les toca.
       </p>
       <div class="temas" id="disposiciones"></div>
 
@@ -301,19 +302,9 @@
 
       <div id="campoTono" hidden>
         <h3 class="subtitulo-menor">Tono de la foto</h3>
-        <p class="nota">
-          La foto del boleto «Suertudito» es verde de origen —así la trajo el
-          cliente—. Esto no la recolorea de verdad, gira su tono entero hacia
-          otro color: el blanco del papel y el negro del QR se quedan igual.
-        </p>
+        <p class="nota" id="notaTono"></p>
         <input type="range" id="dsTono" min="0" max="360" step="1" value="0" />
-        <span class="atajos" id="atajosTono">
-          <button type="button" data-tono="0">Verde</button>
-          <button type="button" data-tono="90">Azul</button>
-          <button type="button" data-tono="150">Morado</button>
-          <button type="button" data-tono="210">Rosa</button>
-          <button type="button" data-tono="285">Dorado</button>
-        </span>
+        <span class="atajos" id="atajosTono"></span>
       </div>
 
       <h3 class="subtitulo-menor">Fondo del boleto</h3>
@@ -413,9 +404,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=26"></script>
-  <script src="assets/youtube.js?v=26"></script>
+  <script src="assets/config.js?v=27"></script>
+  <script src="assets/youtube.js?v=27"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=26"></script>
+  <script src="assets/panel.js?v=27"></script>
 </body>
 </html>
