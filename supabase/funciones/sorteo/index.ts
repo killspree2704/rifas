@@ -728,6 +728,33 @@ Deno.serve(async (req) => {
   }
 
   /**
+   * Corregir el precio impreso de un lote ya creado.
+   *
+   * Separado de `crear_rifa` por la misma razón que `fijar_emision`: un
+   * precio mal tecleado al crear la rifa se nota después, y no toca folios
+   * ni boletos, así que corregirlo sigue siendo válido aunque la rifa ya
+   * esté cerrada.
+   */
+  if (accion === "fijar_precio") {
+    const rifaPedida = String(cuerpo.rifa ?? "");
+    if (!rifaPedida) return responder({ error: "falta la rifa" }, 400);
+    const crudo = cuerpo.precio;
+    const precio = crudo === undefined || crudo === null || crudo === ""
+      ? null
+      : Number(crudo);
+    if (precio !== null && (!Number.isFinite(precio) || precio < 0)) {
+      return responder({ error: "el precio debe ser un número mayor o igual a cero" }, 400);
+    }
+    const { data, error } = await db
+      .from("rifas").update({ precio_boleto: precio }).eq("id", rifaPedida)
+      .select("id, precio_boleto").maybeSingle();
+    if (error) return responder({ error: error.message }, 400);
+    if (!data) return responder({ error: "rifa no encontrada" }, 404);
+    await anotar(rifaPedida, "precio", { precio_boleto: precio });
+    return responder({ rifa: data });
+  }
+
+  /**
    * Guardar el diseño del boleto impreso de una rifa.
    *
    * Va aquí y no entre las acciones sobre una rifa a propósito: aquellas se

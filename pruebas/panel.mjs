@@ -1151,15 +1151,30 @@ await ctxD.close();
      (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim())))
        .join(',') === '1018,4307,2850,3267',
      (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim()))).join(','));
-  // Esta foto no trae ningún QR ni fecha de muestra —el hueco del centro es
-  // el logo «herradura y bolsa», no un QR de mentiras—, así que la única
-  // prueba que importa es que el QR de verdad quede ahí encima, legible.
-  ok('el QR tapa el logo de muestra del centro, sobre blanco',
+  // El bug real que motivó esta corrección: el QR se ponía ENCIMA del logo
+  // de muestra (herradura y bolsa de dinero) de esta foto y lo tapaba
+  // entero —el dueño lo notó ya con el boleto impreso, en producción—.
+  // Ahora el QR vive en el hueco vacío de abajo, lejos del logo, que se
+  // queda a la vista.
+  ok('el QR sigue sobre blanco, como siempre',
      (await pg.$eval('#vistaBoleto .qr', (e) => getComputedStyle(e).backgroundColor))
        === 'rgb(255, 255, 255)');
-  ok('la caducidad va horizontal y centrada, no de canto como en «Suertudito»',
-     (await pg.$eval('#vistaBoleto .fechas', (e) => getComputedStyle(e).writingMode)) === 'horizontal-tb',
-     await pg.$eval('#vistaBoleto .fechas', (e) => getComputedStyle(e).writingMode));
+  const qrPosBono = await pg.$eval('#vistaBoleto .boleto', (art) => {
+    const c = art.getBoundingClientRect();
+    const r = art.querySelector('.qr').getBoundingClientRect();
+    return (r.top - c.top) / c.height;
+  });
+  ok('y ya NO tapa la herradura del centro: vive en el hueco de abajo',
+     qrPosBono > 0.45,
+     'el QR empieza al ' + (qrPosBono * 100).toFixed(1) + '% del alto del boleto');
+  // Sin hueco propio para la caducidad —el QR ocupa el que había—, esta
+  // plantilla no trae una `.fechas` flotante: la caducidad siempre sale en
+  // el pie, aunque el boleto no vaya apretado (a diferencia de «Suertudito»).
+  ok('sin recuadro «fechas» flotante en Bono: ya no le queda hueco propio',
+     (await pg.locator('#vistaBoleto .fechas').count()) === 0);
+  ok('la caducidad escrita arriba sigue viéndose, ahora en el pie',
+     (await pg.textContent('#vistaBoleto .pie .fechas-pie')).trim() === 'Caducidad: 2 días',
+     await pg.textContent('#vistaBoleto .pie'));
   // El bug real que motivó esta prueba: una regla `.pie` de OTRA pantalla
   // —la del participante, en estilos.css, sin relación con el panel— traía
   // `margin-top: 24px` y empujaba este pie entero fuera del boleto; se veía
@@ -1192,6 +1207,20 @@ await ctxD.close();
   ok('la hoja impresa también sale con la foto de «Bono Gana Hoy»',
      (await hojaB.$eval('.boleto', (e) => getComputedStyle(e, '::before').backgroundImage))
        .includes('boleto-bono-gana-hoy.png'));
+  // Mismo par de pruebas que en la vista previa, pero en la hoja de
+  // verdad y con cuatro folios —es decir, SIN ir apretado—: si el QR
+  // siguiera tapando la herradura, o la caducidad se perdiera por no
+  // tener dónde imprimirse, sería aquí donde se vería.
+  const qrPosBonoHoja = await hojaB.$eval('.boleto', (art) => {
+    const c = art.getBoundingClientRect();
+    const r = art.querySelector('.qr').getBoundingClientRect();
+    return (r.top - c.top) / c.height;
+  });
+  ok('y en la hoja impresa tampoco tapa la herradura', qrPosBonoHoja > 0.45);
+  ok('ahí la caducidad también sale en el pie, sin recuadro «fechas» propio',
+     (await hojaB.locator('.boleto .fechas').count()) === 0 &&
+     (await hojaB.textContent('.boleto .fechas-pie')).trim() === 'Caducidad: 2 días',
+     await hojaB.textContent('.boleto .pie'));
   const encimadosBono = await encimadas(hojaB, LEIBLE);
   ok('y nada se encima en este boleto tampoco', encimadosBono.length === 0, encimadosBono.join(' | '));
   const saleBono = await fuera(hojaB, LEIBLE + ', .pie span');
@@ -1207,6 +1236,35 @@ await ctxD.close();
      (await pg.locator('#campoEmision').count()) === 0);
   ok('ni en Nueva rifa',
      (await pg.locator('#nvFechaEmision').count()) === 0);
+
+  // El precio pedido: no solo se fija al crear la rifa (ahí ya era
+  // editable), también se puede CORREGIR después, con su propio botón —
+  // igual que antes se corregía la fecha de emisión—. Va aparte de
+  // «Guardar el diseño» porque el precio es DE LA RIFA, no del diseño.
+  ok('el campo de precio aparece al estar manejando una rifa',
+     await pg.isVisible('#campoPrecio'));
+  ok('y llega prellenado con el precio de verdad de esta rifa',
+     (await pg.inputValue('#dsPrecio')) === '50',
+     await pg.inputValue('#dsPrecio'));
+  await pg.fill('#dsPrecio', '75');
+  await pg.click('#btnGuardarPrecio');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajePrecio').textContent.includes('va a imprimir ese precio'),
+    null, { timeout: 10000 });
+  ok('guardar el precio lo confirma en voz alta', true);
+  ok('y se ve reflejado al toque en la vista previa del boleto',
+     (await pg.textContent('#vistaBoleto .precio')).trim() === '$75',
+     await pg.textContent('#vistaBoleto .precio'));
+
+  // Sobrevive recargar la pestaña, no solo quedarse en memoria del
+  // navegador: el mismo cuidado que ya atrapó el bug real del tono.
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto .caja');
+  ok('el precio nuevo sobrevive guardar y recargar, no solo la vista previa en memoria',
+     (await pg.inputValue('#dsPrecio')) === '75',
+     await pg.inputValue('#dsPrecio'));
 
   // Volver al de siempre, con su confirmación.
   await pg.click('.pestana[data-panel="paneDiseno"]');
