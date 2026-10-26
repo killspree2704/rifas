@@ -310,7 +310,12 @@ pasados esos, solo queda descargar un respaldo.
    todo lo demás se vea bien.
 2. Entrar al panel y comprobar que la rifa correcta está en **En espera**.
 3. Empezar a transmitir en YouTube desde la app, con **«Permitir insertar»
-   encendido** en la configuración avanzada del directo. Ya al aire, copiar el
+   encendido** y la **latencia en «Baja» (Low latency)**, las dos en la
+   configuración avanzada del directo, ANTES de tocar «Transmitir en vivo» —
+   después de empezado no se puede cambiar—. Con «Normal» —la que trae por
+   omisión— el directo le gana a la cámara por 15 a 30 segundos: en «Baja»
+   baja a 2–5. No pongas «Ultra baja»: esa exige una conexión más estable, y
+   es justo lo que no se puede prometer en la sede. Ya al aire, copiar el
    enlace del directo —o dejar puesto `youtube.com/channel/UC…/live`, que
    sirve para siempre y sí se incrusta— y presionar **Transmitir** en el
    panel. Los teléfonos cambian solos a «La rifa se está llevando a cabo» y
@@ -573,6 +578,16 @@ número uno es el caché del navegador, no la base.
 - **Enciende «Permitir insertar»** en la configuración avanzada del directo,
   en YouTube Studio. Viene apagado por omisión y sin eso el reproductor sale
   en blanco.
+- **El retraso del video es de YouTube, no de esta página.** El `<iframe>`
+  solo pide `https://www.youtube.com/embed/…`; no hay nada del lado de la
+  página que meta demora —ni sondeo, ni buffer propio—. Lo que sí decide el
+  retraso es la **latencia del directo**, elegida en la app de YouTube ANTES
+  de empezar a transmitir: «Normal» (la de origen) tarda 15–30 s en llegar;
+  «Baja» (Low latency) lo baja a 2–5 s. Revisado el 26 de octubre de 2026: el
+  dueño notó 20 s viendo el directo desde el boleto, y el directo de esa
+  prueba estaba en «Normal». «Ultra baja» existe pero pide una señal más
+  estable de la que esta sede puede prometer —justo el motivo por el que todo
+  este proyecto está pensado para redes malas—, así que no se recomienda.
 - El enlace `@tucanal/live` es permanente pero **no se puede incrustar**. El
   de `channel/UC…/live` es permanente y sí. El panel lo avisa al escribirlo.
 - **Ver no pide cuenta**; solo comentar la pide. Y si el directo queda marcado
