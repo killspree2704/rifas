@@ -474,6 +474,37 @@ sigue aceptando `fecha_emision` en `crear_rifa` y la acción `fijar_emision`
 quitar un campo del frontend—. Si algún día hace falta borrarlos de verdad,
 es un cambio aparte, en el servidor.
 
+## El QR de «Bono Gana Hoy» tapaba la herradura — corregido (26 de octubre de 2026)
+
+El primer acomodo de esta plantilla trataba el logo del centro —la
+herradura y la bolsa de dinero— como si fuera una MUESTRA que había que
+tapar, igual que el QR de ejemplo de «Suertudito». No lo es: es parte fija
+del diseño y el dueño lo notó ya con el boleto impreso, en producción —el QR
+de verdad se ponía encima y se lo comía entero.
+
+El QR se movió al hueco vacío de abajo del logo (`qr.top` pasó de 25.6 % a
+51.3 % en `PLANTILLAS.bono`, dentro de `assets/panel.js`), y la herradura se
+queda visible, sin nada encima. Como ese hueco ya no le sobra espacio a la
+caducidad, esta plantilla dejó de tener un recuadro `.fechas` propio —a
+diferencia de «Suertudito»—: la caducidad de «Bono Gana Hoy» siempre sale en
+el pie, igual que en un boleto apretado, aunque lleve solo cuatro números.
+Si algún día se agrega una tercera plantilla sin hueco propio para la
+caducidad, basta con no definirle `fechas` en `PLANTILLAS` para que se
+comporte igual.
+
+## El precio del boleto, ahora corregible después de crear la rifa (26 de octubre de 2026)
+
+Antes solo se fijaba una vez, al crear la rifa («Precio» en **Nueva rifa**).
+El dueño pidió poder corregirlo después —un precio mal tecleado se nota ya
+con el lote andando—, así que en **Diseño** hay ahora un campo «Precio del
+boleto» con su propio botón «Guardar precio», igual que antes lo tenía la
+fecha de emisión. Va aparte de «Guardar el diseño» a propósito: el precio es
+**de la rifa**, no del diseño —entra en el total vendido que se enseña en la
+lista de rifas—, así que vive en su propia acción del servidor
+(`fijar_precio`, en `supabase/funciones/sorteo/index.ts`) en vez de colarse
+dentro de `diseno`. No toca folios ni boletos, así que corregirlo sigue
+siendo válido aunque la rifa ya esté cerrada.
+
 ## Estado al 25 de octubre de 2026
 
 Comprobado consultando Supabase, no de memoria.
@@ -505,8 +536,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v27` |
-| Etiquetas del panel | `?v=27` |
+| Service worker | `rifa-v28` |
+| Etiquetas del panel | `?v=28` |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -528,7 +559,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **227 comprobaciones** automáticas
+- El panel y el boleto pasan **235 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

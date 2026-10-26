@@ -293,6 +293,17 @@ function sorteo(cuerpo) {
     r2.emision = cuerpo.fecha_emision || null;
     return [200, { rifa: { id: r2.id, emision: r2.emision } }];
   }
+  if (a === 'fijar_precio') {
+    const r2 = rifaDe(cuerpo.rifa);
+    if (!r2) return [400, { error: 'falta la rifa' }];
+    const crudo = cuerpo.precio;
+    const precio = crudo === undefined || crudo === null || crudo === '' ? null : Number(crudo);
+    if (precio !== null && (!Number.isFinite(precio) || precio < 0)) {
+      return [400, { error: 'el precio debe ser un número mayor o igual a cero' }];
+    }
+    r2.precio_boleto = precio;
+    return [200, { rifa: { id: r2.id, precio_boleto: r2.precio_boleto } }];
+  }
 
   const r = rifaDe(cuerpo.rifa);
   if (!r) return [404, { error: 'rifa no encontrada' }];

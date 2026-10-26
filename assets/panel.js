@@ -1275,12 +1275,16 @@
       tema: 'bono',
       colorOrigen: 'rojo',
       caja: { primer: 37.27, ultimo: 76.29, alto: 7.24, ancho: 26.43, columna: [7.43, 69.03] },
-      // Tapa el logo de muestra (herradura y bolsa de dinero) del centro.
-      qr: { left: 34, width: 32, top: 25.6, height: 23.4 },
-      // Esta foto no trae ninguna fecha de muestra que tapar —el hueco de
-      // abajo del logo está vacío de origen—, así que la caducidad va
-      // horizontal y centrada ahí, no de canto como en «Suertudito».
-      fechas: { left: 10, width: 80, top: 58, height: 12, vertical: false, fuente: 2.2 },
+      // El logo de muestra (herradura y bolsa de dinero), de 25 % a 49.57 %,
+      // es parte del diseño y se queda VISIBLE: el QR va en el hueco vacío
+      // de abajo, no encima. (Antes el QR se ponía ahí mismo y se lo tapaba
+      // entero —el dueño lo notó viendo el boleto ya impreso—.)
+      qr: { left: 36.5, width: 28.6, top: 51.3, height: 21 },
+      // Esta foto no trae ninguna fecha de muestra que tapar y, con el QR
+      // ahora en su mismo hueco, ya no le queda un renglón propio: por eso
+      // no hay `fechas` aquí —a diferencia de «Suertudito»— y la caducidad
+      // siempre sale en el pie, como la de un boleto apretado. Ver el `||`
+      // en `boletoPlantillaHtml`.
       // Tapa el «$20» de muestra, que en esta foto es café, no verde.
       precio: { left: 34, width: 28, top: 74, height: 8.5 },
       pie: { left: 8, right: 8, top: 93, height: 2.3 },
@@ -1329,6 +1333,8 @@
    * casos, en vez de estirarse.
    */
   function estiloPlantilla(plantilla, d, p) {
+    // Suertudito trae `fechas` —cubre una muestra de la foto—; Bono no: su
+    // hueco lo ocupa el QR y la caducidad siempre va al pie (ver más abajo).
     var f = plantilla.fechas;
     return (
       // Todo el boleto se mide en `--u`, que vale un milímetro del boleto
@@ -1393,13 +1399,15 @@
       ' background: #fff; box-sizing: border-box; padding: calc(var(--u) * 0.9);' +
       ' border-radius: calc(var(--u) * 0.8); }' +
       p + '.qr svg { width: 100%; height: auto; display: block; }' +
-      p + '.fechas { position: absolute; left: ' + f.left + '%; width: ' + f.width + '%;' +
-      ' top: ' + f.top + '%; height: ' + f.height + '%;' +
-      ' box-sizing: border-box; background: ' + d.fondo + '; display: flex;' +
-      ' align-items: center; justify-content: center; text-align: center;' +
-      (f.vertical ? ' writing-mode: vertical-rl;' : '') +
-      ' font-size: calc(var(--u) * ' + f.fuente + '); font-weight: 700;' +
-      ' line-height: 1.3; white-space: nowrap; color: ' + d.tinta + '; }' +
+      (f
+        ? p + '.fechas { position: absolute; left: ' + f.left + '%; width: ' + f.width + '%;' +
+          ' top: ' + f.top + '%; height: ' + f.height + '%;' +
+          ' box-sizing: border-box; background: ' + d.fondo + '; display: flex;' +
+          ' align-items: center; justify-content: center; text-align: center;' +
+          (f.vertical ? ' writing-mode: vertical-rl;' : '') +
+          ' font-size: calc(var(--u) * ' + f.fuente + '); font-weight: 700;' +
+          ' line-height: 1.3; white-space: nowrap; color: ' + d.tinta + '; }'
+        : '') +
       p + '.precio { position: absolute; left: ' + plantilla.precio.left + '%; width: ' + plantilla.precio.width + '%;' +
       ' top: ' + plantilla.precio.top + '%; height: ' + plantilla.precio.height + '%;' +
       ' box-sizing: border-box; background: ' + d.fondo + ';' +
@@ -1447,6 +1455,9 @@
     var numeros = boleto.folios || [];
     var lugares = cajasPlantilla(plantilla, numeros.length);
     var apretado = plantillaApretada(numeros.length);
+    // Sin `fechas` propia (Bono: el QR ya ocupa ese hueco) la caducidad
+    // siempre va al pie, igual que en un boleto apretado de Suertudito.
+    var fechasEnPie = apretado || !plantilla.fechas;
     var fechas = [];
     if (d.caducidad) { fechas.push('Caducidad: ' + escapar(d.caducidad)); }
     return '<article class="boleto' + (apretado ? ' apretado' : '') + '">' +
@@ -1457,12 +1468,12 @@
       '<div class="qr">' + qrSvg(url) + '</div>' +
       // Siempre se pinta, aunque no haya fechas que mostrar: la foto trae
       // una muestra justo ahí y hay que taparla sin excepción.
-      (!apretado ? '<div class="fechas">' + fechas.join('<br />') + '</div>' : '') +
+      (!fechasEnPie ? '<div class="fechas">' + fechas.join('<br />') + '</div>' : '') +
       // Igual el precio: las dos fotos traen un «$20» de muestra ahí.
       '<div class="precio">' + escapar(precio || '') + '</div>' +
       '<div class="pie">' +
       '<span class="serial">' + escapar(boleto.id) + '</span>' +
-      (apretado && fechas.length
+      (fechasEnPie && fechas.length
         ? '<span class="fechas-pie">' + fechas.join(' · ') + '</span>' : '') +
       '<span class="codigo">Código ' + escapar(boleto.codigo) + '</span>' +
       '</div>' +
@@ -1677,6 +1688,15 @@
       ? 'Guardar el diseño' : 'Guardar para la próxima rifa';
     $('btnGuardarDiseno').disabled = false;
     $('btnDisenoDeSiempre').disabled = false;
+
+    // El precio es DE LA RIFA, no del diseño —entra en el total vendido—,
+    // por eso se corrige aparte con su propio botón: sin rifa todavía no
+    // hay nada que corregir.
+    $('campoPrecio').hidden = !r;
+    $('btnGuardarPrecio').hidden = !r;
+    $('dsPrecio').value = (r && r.precio_boleto !== null && r.precio_boleto !== undefined)
+      ? r.precio_boleto : '';
+    mensaje('', '', 'mensajePrecio');
 
     disenoEnEdicion = disenoCompleto(r ? r.diseno : disenoPorOmision);
     escribirControles(disenoEnEdicion);
@@ -2066,6 +2086,20 @@
         }
       })
       .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
+  });
+
+  $('btnGuardarPrecio').addEventListener('click', function () {
+    var r = rifaConocida(rifaActual);
+    if (!r) { return; }
+    var valor = $('dsPrecio').value.trim();
+    mensaje('Guardando…', '', 'mensajePrecio');
+    llamar('fijar_precio', { precio: valor === '' ? '' : Number(valor) })
+      .then(function (datos) {
+        r.precio_boleto = datos.rifa.precio_boleto;
+        refrescarVista();
+        mensaje('Listo. La próxima hoja de esta rifa va a imprimir ese precio.', 'ok', 'mensajePrecio');
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajePrecio'); });
   });
 
   $('btnDisenoDeSiempre').addEventListener('click', function () {

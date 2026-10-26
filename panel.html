@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=27" />
-  <link rel="stylesheet" href="assets/panel.css?v=27" />
+  <link rel="stylesheet" href="assets/estilos.css?v=28" />
+  <link rel="stylesheet" href="assets/panel.css?v=28" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -345,6 +345,16 @@
         <input type="text" id="dsCaducidad" maxlength="40" placeholder="1 día" />
         <small class="ayuda">Va de canto, al centro del boleto. Déjalo vacío para no imprimirlo.</small>
       </label>
+      <!-- El precio es DE LA RIFA, no del diseño —afecta el total vendido—,
+           por eso se guarda aparte con su propio botón, igual que antes la
+           fecha de emisión: sin rifa todavía no hay nada que corregir. -->
+      <label class="campo" id="campoPrecio" hidden>
+        <span>Precio del boleto</span>
+        <input type="number" id="dsPrecio" min="0" step="1" placeholder="—" />
+        <small class="ayuda">Va impreso encima de la foto. Déjalo vacío para no imprimirlo.</small>
+      </label>
+      <button class="boton fantasma chico" id="btnGuardarPrecio" hidden>Guardar precio</button>
+      <p class="mensaje" id="mensajePrecio" role="status" aria-live="polite"></p>
       <label class="campo">
         <span>Boletos por renglón en la hoja</span>
         <select id="dsColumnas">
@@ -404,9 +414,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=27"></script>
-  <script src="assets/youtube.js?v=27"></script>
+  <script src="assets/config.js?v=28"></script>
+  <script src="assets/youtube.js?v=28"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=27"></script>
+  <script src="assets/panel.js?v=28"></script>
 </body>
 </html>
