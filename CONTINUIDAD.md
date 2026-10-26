@@ -388,51 +388,58 @@ Todo desde el panel, sin tocar código ni publicar nada:
 4. Si quieres darle aspecto, **pestaña «Diseño»**. Lo primero que se elige
    ahí es la **disposición**, que es la plantilla entera:
    - **Clásica**: horizontal y sobria, la de siempre.
-   - **Suertudito**: la FOTO REAL que trajo el dueño (marco verde doble,
-     tréboles, rana, «Suertudito Colón», «Cel. 4461258246», el aviso de
-     siempre) va de fondo tal cual, sin dibujarse de nuevo —no es una
-     recreación, es la imagen `assets/boleto-suertudito-colon.png`—. Encima
-     se ponen solo los datos que cambian de boleto a boleto: los números en
-     sus recuadros, el QR, las fechas, el precio y, al pie, el identificador
-     y el código. Donde la foto trae una MUESTRA (el QR de ejemplo, «$20»,
-     las fechas de ejemplo «30-sep-2026» / «1 día»), lo que va encima lleva
-     su propio fondo opaco para taparla del todo: nunca debe asomar un dato
-     de muestra en un boleto real. El logo del dueño, «Grupo Rural», viene
-     impreso en la foto —no se toca ni se reemplaza por el logo que se sube
-     desde el panel, que es un adorno aparte de esta disposición—.
+   - **Suertudito** y **Bono Gana Hoy**: dos FOTOS REALES de boletos que trajo
+     el dueño —todo lo fijo de cada una (marco, título, adornos, aviso) va de
+     fondo tal cual, sin dibujarse de nuevo; son `assets/boleto-suertudito-colon.png`
+     y `assets/boleto-bono-gana-hoy.png`—. Encima se ponen solo los datos que
+     cambian de boleto a boleto: los números en sus recuadros, el QR, la
+     caducidad, el precio y, al pie, el identificador y el código. Donde la
+     foto trae una MUESTRA (el QR de ejemplo, «$20», en «Suertudito» también
+     fechas de muestra), lo que va encima lleva su propio fondo opaco para
+     taparla del todo: nunca debe asomar un dato de muestra en un boleto
+     real. Los logos propios de cada foto —«Grupo Rural» en una, los
+     tréboles y el teléfono en la otra— vienen impresos ahí, no se tocan ni
+     se reemplazan por el logo que se sube desde el panel, que es un adorno
+     aparte de la disposición clásica.
      Cada pieza está donde la foto dice que va, medida en píxeles sobre la
-     imagen, no a ojo. Al elegirla, los boletos por renglón saltan a 3 —el
-     tamaño del original— y los colores se ponen solos en el verde del
-     boleto, para que el QR, las cajas y las fechas combinen con la foto. Las
-     dos cosas son sugerencia: se cambian enseguida desde los controles.
+     imagen, no a ojo —y las dos fotos tienen SUS PROPIAS medidas, guardadas
+     cada una por separado—. Al elegir cualquiera de las dos, los boletos
+     por renglón saltan a 3 —el tamaño del original— y los colores se ponen
+     solos en los de esa foto —verde para «Suertudito», rojo para «Bono
+     Gana Hoy»—, para que el QR, las cajas y la caducidad combinen con ella.
+     Las dos cosas son sugerencia: se cambian enseguida desde los controles.
 
      Los números van en dos columnas: con cuatro caen exactamente en las
      cuatro esquinas del original, y **con más de cuatro el boleto se
      aprieta** —tantos renglones como hagan falta hasta diez— y entonces la
      caducidad baja al pie. Ninguna rifa imprime menos números de los que
-     vendió.
+     vendió. Los números mismos van grandes, casi llenando el recuadro —no
+     es solo un folio ahí, es lo primero que alguien tiene que poder leer
+     de lejos—.
 
-     Abajo, en las dos disposiciones, van **el identificador del boleto y su
+     Abajo, en las tres disposiciones, van **el identificador del boleto y su
      código impresos en letra**. No es decoración: el día del sorteo el panel
      enseña el código del boleto que salió y hay que compararlo con el talón
      en la mano. Dentro del QR no alcanza —un QR arrugado o mojado no se lee
      y el cotejo se queda sin hacer.
 
-   Encima van seis temas listos, tus colores, **doce fondos** —seis de línea,
+   Encima van ocho temas listos, tus colores, **doce fondos** —seis de línea,
    al estilo del papel de seguridad, y seis de figura: estrellas, confeti,
    burbujas, corazones, tréboles y fiesta, con sus propios colores—, logo y
    el aviso de letra chica.
 
-   **Tono de la foto** (solo en «Suertudito»): la foto es verde de origen
-   —así la trajo el cliente—, y este control la gira hacia otro color sin
-   tocar el archivo. No es un filtro de Instagram sobre todo el boleto: solo
-   gira la FOTO (`filter: hue-rotate()` en el pseudo-elemento que la trae de
-   fondo), el blanco del papel y el negro del QR no se mueven. Trae cinco
-   atajos —Verde (el original), Azul, Morado, Rosa, Dorado— que además
-   cambian «Tus colores» a juego, para que los recuadros y el texto no se
-   queden en verde con la foto ya de otro color; se puede afinar después con
-   los controles de siempre. También hay un control de grados (0–360) para
-   cualquier tono intermedio.
+   **Tono de la foto** (en «Suertudito» y «Bono Gana Hoy», cada una con el
+   suyo): la foto de cada plantilla tiene su color de origen —verde una, rojo
+   la otra, así las trajo el cliente—, y este control la gira hacia otro
+   color sin tocar el archivo. No es un filtro de Instagram sobre todo el
+   boleto: solo gira la FOTO (`filter: hue-rotate()` en el pseudo-elemento
+   que la trae de fondo), el blanco del papel y el negro del QR no se
+   mueven. Trae cinco atajos —Original (el de la foto), Azul, Morado, Rosa,
+   Dorado— que además cambian «Tus colores» a juego, calculados para llegar
+   al MISMO color final sin importar de cuál arranque la foto puesta, para
+   que los recuadros y el texto no se queden en el color de origen con la
+   foto ya girada; se puede afinar después con los controles de siempre.
+   También hay un control de grados (0–360) para cualquier tono intermedio.
 
    > **Ojo con la letra del título.** Se pide `Times New Roman` o
    > `Liberation Serif`, que es la romana cursiva del original —no una letra
@@ -498,8 +505,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v24` |
-| Etiquetas del panel | `?v=24` |
+| Service worker | `rifa-v27` |
+| Etiquetas del panel | `?v=27` |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -521,7 +528,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **214 comprobaciones** automáticas
+- El panel y el boleto pasan **227 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

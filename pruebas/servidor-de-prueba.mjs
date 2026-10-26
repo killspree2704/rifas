@@ -136,33 +136,53 @@ function sorteo(cuerpo) {
     }];
   }
   if (a === 'guardar_diseno') {
-    const d = cuerpo.diseno;
-    if (d) {
-      if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche', 'trebol'].includes(d.tema)) {
+    const entrada = cuerpo.diseno;
+    let d = null;
+    if (entrada) {
+      if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche', 'trebol', 'bono'].includes(entrada.tema)) {
         return [400, { error: 'ese tema no existe' }];
       }
       // La forma, no el catálogo: igual que el servidor de verdad.
-      if (!/^[a-z]{3,20}$/.test(String(d.trama))) {
+      if (!/^[a-z]{3,20}$/.test(String(entrada.trama))) {
         return [400, { error: 'esa trama no es válida' }];
       }
-      if (!['clasica', 'suertudito'].includes(d.disposicion)) {
+      if (!['clasica', 'suertudito', 'bono'].includes(entrada.disposicion)) {
         return [400, { error: 'esa disposición no existe' }];
       }
       for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
                                    ['acento', 'números'], ['borde', 'marco']]) {
-        if (!/^#[0-9a-fA-F]{6}$/.test(String(d[campo]))) {
+        if (!/^#[0-9a-fA-F]{6}$/.test(String(entrada[campo]))) {
           return [400, { error: `el color de ${cual} no es válido` }];
         }
       }
+      const tono = Number(entrada.tono ?? 0);
+      if (!Number.isInteger(tono) || tono < 0 || tono > 360) {
+        return [400, { error: 'el tono debe ser un entero entre 0 y 360' }];
+      }
+      // Reconstruye SOLO los campos que el servidor de verdad guarda —no un
+      // passthrough del objeto entero—: así, si el panel manda un campo
+      // nuevo que el servidor de verdad todavía no conoce (pasó con `tono`:
+      // se veía bien en la vista previa y se perdía solo al guardar, porque
+      // `limpiarDiseno()` reconstruye un objeto con una lista fija de
+      // campos, no copia el que le llega), la prueba lo nota en vez de
+      // dejarlo pasar de panza.
+      d = {
+        tema: entrada.tema, fondo: entrada.fondo, tinta: entrada.tinta,
+        acento: entrada.acento, borde: entrada.borde, logo: entrada.logo || '',
+        aviso: String(entrada.aviso || '').slice(0, 200),
+        columnas: Number(entrada.columnas) || 2, trama: entrada.trama,
+        intensidad: entrada.intensidad, disposicion: entrada.disposicion,
+        caducidad: String(entrada.caducidad || '').slice(0, 40), tono,
+      };
     }
     // Sin rifa: es el diseño que heredará la próxima que se cree.
     if (!cuerpo.rifa) {
-      disenoNuevo = d || null;
+      disenoNuevo = d;
       return [200, { diseno_nuevo: disenoNuevo }];
     }
     const r = rifaDe(cuerpo.rifa);
     if (!r) return [404, { error: 'rifa no encontrada' }];
-    r.diseno = d || null;
+    r.diseno = d;
     return [200, { rifa: { id: r.id, diseno: r.diseno } }];
   }
   if (a === 'boletos') {

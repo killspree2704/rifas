@@ -225,8 +225,8 @@ function repartir<T>(lista: T[], porGrupo: number): T[][] {
  * y nada más. El panel ya filtra igual; esto es lo que manda, porque una
  * comprobación que solo vive en el navegador no comprueba nada.
  */
-const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche", "trebol"];
-const DISPOSICIONES_VALIDAS = ["clasica", "suertudito"];
+const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche", "trebol", "bono"];
+const DISPOSICIONES_VALIDAS = ["clasica", "suertudito", "bono"];
 /*
  * De la trama solo viaja y se guarda el NOMBRE; el dibujo lo arma el panel a
  * partir de él. Aquí se comprueba la FORMA, no el catálogo, y es a propósito:
@@ -282,10 +282,18 @@ function limpiarDiseno(entrada: unknown) {
   }
 
   // La disposición sí lleva catálogo, al revés que la trama: cada una es una
-  // plantilla distinta en el panel, no un adorno, y son dos contadas.
+  // plantilla distinta en el panel, no un adorno, y son tres contadas.
   const disposicion = String(d.disposicion ?? "clasica");
   if (!DISPOSICIONES_VALIDAS.includes(disposicion)) {
     throw new Error("esa disposición no existe");
+  }
+
+  // El tono gira la FOTO de las disposiciones con foto (0 = la de origen).
+  // Entero y entre 0 y 360: lo mismo que ya comprueba el panel antes de
+  // mandarlo, para que un dedazo no se cuele hasta la base.
+  const tono = Number(d.tono ?? 0);
+  if (!Number.isInteger(tono) || tono < 0 || tono > 360) {
+    throw new Error("el tono debe ser un entero entre 0 y 360");
   }
 
   return {
@@ -301,6 +309,7 @@ function limpiarDiseno(entrada: unknown) {
     intensidad,
     disposicion,
     caducidad: String(d.caducidad ?? "").slice(0, 40),
+    tono,
   };
 }
 

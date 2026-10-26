@@ -910,26 +910,86 @@
     // dueño, no elegidos a gusto: el papel verde pálido, el verde medio de
     // los textos, el verde oscuro de las cifras y el verde vivo del marco.
     trebol:  { nombre: 'Trébol',  fondo: '#e4e9e3', tinta: '#2a5a30', acento: '#1b4d1b', borde: '#2e7d32' },
+    // Igual, con cuentagotas sobre el segundo boleto: el marco y el título
+    // son rojos, el «$20» es café, y el recuadro del número es gris oscuro
+    // —no rojo—, así que el acento se saca del marco y el borde del
+    // recuadro, no los dos del mismo lugar.
+    bono:    { nombre: 'Bono',    fondo: '#ffffff', tinta: '#7a1f1f', acento: '#c21212', borde: '#4a4a4a' },
   };
 
   /*
-   * Los colores de «Tus colores» que acompañan a cada atajo del tono de la
-   * foto. El filtro (`hue-rotate`) solo gira la FOTO —los recuadros y el
-   * texto tienen su propio color aparte, y un `filter` en el boleto entero
-   * se habría llevado por delante cualquier color que alguien eligiera a
-   * mano—, así que sin esto elegir «Morado» dejaba la foto morada con los
-   * números todavía en verde. Son el mismo «Trébol» (`#2e7d32` de marco)
-   * con el tono girado los mismos grados, en HSL, para que los dos cambien
-   * juntos de un clic y se puedan retocar después con los controles de
-   * siempre.
+   * Gira un color en HSL, para los atajos del tono de la foto (ver más
+   * abajo, junto a `atajosTono`). No es una tabla fija de antes: cada
+   * disposición con foto tiene su propio color de origen —verde el
+   * «Suertudito», rojo el «Bono»—, y el mismo atajo «Azul» tiene que girar
+   * CADA UNO desde su propio punto de partida, no desde uno solo cableado
+   * a mano. `rgbAHsl`/`hslARgb` son la ida y vuelta de siempre —no hay
+   * `Color` nativo en el navegador que haga esto con la precisión que
+   * hace falta para no perder el tono exacto al volver.
    */
-  var TONOS_PALETA = {
-    0:   { fondo: '#e4e9e3', tinta: '#2a5a30', acento: '#1b4d1b', borde: '#2e7d32' },
-    90:  { fondo: '#e3e7e9', tinta: '#2a3c5a', acento: '#1b344d', borde: '#2e527d' },
-    150: { fondo: '#e5e3e9', tinta: '#482a5a', acento: '#341b4d', borde: '#592e7d' },
-    210: { fondo: '#e9e3e7', tinta: '#5a2a3c', acento: '#4d1b34', borde: '#7d2e52' },
-    285: { fondo: '#e9e6e3', tinta: '#5a542a', acento: '#4d411b', borde: '#7d6d2e' },
-  };
+  function hexARgb(hex) {
+    return [parseInt(hex.substr(1, 2), 16), parseInt(hex.substr(3, 2), 16), parseInt(hex.substr(5, 2), 16)];
+  }
+  function rgbAHex(r, g, b) {
+    function h(v) { return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'); }
+    return '#' + h(r) + h(g) + h(b);
+  }
+  function rgbAHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; } else {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) { h = (g - b) / d + (g < b ? 6 : 0); }
+      else if (max === g) { h = (b - r) / d + 2; }
+      else { h = (r - g) / d + 4; }
+      h /= 6;
+    }
+    return [h * 360, s * 100, l * 100];
+  }
+  function hslARgb(h, s, l) {
+    h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
+    var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, r, g, b;
+    if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; }
+    return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
+  }
+  function girarColor(hex, grados) {
+    var hsl = rgbAHsl.apply(null, hexARgb(hex));
+    return rgbAHex.apply(null, hslARgb(hsl[0] + grados, hsl[1], hsl[2]));
+  }
+  /** «Tus colores» girados los mismos grados que la foto, desde el tema base de esa disposición. */
+  function paletaDelTono(tema, grados) {
+    return {
+      fondo: girarColor(tema.fondo, grados), tinta: girarColor(tema.tinta, grados),
+      acento: girarColor(tema.acento, grados), borde: girarColor(tema.borde, grados),
+    };
+  }
+
+  /*
+   * Los atajos del tono no traen un número de grados fijo: cada foto arranca
+   * de un color distinto —verde el «Suertudito», rojo el «Bono»—, así que
+   * «Azul» tiene que girar DISTINTO en cada una para llegar al mismo azul.
+   * Lo que sí es fijo es el tono DE LLEGADA (`objetivo`, en grados HSL de
+   * toda la vida: 0 rojo, 120 verde, 210 azul...); los grados que hay que
+   * aplicar se calculan restando el tono de salida del tema base, cada vez
+   * que se pintan los botones.
+   */
+  var ATAJOS_TONO = [
+    { nombre: 'Original', objetivo: null },
+    { nombre: 'Azul', objetivo: 210 },
+    { nombre: 'Morado', objetivo: 270 },
+    { nombre: 'Rosa', objetivo: 330 },
+    { nombre: 'Dorado', objetivo: 45 },
+  ];
+
+  /** Los grados que hay que girar el tema `tema` para que su acento llegue al `objetivo`. */
+  function gradosParaLlegar(tema, objetivo) {
+    if (objetivo === null) { return 0; }
+    var huePropia = rgbAHsl.apply(null, hexARgb(tema.acento))[0];
+    return Math.round(((objetivo - huePropia) % 360 + 360) % 360);
+  }
 
   /*
    * Fondos del boleto. Hay de dos clases y se manejan igual:
@@ -1119,7 +1179,7 @@
       columnas: (d.columnas === 1 || d.columnas === 3) ? d.columnas : 2,
       trama: TRAMAS[d.trama] ? d.trama : 'ninguna',
       intensidad: INTENSIDADES[d.intensidad] ? d.intensidad : 'suave',
-      disposicion: d.disposicion === 'suertudito' ? 'suertudito' : 'clasica',
+      disposicion: PLANTILLAS[d.disposicion] ? d.disposicion : 'clasica',
       caducidad: typeof d.caducidad === 'string' ? d.caducidad : '1 día',
       // Gira el tono de la FOTO del boleto «Suertudito» —que es verde de
       // origen—, sin tocar el blanco del papel ni el negro del QR. Solo
@@ -1164,68 +1224,88 @@
     if (contraste(d.acento, d.fondo) < 3) {
       avisos.push('los números se pierden contra el fondo');
     }
-    // El marco de la disposición «suertudito» viene impreso en la foto, no
+    // El marco de las disposiciones con foto viene impreso en la foto, no
     // se dibuja con `d.borde`: ahí ese contraste no aplica.
-    if (d.disposicion !== 'suertudito' && contraste(d.borde, d.fondo) < 1.6) {
+    if (!PLANTILLAS[d.disposicion] && contraste(d.borde, d.fondo) < 1.6) {
       avisos.push('el marco del boleto va a quedar invisible, y es la línea por donde se recorta');
     }
     return avisos;
   }
 
   // ------------------------------------------------------------------
-  // Disposición «Suertudito»: el boleto vertical
+  // Plantillas con foto real de fondo: «Suertudito» y «Bono Gana Hoy»
   // ------------------------------------------------------------------
   /*
-   * La foto real del boleto que trajo el dueño va de fondo, tal cual —marco,
-   * tréboles, rana, título, «Cel. ...» y el aviso van impresos en ella, no
-   * se dibujan—. Encima solo se ponen los datos que cambian de boleto a
-   * boleto: los números, el QR, las fechas, el precio y, al pie, el
-   * identificador y el código. Donde la foto trae una MUESTRA (el QR de
-   * ejemplo, «$20», las fechas de ejemplo) el elemento que va encima lleva
-   * su propio fondo opaco para taparla: nunca debe verse un dato de muestra
-   * en un boleto real.
+   * La foto real del boleto que trajo el dueño va de fondo, tal cual —todo
+   * lo fijo (marco, título, adornos, aviso) viene impreso en ella, no se
+   * dibuja—. Encima solo se ponen los datos que cambian de boleto a boleto:
+   * los números, el QR, la caducidad, el precio y, al pie, el identificador
+   * y el código. Donde la foto trae una MUESTRA (el QR de ejemplo, «$20»,
+   * fechas de ejemplo) el elemento que va encima lleva su propio fondo
+   * opaco para taparla: nunca debe verse un dato de muestra en un boleto
+   * real.
    *
-   * Las medidas son en porcentaje del alto/ancho de la foto, tomadas
-   * midiendo sus píxeles (no a ojo): la relación de aspecto del `.boleto` es
-   * la de la imagen misma, así que el porcentaje cae siempre en el mismo
-   * sitio sin importar a qué tamaño se imprima.
+   * Dos plantillas hoy —«Suertudito» y «Bono Gana Hoy»— comparten el mismo
+   * motor de abajo: lo único que cambia entre una y otra es la foto y estas
+   * medidas, todas tomadas midiendo los píxeles de cada imagen, no a ojo.
+   * Si llega una tercera foto algún día, es una entrada más aquí, no una
+   * copia del motor entero.
    */
-  var FOTO_SUERTUDITO = 'assets/boleto-suertudito-colon.png';
-  // La proporción de la foto (896×1200) como relleno de arriba de un
-  // pseudo-elemento, no como `aspect-ratio`: varios navegadores —Chromium
-  // entre ellos, comprobado a mano— no le dan una altura «definida» a un
-  // elemento que solo trae `aspect-ratio`, así que los hijos con `height`
-  // en porcentaje (las cajas de número, el QR, las fechas...) se quedan en
-  // 0 aunque el boleto se vea perfecto. El truco del `padding-top` es viejo
-  // pero funciona siempre: ese relleno se calcula contra el ANCHO, que
-  // nunca tiene este problema.
-  var FOTO_SUERTUDITO_PADDING_TOP = (1200 / 896 * 100).toFixed(4);
+  var PLANTILLAS = {
+    suertudito: {
+      nombre: 'Suertudito',
+      foto: 'assets/boleto-suertudito-colon.png',
+      fotoAncho: 896, fotoAlto: 1200,
+      tema: 'trebol',
+      colorOrigen: 'verde',
+      caja: { primer: 39.25, ultimo: 77.58, alto: 7.1, ancho: 26.3, columna: [6.81, 68.19] },
+      qr: { left: 34, width: 31, top: 50, height: 23 },
+      // Tapa la MUESTRA «Emisión: 30-sep-2026 / Caducidad: 1 día» —dos
+      // renglones, de canto— que trae la foto. Va centrada (`display: flex`)
+      // porque ahora solo se imprime un renglón y el hueco sigue siendo el
+      // de los dos.
+      fechas: { left: 4.5, width: 12, top: 46.5, height: 30.5, vertical: true, fuente: 1.5 },
+      precio: { left: 33.5, width: 28.5, top: 75, height: 9 },
+      pie: { left: 13, right: 6, top: 93.6, height: 2.4 },
+    },
+    bono: {
+      nombre: 'Bono Gana Hoy',
+      foto: 'assets/boleto-bono-gana-hoy.png',
+      fotoAncho: 900, fotoAlto: 1228,
+      tema: 'bono',
+      colorOrigen: 'rojo',
+      caja: { primer: 37.27, ultimo: 76.29, alto: 7.24, ancho: 26.43, columna: [7.43, 69.03] },
+      // Tapa el logo de muestra (herradura y bolsa de dinero) del centro.
+      qr: { left: 34, width: 32, top: 25.6, height: 23.4 },
+      // Esta foto no trae ninguna fecha de muestra que tapar —el hueco de
+      // abajo del logo está vacío de origen—, así que la caducidad va
+      // horizontal y centrada ahí, no de canto como en «Suertudito».
+      fechas: { left: 10, width: 80, top: 58, height: 12, vertical: false, fuente: 2.2 },
+      // Tapa el «$20» de muestra, que en esta foto es café, no verde.
+      precio: { left: 34, width: 28, top: 74, height: 8.5 },
+      pie: { left: 8, right: 8, top: 93, height: 2.3 },
+    },
+  };
 
-  /*
-   * Las medidas del boleto vertical, en porcentaje de su alto y de su ancho.
+  /**
+   * El lugar de cada número, para un boleto de `cuantos` folios.
    *
-   * El boleto del cliente trae cuatro números en las cuatro esquinas del
-   * centro, pero una rifa puede llevar de 1 a 10 por boleto. Los números se
-   * acomodan en dos columnas y en tantos renglones como hagan falta: con
-   * cuatro caen exactamente donde el original, y con más se aprietan hacia
-   * adentro. Imprimir solo los primeros cuatro no es opción: los demás siguen
+   * El boleto trae cuatro números en las cuatro esquinas del centro, pero
+   * una rifa puede llevar de 1 a 10 por boleto. Los números se acomodan en
+   * dos columnas y en tantos renglones como hagan falta: con cuatro caen
+   * exactamente donde el original, y con más se aprietan hacia adentro.
+   * Imprimir solo los primeros cuatro no es opción: los demás siguen
    * valiendo y pueden salir ganadores sin que el papel los muestre.
    */
-  var CAJA_PRIMER = 39.25;
-  var CAJA_ULTIMO = 77.58;
-  var CAJA_ALTO = 7.1;
-  var CAJA_ANCHO = 26.3;
-  var CAJA_COLUMNA = [6.81, 68.19];
-
-  /** El lugar de cada número, para un boleto de `cuantos` folios. */
-  function cajasSuerte(cuantos) {
+  function cajasPlantilla(plantilla, cuantos) {
+    var c = plantilla.caja;
     var renglones = Math.ceil(cuantos / 2);
-    var paso = renglones > 1 ? (CAJA_ULTIMO - CAJA_PRIMER) / (renglones - 1) : 0;
+    var paso = renglones > 1 ? (c.ultimo - c.primer) / (renglones - 1) : 0;
     var lugares = [];
     for (var i = 0; i < cuantos; i++) {
       lugares.push({
-        izq: CAJA_COLUMNA[i % 2],
-        arriba: Number((CAJA_PRIMER + Math.floor(i / 2) * paso).toFixed(2)),
+        izq: c.columna[i % 2],
+        arriba: Number((c.primer + Math.floor(i / 2) * paso).toFixed(2)),
       });
     }
     return lugares;
@@ -1235,20 +1315,21 @@
    * ¿Con tantos folios hay que apretar el boleto?
    *
    * Pasando de cuatro los números ocupan los costados de arriba a abajo, y ahí
-   * vivían las fechas verticales y el sello. Los dos se mudan.
+   * vivía la caducidad. Se muda al pie.
    */
-  function suerteApretado(cuantos) {
+  function plantillaApretada(cuantos) {
     return cuantos > 4;
   }
 
   /**
-   * El estilo del boleto vertical.
+   * El estilo de un boleto con foto de fondo.
    *
    * `aspect-ratio` en vez de una altura fija: así la hoja puede imprimirlo a
    * uno, dos o tres por renglón y el boleto conserva su forma en los tres
    * casos, en vez de estirarse.
    */
-  function estiloSuerte(d, p) {
+  function estiloPlantilla(plantilla, d, p) {
+    var f = plantilla.fechas;
     return (
       // Todo el boleto se mide en `--u`, que vale un milímetro del boleto
       // impreso a 60 mm de ancho... y, donde el navegador sepa de
@@ -1261,10 +1342,6 @@
       //
       // El milímetro va primero: un navegador viejo que no entienda
       // `@container` se queda con él y el papel sale igual que siempre.
-      //
-      // El relleno de arriba es el de la FOTO (896×1200), no un valor
-      // inventado: si la foto cambiara de tamaño algún día, este número hay
-      // que volverlo a medir junto con todo lo demás de aquí abajo.
       p + '.boleto { position: relative; box-sizing: border-box;' +
       ' container-type: inline-size; --u: 1mm; background-color: ' + d.fondo + ';' +
       ' color: ' + d.tinta + '; overflow: hidden; break-inside: avoid; }' +
@@ -1272,10 +1349,18 @@
       // girarle el tono (`filter: hue-rotate`) SIN arrastrar con ella a los
       // recuadros de número ni al texto de encima: un `filter` en un
       // elemento gira también a sus hijos, y esos ya tienen su propio
-      // color configurable aparte, en «Tus colores».
+      // color configurable aparte, en «Tus colores». El relleno de arriba es
+      // el de la FOTO de esta plantilla, no un valor inventado: si la foto
+      // cambiara de tamaño algún día, este número hay que volverlo a medir
+      // junto con todo lo demás de aquí abajo. El truco del `padding-top` —
+      // en vez de `aspect-ratio`— hace falta porque varios navegadores,
+      // Chromium entre ellos, no le dan una altura «definida» a un elemento
+      // que solo trae `aspect-ratio`: los hijos con `height` en porcentaje
+      // se quedan en 0 aunque el boleto se vea perfecto. El `padding-top` sí
+      // cuenta, porque se calcula contra el ANCHO, que nunca tiene ese lío.
       p + '.boleto::before { content: ""; display: block;' +
-      ' padding-top: ' + FOTO_SUERTUDITO_PADDING_TOP + '%;' +
-      ' background-image: url(\'' + baseDelSitio() + FOTO_SUERTUDITO + '\');' +
+      ' padding-top: ' + (plantilla.fotoAlto / plantilla.fotoAncho * 100).toFixed(4) + '%;' +
+      ' background-image: url(\'' + baseDelSitio() + plantilla.foto + '\');' +
       ' background-size: 100% 100%; background-repeat: no-repeat;' +
       (d.tono ? ' filter: hue-rotate(' + d.tono + 'deg);' : '') + ' }' +
       p + '.boleto > * { --u: 1mm; }' +
@@ -1293,36 +1378,30 @@
       // ACHICABA, pero el relleno la volvía a estirar—. Este `padding: 0`
       // es lo que de verdad arregla el tamaño del recuadro.
       p + '.caja { position: absolute; box-sizing: border-box; padding: 0;' +
-      ' width: ' + CAJA_ANCHO + '%; height: ' + CAJA_ALTO + '%;' +
+      ' width: ' + plantilla.caja.ancho + '%; height: ' + plantilla.caja.alto + '%;' +
       ' border: calc(var(--u) * 0.26) solid ' + d.borde + ';' +
       ' border-radius: calc(var(--u) * 0.85); display: flex;' +
       ' align-items: center; justify-content: center; background: ' + d.fondo + ';' +
       ' font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700;' +
-      ' font-size: calc(var(--u) * 2.8); color: ' + d.acento + '; }' +
+      ' font-size: calc(var(--u) * 4.4); color: ' + d.acento + '; }' +
       // El QR, siempre sobre blanco y con su margen: no se negocia ni aquí.
-      // Tapa el QR de muestra que trae la foto, por eso es opaco y no un
-      // poco más grande que la malla real: tiene que cubrirlo entero.
-      p + '.qr { position: absolute; left: 34%; width: 31%; top: 50%; height: 23%;' +
+      // Tapa lo que haya de muestra en ese lugar de la foto —QR o logo—, por
+      // eso es opaco y no un poco más grande que la malla real: tiene que
+      // cubrirlo entero.
+      p + '.qr { position: absolute; left: ' + plantilla.qr.left + '%; width: ' + plantilla.qr.width + '%;' +
+      ' top: ' + plantilla.qr.top + '%; height: ' + plantilla.qr.height + '%;' +
       ' background: #fff; box-sizing: border-box; padding: calc(var(--u) * 0.9);' +
       ' border-radius: calc(var(--u) * 0.8); }' +
       p + '.qr svg { width: 100%; height: auto; display: block; }' +
-      // La caducidad va de canto, centrada en el hueco que tapa la MUESTRA
-      // de la foto («Emisión: 30-sep-2026 / Caducidad: 1 día», dos
-      // renglones) —el recuadro opaco se queda del mismo alto que esos dos
-      // renglones para taparlos enteros, aunque ahora solo se imprima uno
-      // encima—, de ahí el `display: flex` centrado en vez de dejar el
-      // texto pegado arriba. Empieza en 46.5 % y no antes: el recuadro de
-      // arriba a la izquierda termina en 46.35 % y un pelo más arriba se le
-      // monta encima.
-      p + '.fechas { position: absolute; left: 4.5%; width: 12%; top: 46.5%; height: 30.5%;' +
+      p + '.fechas { position: absolute; left: ' + f.left + '%; width: ' + f.width + '%;' +
+      ' top: ' + f.top + '%; height: ' + f.height + '%;' +
       ' box-sizing: border-box; background: ' + d.fondo + '; display: flex;' +
-      ' align-items: center; justify-content: center;' +
-      ' writing-mode: vertical-rl; font-size: calc(var(--u) * 1.5); font-weight: 700;' +
+      ' align-items: center; justify-content: center; text-align: center;' +
+      (f.vertical ? ' writing-mode: vertical-rl;' : '') +
+      ' font-size: calc(var(--u) * ' + f.fuente + '); font-weight: 700;' +
       ' line-height: 1.3; white-space: nowrap; color: ' + d.tinta + '; }' +
-      // El precio tapa la muestra «$20» de la foto, mismo motivo. Empieza en
-      // 33.5 % y no antes: el recuadro de abajo a la izquierda llega hasta
-      // 33.11 % y un pelo más a la izquierda se le monta encima.
-      p + '.precio { position: absolute; left: 33.5%; width: 28.5%; top: 75%; height: 9%;' +
+      p + '.precio { position: absolute; left: ' + plantilla.precio.left + '%; width: ' + plantilla.precio.width + '%;' +
+      ' top: ' + plantilla.precio.top + '%; height: ' + plantilla.precio.height + '%;' +
       ' box-sizing: border-box; background: ' + d.fondo + ';' +
       ' display: flex; align-items: center; justify-content: center;' +
       ' font-size: calc(var(--u) * 5.25); font-weight: 800; font-style: italic;' +
@@ -1332,8 +1411,21 @@
       // cotejar el código del panel contra el talón que trae el ganador, y un
       // boleto que solo los lleve dentro del QR no se puede cotejar si el
       // teléfono no lo lee. Va bajo el aviso de la foto, pegado al borde de
-      // abajo: es el único hueco en blanco que queda ahí.
-      p + '.pie { position: absolute; left: 13%; right: 6%; top: 93.6%; height: 2.4%;' +
+      // abajo: es el único hueco en blanco que queda ahí en las dos fotos.
+      //
+      // `margin: 0; padding-top: 0` no son cosméticos: `estilos.css` —que
+      // este mismo panel también carga, para los colores y tipos
+      // compartidos— ya tiene una regla `.pie { margin-top: 24px;
+      // padding-top: 15px; ...}` para el pie de la PANTALLA del boleto, sin
+      // relación con este. Coincide el nombre de clase por casualidad —como
+      // pasó antes con `.caja`—, y esos 24+15 px empujaban este pie FUERA
+      // del boleto: `overflow: hidden` se lo comía entero y el código
+      // quedaba sin imprimirse, sin que ningún aviso lo dijera. Las pruebas
+      // de texto seguían en verde porque leen el DOM, no lo que de verdad se
+      // ve —la lección de siempre: medir la posición, no solo el contenido—.
+      p + '.pie { position: absolute; left: ' + plantilla.pie.left + '%; right: ' + plantilla.pie.right + '%;' +
+      ' top: ' + plantilla.pie.top + '%; height: ' + plantilla.pie.height + '%;' +
+      ' margin: 0; padding-top: 0; border-top: none;' +
       ' display: flex; align-items: center; justify-content: space-between;' +
       ' gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.6); line-height: 1;' +
       ' color: ' + d.tinta + '; opacity: 0.85; }' +
@@ -1345,16 +1437,16 @@
       // que se sale del boleto.
       p + '.fechas-pie { font-family: inherit; letter-spacing: 0; min-width: 0;' +
       ' overflow: hidden; text-overflow: ellipsis; }' +
-      // Apretado, al pie le caben además las dos fechas: con la letra del
-      // boleto normal la de emisión salía cortada con puntos suspensivos.
+      // Apretado, al pie le cabe además la caducidad: con la letra del
+      // boleto normal salía cortada con puntos suspensivos.
       p + '.apretado .pie { font-size: calc(var(--u) * 1.4); }'
     );
   }
 
-  function boletoSuerteHtml(rifa, boleto, url, precio, d) {
+  function boletoPlantillaHtml(plantilla, rifa, boleto, url, precio, d) {
     var numeros = boleto.folios || [];
-    var lugares = cajasSuerte(numeros.length);
-    var apretado = suerteApretado(numeros.length);
+    var lugares = cajasPlantilla(plantilla, numeros.length);
+    var apretado = plantillaApretada(numeros.length);
     var fechas = [];
     if (d.caducidad) { fechas.push('Caducidad: ' + escapar(d.caducidad)); }
     return '<article class="boleto' + (apretado ? ' apretado' : '') + '">' +
@@ -1364,9 +1456,9 @@
       }).join('') +
       '<div class="qr">' + qrSvg(url) + '</div>' +
       // Siempre se pinta, aunque no haya fechas que mostrar: la foto trae
-      // una fecha de MUESTRA justo ahí y hay que taparla sin excepción.
+      // una muestra justo ahí y hay que taparla sin excepción.
       (!apretado ? '<div class="fechas">' + fechas.join('<br />') + '</div>' : '') +
-      // Igual el precio: la foto trae «$20» de muestra en ese lugar.
+      // Igual el precio: las dos fotos traen un «$20» de muestra ahí.
       '<div class="precio">' + escapar(precio || '') + '</div>' +
       '<div class="pie">' +
       '<span class="serial">' + escapar(boleto.id) + '</span>' +
@@ -1385,7 +1477,7 @@
    */
   function estiloBoleto(d, prefijo) {
     var p = prefijo || '';
-    if (d.disposicion === 'suertudito') { return estiloSuerte(d, p); }
+    if (PLANTILLAS[d.disposicion]) { return estiloPlantilla(PLANTILLAS[d.disposicion], d, p); }
     return (
       // El color va por separado de la imagen: `background` a secas borraría
       // la trama que viene justo después.
@@ -1425,12 +1517,14 @@
   /**
    * Un boleto. El mismo que va a la hoja y el que se ve en la vista previa.
    *
-   * Recibe la rifa entera y no solo su nombre porque la disposición vertical
-   * imprime además su fecha de emisión.
+   * Recibe la rifa entera y no solo su nombre porque la clásica imprime
+   * `rifa.nombre` en el boleto; las plantillas con foto no lo necesitan —el
+   * nombre de la rifa no sale en la foto—, pero conservan la misma firma
+   * para que el que llama no tenga que saber cuál disposición es cuál.
    */
   function boletoHtml(rifa, boleto, url, precio, d) {
-    if (d.disposicion === 'suertudito') {
-      return boletoSuerteHtml(rifa, boleto, url, precio, d);
+    if (PLANTILLAS[d.disposicion]) {
+      return boletoPlantillaHtml(PLANTILLAS[d.disposicion], rifa, boleto, url, precio, d);
     }
     var nombre = rifa.nombre;
     var numeros = (boleto.folios || []).map(function (f) {
@@ -1475,8 +1569,22 @@
       'h1 { font-size: 13pt; margin: 0 0 2mm; }' +
       '.pie-hoja { font-size: 9pt; color: #666; margin: 0 0 6mm; }' +
       'button { font: inherit; padding: 3mm 6mm; margin-bottom: 6mm; }' +
-      '.rejilla { display: grid; grid-template-columns: repeat(' + d.columnas + ', 1fr);' +
-      ' gap: 5mm; padding: 0 6mm 8mm; }' +
+      // `auto-fit` en vez de un `repeat(columnas, 1fr)` a secas: con
+      // `repeat` a secas, un lote chico —dos boletos pedidos como «3 por
+      // renglón»— salía del tamaño de un tercio de hoja con dos tercios en
+      // blanco al lado. `auto-fit` colapsa las columnas que de verdad están
+      // vacías —no las ocupa nadie en NINGÚN renglón— y el `1fr` reparte ese
+      // espacio entre los boletos que sí hay, así que crecen solos para
+      // llenar la hoja en vez de quedarse angostos. El `minmax()` es el
+      // ancho de una columna llena —cupo de `columnas`, con sus huecos—,
+      // así que con un lote grande sigue sin pasar de los que se pidieron
+      // por renglón. `justify-content: center` centra el ÚLTIMO renglón
+      // cuando le faltan boletos para completar la fila, en vez de dejarlo
+      // pegado a la izquierda con un hueco a la derecha.
+      '.rejilla { display: grid;' +
+      ' grid-template-columns: repeat(auto-fit, minmax(calc((100% - ' +
+      ((d.columnas - 1) * 5) + 'mm) / ' + d.columnas + '), 1fr));' +
+      ' justify-content: center; gap: 5mm; padding: 0 6mm 8mm; }' +
       // Sin esto, Chrome y la mayoría de navegadores NO imprimen ni
       // `background-image` ni `background-color` por omisión —la casilla
       // «Gráficos de fondo» del diálogo de impresión nace destildada—. Eso
@@ -1609,6 +1717,7 @@
   var DISPOSICIONES = {
     clasica: { nombre: 'Clásica', razon: '16 / 9' },
     suertudito: { nombre: 'Suertudito', razon: '60 / 84.7' },
+    bono: { nombre: 'Bono Gana Hoy', razon: '900 / 1228' },
   };
 
   function pintarDisposiciones() {
@@ -1642,6 +1751,41 @@
   }
 
   /**
+   * Los atajos del tono, recalculados cada vez: los grados que hacen falta
+   * para llegar a cada color cambian según de qué color sale la foto de la
+   * disposición puesta (ver `gradosParaLlegar`), así que no se pueden dejar
+   * fijos en el HTML como los demás botones de esta pestaña.
+   */
+  function pintarAtajosTono() {
+    var caja = $('atajosTono');
+    caja.textContent = '';
+    var plantilla = PLANTILLAS[disenoEnEdicion.disposicion];
+    if (!plantilla) { return; }
+    var tema = TEMAS[plantilla.tema];
+    $('notaTono').textContent = 'La foto de «' + plantilla.nombre + '» es ' + plantilla.colorOrigen +
+      ' de origen —así la trajo el cliente—. Esto no la recolorea de verdad, gira su tono entero ' +
+      'hacia otro color: el blanco del papel y el negro del QR se quedan igual.';
+    ATAJOS_TONO.forEach(function (atajo) {
+      var grados = gradosParaLlegar(tema, atajo.objetivo);
+      var boton = document.createElement('button');
+      boton.type = 'button';
+      boton.textContent = atajo.nombre;
+      boton.addEventListener('click', function () {
+        $('dsTono').value = String(grados);
+        // Gira también los recuadros y el texto, para que no quede la foto
+        // de un color y los números de otro: ver `paletaDelTono`.
+        var paleta = paletaDelTono(tema, grados);
+        $('dsFondo').value = paleta.fondo;
+        $('dsTinta').value = paleta.tinta;
+        $('dsAcento').value = paleta.acento;
+        $('dsBorde').value = paleta.borde;
+        leerControles();
+      });
+      caja.appendChild(boton);
+    });
+  }
+
+  /**
    * Cambiar de disposición ajusta los boletos por renglón Y los colores.
    *
    * Un boleto vertical a dos por renglón sale de 90 mm de ancho y 126 de
@@ -1655,13 +1799,18 @@
    */
   function elegirDisposicion(llave) {
     disenoEnEdicion.disposicion = llave;
-    disenoEnEdicion.columnas = llave === 'suertudito' ? 3 : 2;
-    var tema = llave === 'suertudito' ? 'trebol' : 'clasico';
+    var plantilla = PLANTILLAS[llave];
+    disenoEnEdicion.columnas = plantilla ? 3 : 2;
+    var tema = plantilla ? plantilla.tema : 'clasico';
     disenoEnEdicion.tema = tema;
     disenoEnEdicion.fondo = TEMAS[tema].fondo;
     disenoEnEdicion.tinta = TEMAS[tema].tinta;
     disenoEnEdicion.acento = TEMAS[tema].acento;
     disenoEnEdicion.borde = TEMAS[tema].borde;
+    // El tono es de la FOTO de esta plantilla: el de la plantilla anterior
+    // no significa nada aquí, y dejarlo puesto giraría la foto nueva sin
+    // que los colores recién asignados —sin girar— combinaran con ella.
+    disenoEnEdicion.tono = 0;
     escribirControles(disenoEnEdicion);
     refrescarVista();
   }
@@ -1724,19 +1873,20 @@
     $('dsIntensidad').value = d.intensidad;
     $('dsCaducidad').value = d.caducidad;
     $('dsTono').value = String(d.tono);
-    // La caducidad y el tono de la foto solo existen en el boleto vertical:
-    // en el clásico no hay fecha de canto ni foto que girar, y un control
-    // que no hace nada confunde.
-    $('campoCaducidad').hidden = d.disposicion !== 'suertudito';
-    $('campoTono').hidden = d.disposicion !== 'suertudito';
-    // El logo, al revés: en «Suertudito» el sello «Grupo Rural» ya viene
-    // impreso en la foto, así que no hay dónde poner uno propio —subirlo no
-    // haría nada, y un control que no hace nada confunde igual—.
-    $('campoLogo').hidden = d.disposicion === 'suertudito';
+    // La caducidad y el tono de la foto solo existen en las disposiciones
+    // CON foto: en la clásica no hay fecha que mostrar ahí ni foto que
+    // girar, y un control que no hace nada confunde.
+    $('campoCaducidad').hidden = !PLANTILLAS[d.disposicion];
+    $('campoTono').hidden = !PLANTILLAS[d.disposicion];
+    // El logo, al revés: en las disposiciones con foto el sello ya viene
+    // impreso en la imagen, así que no hay dónde poner uno propio —subirlo
+    // no haría nada, y un control que no hace nada confunde igual—.
+    $('campoLogo').hidden = !!PLANTILLAS[d.disposicion];
     $('btnQuitarLogo').hidden = !d.logo;
     pintarDisposiciones();
     pintarTemas();
     pintarTramas();
+    pintarAtajosTono();
   }
 
   function leerControles() {
@@ -1763,21 +1913,6 @@
   $('dsIntensidad').addEventListener('change', leerControles);
   $('dsCaducidad').addEventListener('input', leerControles);
   $('dsTono').addEventListener('input', leerControles);
-  Array.prototype.forEach.call(document.querySelectorAll('#atajosTono button'), function (b) {
-    b.addEventListener('click', function () {
-      $('dsTono').value = b.dataset.tono;
-      // Gira también los recuadros y el texto, para que no quede la foto de
-      // un color y los números de otro: ver el porqué junto a TONOS_PALETA.
-      var paleta = TONOS_PALETA[b.dataset.tono];
-      if (paleta) {
-        $('dsFondo').value = paleta.fondo;
-        $('dsTinta').value = paleta.tinta;
-        $('dsAcento').value = paleta.acento;
-        $('dsBorde').value = paleta.borde;
-      }
-      leerControles();
-    });
-  });
 
   /**
    * La vista previa. Dibuja UN boleto con el mismo código que la hoja de

@@ -752,10 +752,10 @@ await ctxD.close();
      (await pg.textContent('#disenoDeQuien')).includes('Rifa El Muerde Manos'),
      await pg.textContent('#disenoDeQuien'));
 
-  ok('ofrece los siete temas', (await pg.locator('#temas .tema').count()) === 7,
+  ok('ofrece los ocho temas', (await pg.locator('#temas .tema').count()) === 8,
      String(await pg.locator('#temas .tema').count()));
-  ok('ofrece las dos disposiciones',
-     (await pg.locator('#disposiciones .tema').count()) === 2,
+  ok('ofrece las tres disposiciones',
+     (await pg.locator('#disposiciones .tema').count()) === 3,
      String(await pg.locator('#disposiciones .tema').count()));
   ok('y los doce fondos: seis de línea y seis de figura',
      (await pg.locator('#tramas .tema').count()) === 12,
@@ -983,10 +983,14 @@ await ctxD.close();
      (await pg.inputValue('#dsTono')) === '0' &&
      (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').filter)) === 'none',
      await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').filter));
-  await pg.click('#atajosTono button[data-tono="150"]');
+  // Los atajos ya no traen los grados fijos en el HTML —cada disposición
+  // sale de un color distinto, así que se calculan cada vez que se pintan
+  // (ver `gradosParaLlegar`)—, por eso se eligen por su NOMBRE, no por un
+  // `data-tono` que ahora varía según la foto puesta.
+  await pg.locator('#atajosTono button', { hasText: 'Morado' }).click();
   await pg.waitForFunction(() => {
     const b = document.querySelector('#vistaBoleto .boleto');
-    return getComputedStyle(b, '::before').filter.includes('150deg');
+    return getComputedStyle(b, '::before').filter !== 'none';
   }, null, { timeout: 5000 });
   ok('el atajo «Morado» gira la foto, y nada más que la foto',
      (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').filter))
@@ -997,11 +1001,34 @@ await ctxD.close();
   ok('y acompaña con una paleta morada a juego, no deja los números en verde',
      (await pg.inputValue('#dsBorde')) === '#592e7d',
      await pg.inputValue('#dsBorde'));
-  await pg.click('#atajosTono button[data-tono="0"]');
+  await pg.locator('#atajosTono button', { hasText: 'Original' }).click();
   await pg.waitForFunction(() =>
     getComputedStyle(document.querySelector('#vistaBoleto .boleto'), '::before').filter === 'none',
     null, { timeout: 5000 });
-  ok('y «Verde» lo regresa a como estaba', (await pg.inputValue('#dsBorde')) === '#2e7d32');
+  ok('y «Original» lo regresa a como estaba', (await pg.inputValue('#dsBorde')) === '#2e7d32');
+
+  // El tono se veía bien en la vista previa y se perdía SOLO al guardar: el
+  // servidor reconstruye el diseño con una lista fija de campos y `tono` no
+  // estaba en ella, así que volvía a 0 en cuanto se recargaba la página.
+  // Por eso esta prueba guarda de verdad y vuelve a leer DEL SERVIDOR, no
+  // solo del estado en memoria del navegador.
+  await pg.locator('#atajosTono button', { hasText: 'Dorado' }).click();
+  await pg.waitForFunction(() =>
+    getComputedStyle(document.querySelector('#vistaBoleto .boleto'), '::before').filter !== 'none',
+    null, { timeout: 5000 });
+  const tonoAntes = await pg.inputValue('#dsTono');
+  await pg.click('#btnGuardarDiseno');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeDiseno').textContent.includes('va a salir así'),
+    null, { timeout: 10000 });
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto .caja');
+  ok('el tono sobrevive guardar y recargar, no solo la vista previa en memoria',
+     (await pg.inputValue('#dsTono')) === tonoAntes,
+     'antes: ' + tonoAntes + ' · después de recargar: ' + (await pg.inputValue('#dsTono')));
+  await pg.locator('#atajosTono button', { hasText: 'Original' }).click();
 
   await pg.fill('#dsCaducidad', '2 días');
   await pg.waitForFunction(() => {
@@ -1049,6 +1076,16 @@ await ctxD.close();
      (await hojaV.textContent('.boleto .serial')) === '9000001052' &&
      (await hojaV.textContent('.boleto .codigo')) === 'Código R5VR',
      (await hojaV.textContent('.boleto .pie')).replace(/\s+/g, ' '));
+  // No basta con que el texto esté en el DOM: una regla `.pie` de OTRA
+  // pantalla (la del participante, sin relación con esto) lo empujaba FUERA
+  // del boleto con un `margin-top` que no era de aquí, y `overflow: hidden`
+  // se lo comía enterito sin que ninguna prueba de texto lo notara.
+  const pieDentroV = await hojaV.$eval('.boleto', (art) => {
+    const c = art.getBoundingClientRect();
+    const r = art.querySelector('.pie').getBoundingClientRect();
+    return (r.top - c.top) + r.height <= c.height + 0.5;
+  });
+  ok('y ese pie queda DENTRO del boleto, no recortado por el margen de otra pantalla', pieDentroV);
   // Con cuatro números los recuadros tienen que caer donde el boleto del
   // cliente, no «más o menos ahí».
   const esquinas = await hojaV.$eval('.boleto', (art) => {
@@ -1066,6 +1103,19 @@ await ctxD.close();
      choca4.join(' | '));
   const sale4 = await fuera(hojaV, LEIBLE + ', .pie span');
   ok('ni se sale nada del boleto de cuatro', sale4.length === 0, sale4.join(' | '));
+  // Con dos boletos pedidos a «3 por renglón», antes salían del tamaño de UN
+  // TERCIO de hoja —el tercer hueco se quedaba en blanco al lado—. Ahora
+  // crecen solos para llenar la hoja entre los dos: cada uno debe medir
+  // cerca de la MITAD de la rejilla, no un tercio.
+  const medidasRejilla = await hojaV.$eval('.rejilla', (e) => {
+    const r = e.getBoundingClientRect();
+    const boletos = [...e.querySelectorAll('.boleto')];
+    return { rejillaAncho: r.width, boletoAncho: boletos[0].getBoundingClientRect().width };
+  });
+  const fraccion = medidasRejilla.boletoAncho / medidasRejilla.rejillaAncho;
+  ok('dos boletos pedidos a 3 por renglón crecen a la mitad de la hoja, no a un tercio',
+     fraccion > 0.45 && fraccion < 0.52,
+     (fraccion * 100).toFixed(1) + '% de la rejilla');
   // Todo el boleto se mide contra su propio ancho. Antes las letras iban en
   // milímetros fijos: en papel salían bien y en la pantalla —donde la hoja
   // enseña el boleto al doble— se veían diminutas, así que lo que el cliente
@@ -1078,6 +1128,78 @@ await ctxD.close();
      Math.abs(proporcion - 5.25 / 60) < 0.0004,
      'el precio mide ' + (proporcion * 60).toFixed(2) + ' mm en un boleto de 60 mm');
   await hojaV.close();
+
+  // --- La disposición «Bono Gana Hoy»: la segunda plantilla con foto -----
+  // Comparte el motor con «Suertudito» —por eso no se repite aquí todo lo ya
+  // probado arriba—, así que esto se concentra en lo que de verdad cambia:
+  // otra foto, otras medidas, la caducidad horizontal en vez de de canto, y
+  // el guardado contra el servidor aceptando «bono» como disposición y tema
+  // válidos —el servidor de verdad tiene su propia lista y hay que
+  // mantenerla a la par—.
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto');
+  await pg.click('#disposiciones .tema[data-disposicion="bono"]');
+  await pg.waitForSelector('#vistaBoleto .boleto .caja');
+  ok('trae de fondo la foto de «Bono Gana Hoy», no la de «Suertudito»',
+     (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').backgroundImage))
+       .includes('boleto-bono-gana-hoy.png'),
+     await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').backgroundImage));
+  ok('y trae los colores rojos de ESE boleto, no los verdes del otro',
+     (await pg.inputValue('#dsAcento')) === '#c21212' && (await pg.inputValue('#dsBorde')) === '#4a4a4a',
+     [await pg.inputValue('#dsAcento'), await pg.inputValue('#dsBorde')].join(' '));
+  ok('con los cuatro números en sus cuatro recuadros, en el lugar de esta foto',
+     (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim())))
+       .join(',') === '1018,4307,2850,3267',
+     (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim()))).join(','));
+  // Esta foto no trae ningún QR ni fecha de muestra —el hueco del centro es
+  // el logo «herradura y bolsa», no un QR de mentiras—, así que la única
+  // prueba que importa es que el QR de verdad quede ahí encima, legible.
+  ok('el QR tapa el logo de muestra del centro, sobre blanco',
+     (await pg.$eval('#vistaBoleto .qr', (e) => getComputedStyle(e).backgroundColor))
+       === 'rgb(255, 255, 255)');
+  ok('la caducidad va horizontal y centrada, no de canto como en «Suertudito»',
+     (await pg.$eval('#vistaBoleto .fechas', (e) => getComputedStyle(e).writingMode)) === 'horizontal-tb',
+     await pg.$eval('#vistaBoleto .fechas', (e) => getComputedStyle(e).writingMode));
+  // El bug real que motivó esta prueba: una regla `.pie` de OTRA pantalla
+  // —la del participante, en estilos.css, sin relación con el panel— traía
+  // `margin-top: 24px` y empujaba este pie entero fuera del boleto; se veía
+  // en el DOM (el texto estaba ahí) pero `overflow: hidden` se lo comía, así
+  // que no imprimía nada. Medir la POSICIÓN, no solo leer el texto.
+  const pieDentro = await pg.$eval('#vistaBoleto .boleto', (boleto) => {
+    const c = boleto.getBoundingClientRect();
+    const r = boleto.querySelector('.pie').getBoundingClientRect();
+    return (r.top - c.top) + r.height <= c.height + 0.5;
+  });
+  ok('el pie con el identificador y el código queda DENTRO del boleto, no recortado', pieDentro);
+
+  // Guarda de verdad: si el servidor (de prueba o el real) no conoce «bono»
+  // todavía en su lista de disposiciones o temas válidos, esto lo revienta
+  // con un error en vez de dejarlo pasar.
+  await pg.click('#btnGuardarDiseno');
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeDiseno').textContent.includes('va a salir así'),
+    null, { timeout: 10000 });
+  ok('el servidor acepta guardar la disposición «bono»', true);
+
+  await pg.click('.pestana[data-panel="paneRifas"]');
+  await pg.waitForSelector('#listaRifas .rifa');
+  const [hojaB] = await Promise.all([
+    ctxG.waitForEvent('page'),
+    pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaB.waitForLoadState('domcontentloaded');
+  await hojaB.waitForSelector('.boleto .caja');
+  ok('la hoja impresa también sale con la foto de «Bono Gana Hoy»',
+     (await hojaB.$eval('.boleto', (e) => getComputedStyle(e, '::before').backgroundImage))
+       .includes('boleto-bono-gana-hoy.png'));
+  const encimadosBono = await encimadas(hojaB, LEIBLE);
+  ok('y nada se encima en este boleto tampoco', encimadosBono.length === 0, encimadosBono.join(' | '));
+  const saleBono = await fuera(hojaB, LEIBLE + ', .pie span');
+  ok('ni se sale nada del boleto', saleBono.length === 0, saleBono.join(' | '));
+  await hojaB.close();
+
+  await pg.click('.pestana[data-panel="paneDiseno"]');
+  await pg.waitForSelector('#vistaBoleto .boleto .caja');
 
   // La fecha de emisión se quitó del todo: ni se imprime, ni tiene campo de
   // configuración en ninguna de las dos pestañas donde vivía antes.
