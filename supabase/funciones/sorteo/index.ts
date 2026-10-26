@@ -175,6 +175,33 @@ async function generarUnicos(cantidad: number, digitos: number, tabla: string, c
 }
 
 /**
+ * Folios de rango chico: el sorteo tradicional de canastas con bolitas por
+ * dígito —una canasta por posición, cada una con sus propias bolitas—, no
+ * una tómbola con un papelito por boleto vendido. El número más alto que
+ * puede salir es `tope` (por ejemplo 999, o 1999 si la primera canasta ya
+ * trae una bolita más), y el sorteo real reparte CUALQUIER número de 1 a
+ * `tope` con la misma probabilidad, lo hayan vendido o no todavía: por eso
+ * aquí no hace falta —ni tendría sentido— comprobar contra lo ya usado en
+ * otras rifas. El mismo 0347 puede salir en esta rifa y en la siguiente;
+ * lo que los distingue a la hora de verificar es el código firmado de cada
+ * boleto, no el número.
+ *
+ * Se eligen `cantidad` números SIN REPETIRSE dentro de esta misma rifa —eso
+ * sí importa: dos boletos de la misma rifa no pueden compartir número—, con
+ * un barajado de Fisher-Yates sobre el espacio completo de 1 a `tope`. Nada
+ * de consultar la base: como el tope es chico (unos cuantos miles cuando
+ * mucho) y la rifa es nueva, no hay con qué chocar todavía.
+ */
+function foliosDeRangoChico(cantidad: number, tope: number, digitos: number): string[] {
+  const espacio = Array.from({ length: tope }, (_, i) => i + 1);
+  for (let i = espacio.length - 1; i > 0; i--) {
+    const j = azarHasta(i + 1);
+    [espacio[i], espacio[j]] = [espacio[j], espacio[i]];
+  }
+  return espacio.slice(0, cantidad).map((n) => String(n).padStart(digitos, "0")).sort();
+}
+
+/**
  * Reparte los folios entre los boletos, en orden.
  *
  * Los folios de un mismo boleto NO son consecutivos ni guardan relación: cada
@@ -486,10 +513,21 @@ Deno.serve(async (req) => {
 
     let idBoleto = pedidoBoleto;
     if (!idBoleto) {
-      const { data: suelto } = await db
-        .from("folios").select("boleto_id").eq("folio", pedidoFolio).maybeSingle();
-      if (!suelto) return responder({ valido: false });
-      idBoleto = suelto.boleto_id;
+      // El folio ya no es único entre rifas —se reparte en números chicos,
+      // pensados para repetirse de una rifa a otra—, así que puede haber
+      // VARIOS boletos con este mismo número, de rifas distintas. El código
+      // es lo que de verdad desempata: se comprueba contra cada candidato,
+      // no solo contra el primero que aparezca. Que dos boletos de rifas
+      // distintas compartan folio Y código firmado es, en la práctica,
+      // imposible.
+      const { data: sueltos } = await db.from("folios").select("boleto_id").eq("folio", pedidoFolio);
+      const candidatos = (sueltos ?? []).map((f) => f.boleto_id);
+      if (!candidatos.length) return responder({ valido: false });
+      const { data: boletosCandidatos } = await db
+        .from("boletos").select("id, codigo").in("id", candidatos);
+      const hit = (boletosCandidatos ?? []).find((b) => b.codigo.toUpperCase() === codigo);
+      if (!hit) return responder({ valido: false });
+      idBoleto = hit.id;
     }
 
     const { data: boleto } = await db
@@ -548,18 +586,40 @@ Deno.serve(async (req) => {
     if (!Number.isInteger(porBoleto) || porBoleto < 1 || porBoleto > 10) {
       return responder({ error: "los folios por boleto deben ir de 1 a 10" }, 400);
     }
+    // El tope es OPCIONAL: sin él, el folio sigue siendo único entre TODAS
+    // las rifas, como siempre (`generarUnicos`, espacio grande y al azar).
+    // Con él, se activa el sorteo de rango chico —el de las canastas con
+    // bolitas por dígito—: números de 1 a `tope`, que SÍ se pueden repetir
+    // entre una rifa y otra, porque el candado contra la falsificación ya
+    // no depende de que el número sea raro, depende del código firmado.
+    const topeCrudo = cuerpo.tope;
+    const tope = topeCrudo === undefined || topeCrudo === null || topeCrudo === ""
+      ? null : Number(topeCrudo);
+    if (tope !== null) {
+      if (!Number.isInteger(tope) || tope < 1 || tope > Math.pow(10, digitos) - 1) {
+        return responder({ error: `el tope debe ser un entero entre 1 y ${Math.pow(10, digitos) - 1}` }, 400);
+      }
+    }
 
     const { data: rifasPrevias } = await db.from("rifas").select("id");
     const idsUsados = new Set((rifasPrevias ?? []).map((r) => r.id));
 
     // Un folio por oportunidad: si son 200 boletos de 4, son 800 números, y
-    // los 800 tienen que caber holgados en el espacio de dígitos elegido.
+    // los 800 tienen que caber holgados en el espacio de dígitos elegido (o,
+    // con tope, caber dentro del tope).
     const totalFolios = cantidad * porBoleto;
+    if (tope !== null && totalFolios > tope) {
+      return responder({
+        error: `${totalFolios} folios no caben en un tope de ${tope}; sube el tope o baja la cantidad`,
+      }, 400);
+    }
 
     let folios: string[];
     let identificadores: string[];
     try {
-      folios = await generarUnicos(totalFolios, digitos, "folios", "folio");
+      folios = tope !== null
+        ? foliosDeRangoChico(totalFolios, tope, digitos)
+        : await generarUnicos(totalFolios, digitos, "folios", "folio");
       identificadores = await generarUnicos(cantidad, DIGITOS_BOLETO, "boletos", "id");
     } catch (e) {
       return responder({ error: (e as Error).message }, 400);
@@ -840,8 +900,10 @@ Deno.serve(async (req) => {
       modo = "aleatorio";
     }
     // De qué papel salió ese número: es lo que hay que pedir para entregar.
+    // Con `rifa_id`: el folio ya no es único entre rifas, así que sin este
+    // filtro una coincidencia en otra rifa rompería el `.maybeSingle()`.
     const { data: duenoDelFolio } = await db
-      .from("folios").select("boleto_id").eq("folio", ganador).maybeSingle();
+      .from("folios").select("boleto_id").eq("folio", ganador).eq("rifa_id", rifa).maybeSingle();
 
     cambios = { estado: "revelado", folio_ganador: ganador };
     await anotar(rifa, "revelar", {

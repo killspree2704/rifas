@@ -13,11 +13,15 @@
 --               se prenda dos veces desde dos lados
 --   boletos     el boleto de papel: un identificador —el que va en el QR— y
 --               un código impreso, uno solo para todo el papel
---   folios      una fila por número impreso en un boleto. El folio es la
---               llave primaria: único global e histórico. Un boleto lleva
---               varios —cuatro por omisión, `rifas.folios_por_boleto`— y cada
---               uno es una oportunidad de ganar EL MISMO premio: el ganador
---               sigue siendo uno solo
+--   folios      una fila por número impreso en un boleto. Llave primaria
+--               compuesta `(rifa_id, folio)`: único DENTRO de su rifa, no
+--               entre todas —el sorteo de rango chico (canastas con bolitas
+--               por dígito, números de 1 a un tope) repite el mismo folio
+--               entre rifas a propósito; lo que impide la falsificación es
+--               el código firmado del boleto, no que el folio sea raro. Un
+--               boleto lleva varios folios —cuatro por omisión,
+--               `rifas.folios_por_boleto`— y cada uno es una oportunidad de
+--               ganar EL MISMO premio: el ganador sigue siendo uno solo
 --   sorteo_log  bitácora de cada acción del panel
 --   panel_clave hash de la clave del panel; sin políticas, nadie lo lee
 --   llave_firma llave HMAC con la que se firman los códigos; sin políticas,

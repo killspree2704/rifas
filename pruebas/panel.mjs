@@ -240,23 +240,24 @@ ok('la casilla de boletos arranca vacía: el número lo elige quien crea la rifa
    (await pagina.inputValue('#nvCantidad')) === '',
    JSON.stringify(await pagina.inputValue('#nvCantidad')));
 // El tope ya no se cuenta en boletos sino en números: con 4 por boleto,
-// en 5 dígitos caben 27,000 números, o sea 6,750 boletos.
+// en 4 dígitos (la cantidad por omisión ahora, para el estilo de rifa
+// tradicional) caben 2,700 números, o sea 675 boletos.
 ok('el tope que anuncia descuenta los números por boleto',
-   (await pagina.textContent('#cuentaNueva')).includes('6,750 boletos'),
+   (await pagina.textContent('#cuentaNueva')).includes('675 boletos'),
    await pagina.textContent('#cuentaNueva'));
 
 await pagina.click('#atajosCantidad button[data-cantidad="25"]');
 ok('los atajos llenan la casilla', (await pagina.inputValue('#nvCantidad')) === '25');
 ok('y el resumen dice boletos y números por separado',
    (await pagina.textContent('#cuentaNueva'))
-     .includes('25 boletos con 4 números cada uno: 100 folios de 5 dígitos'),
+     .includes('25 boletos con 4 números cada uno: 100 folios de 4 dígitos'),
    await pagina.textContent('#cuentaNueva'));
 
 // avisa antes de apretar el botón, no después
 await pagina.fill('#nvDigitos', '4');
 await pagina.fill('#nvCantidad', '4000');
 ok('avisa cuando los folios no alcanzan para tantos boletos',
-   (await pagina.textContent('#cuentaNueva')).includes('no caben en 4 dígitos'),
+   (await pagina.textContent('#cuentaNueva')).includes('no caben en el tope de 2,700'),
    await pagina.textContent('#cuentaNueva'));
 await pagina.fill('#nvDigitos', '5');
 
@@ -314,6 +315,93 @@ ok('manda la hora en la zona del evento, no la del navegador',
 ok('la fecha de emisión también viaja en la zona del evento',
    cuerpoCreacion && cuerpoCreacion.fecha_emision === '2026-12-20T18:00:00.000Z',
    cuerpoCreacion && cuerpoCreacion.fecha_emision);
+
+// --- sorteo de rango chico: números que SÍ se repiten entre rifas ---
+// Aparte y con su propio navegador: crea rifas de verdad en el servidor de
+// prueba, y eso le movería el conteo a las pruebas de más arriba si se
+// colara en medio de ellas.
+console.log('\n== Sorteo de rango chico (tope) ==');
+{
+  const ctxT = await navegador.newContext({ serviceWorkers: 'block' });
+  const pt = await ctxT.newPage();
+  const errT = [];
+  pt.on('pageerror', (e) => errT.push(String(e)));
+  await pt.goto(BASE + '/panel.html');
+  await pt.fill('#clave', 'secreta');
+  await pt.click('#btnEntrar');
+  await pt.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pt.click('.pestana[data-panel="paneRifas"]');
+
+  /**
+   * Tope = EXACTAMENTE los folios que hacen falta (2 boletos × 4 números =
+   * 8, tope 8): así la rifa queda obligada a usar los ocho números del 1 al
+   * 8 completos, sin dejarlo a la suerte de una corrida de pruebas a otra.
+   */
+  async function crearConTope(nombre) {
+    await pt.click('#cajaNueva > summary');
+    await pt.fill('#nvNombre', nombre);
+    await pt.fill('#nvSerie', 'T');
+    await pt.fill('#nvFecha', '2026-12-24T20:00');
+    await pt.fill('#nvTope', '8');
+    await pt.fill('#nvCantidad', '2');
+    await pt.fill('#nvFoliosPorBoleto', '4');
+    await pt.click('#btnCrear');
+    await pt.waitForFunction(() => document.getElementById('mensajeNueva').textContent.includes('confirmar'));
+    const [hojaN] = await Promise.all([ctxT.waitForEvent('page'), pt.click('#btnCrear')]);
+    await hojaN.waitForSelector('.boleto');
+    const boletosInfo = await hojaN.$$eval('.boleto', (arts) => arts.map((a) => ({
+      numeros: [...a.querySelectorAll('.num')].map((e) => e.textContent),
+      codigo: a.querySelector('.codigo').textContent.replace('Código ', '').trim(),
+    })));
+    await hojaN.close();
+    // Crear una rifa salta solo a la pestaña Sorteo: se regresa a Rifas
+    // para que la siguiente llamada a esta función encuentre «Nueva rifa».
+    await pt.waitForSelector('#paneSorteo:not([hidden])', { timeout: 15000 });
+    await pt.click('.pestana[data-panel="paneRifas"]');
+    await pt.waitForSelector('#cajaNueva > summary');
+    return boletosInfo;
+  }
+
+  const uno = await crearConTope('Rifa Tope Uno');
+  const numerosUno = uno.flatMap((b) => b.numeros);
+  ok('el tope de 8 produce folios de 4 dígitos, con cero a la izquierda',
+     numerosUno.every((n) => /^\d{4}$/.test(n)), numerosUno.join(' '));
+
+  const dos = await crearConTope('Rifa Tope Dos');
+  const numerosDos = dos.flatMap((b) => b.numeros);
+  ok('la segunda rifa con el mismo tope repite exactamente los mismos ocho números',
+     new Set(numerosUno).size === 8 && new Set(numerosDos).size === 8 &&
+     numerosUno.slice().sort().join(',') === numerosDos.slice().sort().join(','),
+     'uno: ' + numerosUno.join(',') + ' | dos: ' + numerosDos.join(','));
+
+  // El mismo número, con el código de cada rifa, tiene que resolver a SU
+  // propia rifa — y no a la otra, aunque el folio sea idéntico.
+  const folioCompartido = uno[0].numeros[0];
+  const codigoUno = uno[0].codigo;
+  const boletoDos = dos.find((b) => b.numeros.includes(folioCompartido));
+  const codigoDos = boletoDos.codigo;
+
+  await pt.click('.pestana[data-panel="paneVerificar"]');
+  await pt.fill('#vfFolio', folioCompartido);
+  await pt.fill('#vfCodigo', codigoUno);
+  await pt.click('#btnVerificar');
+  await pt.waitForSelector('#resultadoVerificar:not([hidden])');
+  ok('con el código de la primera rifa, el mismo número resuelve a ESA rifa',
+     (await pt.textContent('#resultadoVerificar')).includes('Rifa Tope Uno'),
+     (await pt.textContent('#resultadoVerificar')).replace(/\s+/g, ' '));
+
+  await pt.fill('#vfCodigo', codigoDos);
+  await pt.click('#btnVerificar');
+  await pt.waitForFunction((esperado) =>
+    document.getElementById('resultadoVerificar').textContent.includes(esperado),
+    'Rifa Tope Dos', { timeout: 10000 });
+  ok('y con el código de la segunda, el MISMO número resuelve a la otra rifa',
+     (await pt.textContent('#resultadoVerificar')).includes('Rifa Tope Dos'),
+     (await pt.textContent('#resultadoVerificar')).replace(/\s+/g, ' '));
+
+  ok('sin errores de JavaScript con el sorteo de rango chico', errT.length === 0, errT.join(' | '));
+  await ctxT.close();
+}
 
 // --- pasar el mando a otra rifa ---
 console.log('\n== Cambiar de rifa ==');
