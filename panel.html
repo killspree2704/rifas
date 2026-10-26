@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=28" />
-  <link rel="stylesheet" href="assets/panel.css?v=28" />
+  <link rel="stylesheet" href="assets/estilos.css?v=29" />
+  <link rel="stylesheet" href="assets/panel.css?v=29" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -33,14 +33,9 @@
   </button>
 
   <main class="tablero">
-    <header>
-      <p class="eyebrow">Panel de sorteo</p>
-      <h1 id="tituloRifa">—</h1>
-      <p class="nota" id="subtitulo"></p>
-    </header>
-
     <!-- Entrada -->
     <section id="vistaClave" class="caja">
+      <p class="eyebrow">Panel de sorteo</p>
       <label class="campo">
         <span>Clave del panel</span>
         <input type="password" id="clave" autocomplete="current-password" />
@@ -58,16 +53,49 @@
       <p class="mensaje" id="mensajeClave" role="status" aria-live="polite"></p>
     </section>
 
-    <!-- Pestañas -->
-    <nav class="pestanas" id="pestanas" hidden>
-      <button class="pestana activa" data-panel="paneSorteo">Sorteo</button>
-      <button class="pestana" data-panel="paneRifas">Rifas</button>
-      <button class="pestana" data-panel="paneVerificar">Verificar</button>
-      <button class="pestana" data-panel="paneDiseno">Diseño</button>
-      <button class="pestana" data-panel="panePerfil">Perfil</button>
-    </nav>
+    <!--
+      A partir de aquí, el ancho que antes se quedaba en blanco a los lados
+      —el panel nació pensado para un celular y se quedó así hasta en una
+      pantalla de escritorio— se reparte en dos columnas desde los 880px:
+      la navegación se recorre a una barra lateral, fija al desplazar, y el
+      contenido usa lo que sobra. Antes de los 880px (celular, el uso real
+      el día del evento) `.cuerpo` sigue en una sola columna, en el MISMO
+      orden del DOM de siempre —título, pestañas, contenido—, así que ahí
+      no cambia nada de lo que ya funcionaba.
+    -->
+    <div class="cuerpo" id="cuerpo" hidden>
+      <!-- Pestañas -->
+      <nav class="pestanas" id="pestanas" hidden>
+        <p class="eyebrow marca">Panel de sorteo</p>
+        <button class="pestana activa" data-panel="paneSorteo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9a8 8 0 0 1 16 0" /><path d="M7 12a5 5 0 0 1 10 0" /><circle cx="12" cy="12" r="1.6" /><path d="M12 13.5V20" /><path d="M9 20h6" /></svg>
+          <span>Sorteo</span>
+        </button>
+        <button class="pestana" data-panel="paneRifas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="4.4" rx="1.3" /><rect x="3.5" y="10.8" width="17" height="4.4" rx="1.3" /><rect x="3.5" y="16.6" width="17" height="4.4" rx="1.3" /></svg>
+          <span>Rifas</span>
+        </button>
+        <button class="pestana" data-panel="paneVerificar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 5 6v5.6c0 4.2 2.9 7.3 7 8.9 4.1-1.6 7-4.7 7-8.9V6z" /><path d="M9 12.2l2.1 2.1L15.3 10" /></svg>
+          <span>Verificar</span>
+        </button>
+        <button class="pestana" data-panel="paneDiseno">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5a8 8 0 1 0 0 16c1 0 1.7-.8 1.7-1.7 0-.45-.18-.85-.46-1.14-.28-.3-.46-.7-.46-1.15 0-.9.75-1.6 1.66-1.6H16a4 4 0 0 0 4-4c0-3.5-3.6-6.4-8-6.4z" /><circle cx="7.6" cy="12.3" r="1.1" /><circle cx="9.7" cy="8.6" r="1.1" /><circle cx="14.3" cy="8.4" r="1.1" /></svg>
+          <span>Diseño</span>
+        </button>
+        <button class="pestana" data-panel="panePerfil">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.3" r="3.3" /><path d="M5.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" /></svg>
+          <span>Perfil</span>
+        </button>
+      </nav>
 
-    <!-- 1. Sorteo -->
+      <div class="contenido">
+        <header>
+          <h1 id="tituloRifa">—</h1>
+          <p class="nota" id="subtitulo"></p>
+        </header>
+
+        <!-- 1. Sorteo -->
     <section id="paneSorteo" class="caja" hidden>
       <div class="estado-actual">
         <span class="etiqueta">Estado</span>
@@ -412,11 +440,13 @@
         distintas.
       </p>
     </section>
+      </div>
+    </div>
   </main>
 
-  <script src="assets/config.js?v=28"></script>
-  <script src="assets/youtube.js?v=28"></script>
+  <script src="assets/config.js?v=29"></script>
+  <script src="assets/youtube.js?v=29"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=28"></script>
+  <script src="assets/panel.js?v=29"></script>
 </body>
 </html>

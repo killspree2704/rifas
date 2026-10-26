@@ -1344,6 +1344,49 @@ await ctxD.close();
   await ctxN.close();
 }
 
+// ---------------------------------------------- BARRA LATERAL DEL PANEL ----
+// El resto de este archivo corre en el ancho por omisión de Playwright
+// (1280px), que ya cae dentro del umbral de la barra lateral —por eso las
+// pruebas de arriba, sin darse cuenta, ya la vienen ejercitando entera—.
+// Esto es lo que les falta: comprobar el otro lado del quiebre, los 880px,
+// en los dos sentidos.
+{
+  console.log('\n== La barra lateral, angosta y ancha ==');
+  const ctxB = await navegador.newContext({ serviceWorkers: 'block', viewport: { width: 1280, height: 800 } });
+  const pb = await ctxB.newPage();
+  const errB = [];
+  pb.on('pageerror', (e) => errB.push(String(e)));
+  await pb.goto(BASE + '/panel.html');
+  await pb.fill('#clave', 'secreta');
+  await pb.click('#btnEntrar');
+  await pb.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+
+  const anchaAntes = await pb.$eval('#pestanas', (e) => getComputedStyle(e).flexDirection);
+  ok('a 1280px de ancho, la navegación ya es la barra lateral (columna)', anchaAntes === 'column', anchaAntes);
+  ok('y ahí la marca del panel se ve', await pb.isVisible('#pestanas .marca'));
+
+  await pb.setViewportSize({ width: 600, height: 800 });
+  // El cambio es puro CSS —ninguna media query dispara JavaScript—, pero una
+  // repintada hace falta para que el layout recalculado llegue al DOM.
+  await pb.waitForTimeout(100);
+  const angostaDespues = await pb.$eval('#pestanas', (e) => getComputedStyle(e).flexDirection);
+  ok('a 600px (el celular del día del evento) vuelve a ser una fila',
+     angostaDespues === 'row', angostaDespues);
+  ok('y ahí la marca se esconde —no cabe en una fila que se desliza—',
+     !(await pb.isVisible('#pestanas .marca')));
+
+  // Las cinco pestañas siguen ahí y siguen cambiando de panel, aunque ya no
+  // quepan en el ancho sin deslizar: el cambio de layout no les rompió el
+  // clic a ninguna.
+  await pb.click('.pestana[data-panel="paneDiseno"]');
+  await pb.waitForSelector('#vistaBoleto .boleto');
+  ok('y las pestañas se siguen pudiendo tocar, angostas o anchas',
+     await pb.isVisible('#paneDiseno:not([hidden])'));
+
+  ok('sin errores de JavaScript cambiando de ancho', errB.length === 0, errB.join(' | '));
+  await ctxB.close();
+}
+
 // ------------------------------------------------------------ ARCHIVAR ----
 // Aparte y con su propio navegador: de verdad archiva una rifa en el
 // servidor de prueba, y eso le movería el conteo a las pruebas de más

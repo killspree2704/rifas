@@ -510,6 +510,40 @@ lista de rifas—, así que vive en su propia acción del servidor
 dentro de `diseno`. No toca folios ni boletos, así que corregirlo sigue
 siendo válido aunque la rifa ya esté cerrada.
 
+## El panel se recorre a una barra lateral desde 880px (26 de octubre de 2026)
+
+El panel nació pensado para un celular, de una sola columna de 520px, y se
+quedó así incluso en una pantalla de escritorio: a los 1280px de un monitor
+cualquiera, 760px se quedaban en blanco a los lados, sin usarse para nada. El
+dueño pidió aprovechar ese espacio y mover la navegación a una barra lateral,
+con una inclinación clara hacia el tema oscuro.
+
+- **Desde 880px de ancho**, `.cuerpo` (nuevo contenedor, en `panel.html`) pasa
+  de columna única a una rejilla de dos columnas: la navegación —los mismos
+  botones `.pestana` de siempre, con un ícono SVG agregado a cada uno— se
+  acomoda en una columna angosta (232px) fija al desplazar
+  (`position: sticky`), y el contenido usa el resto. `.tablero` subió su ancho
+  máximo de 520px a 1180px para que hubiera algo que repartir.
+- **Debajo de 880px no cambia nada de lo que ya funcionaba**: mismo orden del
+  DOM, misma fila de pestañas de siempre —solo que ahora se desliza en vez de
+  partirse en dos renglones cuando las cinco no caben, un patrón más
+  parecido al de cualquier app de celular—. Es a propósito: este panel se
+  sigue manejando desde un teléfono el día del evento, y esa pantalla no
+  debía arriesgarse por un cambio pensado para el escritorio.
+- El acomodo usa `grid-template-columns`, no reordena el DOM ni toca
+  `panel.js`: el único cambio de lógica fue agregar `#cuerpo` (antes
+  `.cuerpo` no tenía manera de ocultarse antes de iniciar sesión, y el
+  encabezado con el título de la rifa —reubicado de la cabecera global al
+  tope del contenido— se quedaba flotando solo, visible de más, sobre la
+  pantalla de entrada).
+- El resplandor del ítem activo en la barra lateral usa `--luz-oro`, la
+  misma variable que ya pinta la luz de fondo detrás de todo —ni un color
+  nuevo, ni un archivo nuevo—, y por eso se ve bien en los dos temas sin
+  condicional aparte.
+- 7 comprobaciones nuevas, agregadas a propósito a un ancho FUERA de 1280px
+  —el que usa el resto de las pruebas sin darse cuenta— porque si no, un
+  quiebre a 880px nunca se habría ejercitado.
+
 ## Estado al 26 de octubre de 2026
 
 Comprobado consultando Supabase, no de memoria.
@@ -566,8 +600,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v28` |
-| Etiquetas del panel | `?v=28` |
+| Service worker | `rifa-v29` |
+| Etiquetas del panel | `?v=29` |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -589,7 +623,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **235 comprobaciones** automáticas
+- El panel y el boleto pasan **242 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
