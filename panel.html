@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=24" />
-  <link rel="stylesheet" href="assets/panel.css?v=24" />
+  <link rel="stylesheet" href="assets/estilos.css?v=25" />
+  <link rel="stylesheet" href="assets/panel.css?v=25" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -169,11 +169,6 @@
           <label class="campo ancho">
             <span>Día y hora del sorteo</span>
             <input type="datetime-local" id="nvFecha" />
-          </label>
-          <label class="campo">
-            <span>Fecha de emisión (opcional)</span>
-            <input type="date" id="nvFechaEmision" />
-            <small class="ayuda">Si el lote se va a imprimir otro día. Vacío usa la fecha en que se crea aquí.</small>
           </label>
           <label class="campo ancho">
             <span>¿Cuántos boletos?</span>
@@ -340,15 +335,8 @@
       <label class="campo" id="campoCaducidad" hidden>
         <span>Caducidad impresa</span>
         <input type="text" id="dsCaducidad" maxlength="40" placeholder="1 día" />
-        <small class="ayuda">Va de lado, junto a la fecha de emisión. Déjalo vacío para no imprimirlo.</small>
+        <small class="ayuda">Va de canto, al centro del boleto. Déjalo vacío para no imprimirlo.</small>
       </label>
-      <label class="campo" id="campoEmision" hidden>
-        <span>Fecha de emisión impresa</span>
-        <input type="date" id="dsEmision" />
-        <small class="ayuda">Vacío usa la fecha en que se creó esta rifa.</small>
-      </label>
-      <button class="boton fantasma chico" id="btnGuardarEmision" hidden>Guardar fecha de emisión</button>
-      <p class="mensaje" id="mensajeEmision" role="status" aria-live="polite"></p>
       <label class="campo">
         <span>Boletos por renglón en la hoja</span>
         <select id="dsColumnas">
@@ -408,9 +396,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=24"></script>
-  <script src="assets/youtube.js?v=24"></script>
+  <script src="assets/config.js?v=25"></script>
+  <script src="assets/youtube.js?v=25"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=24"></script>
+  <script src="assets/panel.js?v=25"></script>
 </body>
 </html>

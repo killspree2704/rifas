@@ -194,7 +194,7 @@ El boleto de papel                El teléfono                    El panel
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió, el **diseño del boleto impreso**, si se fijó la **fecha de emisión** del lote (`emision`; nula usa `creada_en`) y si está **archivada** (`archivada`; sacada del historial del panel, sin borrar nada) |
+| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió, el **diseño del boleto impreso** y si está **archivada** (`archivada`; sacada del historial del panel, sin borrar nada). Trae también `emision`, de cuando el boleto imprimía una fecha de emisión —ya no se usa desde el panel, pero la columna se quedó— |
 | `boletos` | El boleto de papel: su identificador (el del QR) y su código. **Sin políticas: nadie lo lee desde fuera** |
 | `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas, **archivadas o no**. **Sin políticas** |
 | `sorteo_log` | Cada acción del panel con su hora, **y también cada número tecleado en «Revelar» que no pertenecía a la rifa** (`intento_rechazado`) — la prueba de que un papelito ajeno a lo impreso queda rechazado y registrado, no solo rechazado |
@@ -317,9 +317,10 @@ pasados esos, solo queda descargar un respaldo.
    traen el botón **Ver la transmisión aquí**, que mete el reproductor en la
    propia pantalla del boleto. Debajo queda «o ábrela en YouTube» por si algo
    falla. **Quien la ve no necesita cuenta de nada.**
-4. Sacar el papelito de la tómbola y teclear su número. **El ganador lo
-   decide la tómbola, no la app**: «Revelar» solo registra lo que ya salió, y
-   el servidor rechaza cualquier número que no pertenezca a la rifa.
+4. Sacar una bolita de cada canasta —de izquierda a derecha, un dígito por
+   canasta— y teclear el número que forman. **El ganador lo deciden las
+   canastas, no la app**: «Revelar» solo registra lo que ya salió, y el
+   servidor rechaza cualquier número que no pertenezca a la rifa.
    («Sortear al azar» es el otro botón, para cuando no hay sorteo físico.) El panel enseña **de qué boleto
    salió ese número, con su código y sus otros tres números**:
    **compáralo con el talón que traes en la mano** antes de tocar Revelar, que
@@ -379,13 +380,12 @@ Todo desde el panel, sin tocar código ni publicar nada:
    son los *números*, no los boletos: con 4 por boleto y 4 dígitos caben 675
    boletos; el panel te lo dice antes de generar nada.
 2. Se abre la hoja: **Imprimir → Guardar como PDF**, y de ahí a la imprenta.
-3. **Papelitos de tómbola**, en la misma fila del historial: un papelito por
-   cada número, listos para recortar y echar a una tómbola de un solo bombo.
-   Salen de la misma consulta que los boletos, así que no puede sobrar ni
-   faltar ninguno. **Si usas el sorteo de canastas (tope puesto), esto no
-   hace falta**: el sorteo ya no es de un solo bombo, es dígito por dígito.
-4. **Manejar esta** para que el panel opere esa rifa.
-5. Si quieres darle aspecto, **pestaña «Diseño»**. Lo primero que se elige
+   Si al imprimir sale en blanco y negro, sin la foto ni los colores de
+   fondo: en el diálogo de impresión, busca «Más opciones» → **«Gráficos de
+   fondo»** y márcala. El panel ya fuerza esto por código —no debería hacer
+   falta tocar nada—, pero algunos navegadores viejos no lo respetan.
+3. **Manejar esta** para que el panel opere esa rifa.
+4. Si quieres darle aspecto, **pestaña «Diseño»**. Lo primero que se elige
    ahí es la **disposición**, que es la plantilla entera:
    - **Clásica**: horizontal y sobria, la de siempre.
    - **Suertudito**: la FOTO REAL que trajo el dueño (marco verde doble,
@@ -409,8 +409,8 @@ Todo desde el panel, sin tocar código ni publicar nada:
      Los números van en dos columnas: con cuatro caen exactamente en las
      cuatro esquinas del original, y **con más de cuatro el boleto se
      aprieta** —tantos renglones como hagan falta hasta diez— y entonces la
-     caducidad y la emisión bajan al pie. Ninguna rifa imprime menos números
-     de los que vendió.
+     caducidad baja al pie. Ninguna rifa imprime menos números de los que
+     vendió.
 
      Abajo, en las dos disposiciones, van **el identificador del boleto y su
      código impresos en letra**. No es decoración: el día del sorteo el panel
@@ -440,21 +440,21 @@ Todo desde el panel, sin tocar código ni publicar nada:
 Los folios nunca se repiten entre rifas. Los boletos viejos siguen abriendo su
 propio resultado.
 
-## Fecha de emisión del lote
+## Fecha de emisión del lote — quitada (26 de octubre de 2026)
 
-Antes, el boleto imprimía «Emisión» con la fecha en que la rifa se creó en el
-sistema, sin poder cambiarla. Normalmente coincide con cuándo se manda a
-imprimir, pero no siempre —se puede armar la rifa un día y mandar el lote a
-imprenta otro—. Ahora:
+El boleto imprimía «Emisión: …» de canto, junto a la caducidad, con un campo
+para fijarla al crear la rifa y otro para corregirla después en **Diseño**.
+El dueño pidió quitarla del todo: el boleto ya no imprime ninguna fecha de
+emisión, y los dos campos que la controlaban —«Fecha de emisión (opcional)»
+en Nueva rifa y «Fecha de emisión impresa» en Diseño— se quitaron del panel.
+**La caducidad se queda igual que siempre**, ahora sola y centrada en el
+hueco de canto donde antes iban las dos.
 
-- Al crear la rifa, el campo **«Fecha de emisión (opcional)»** la fija desde
-  el principio. Vacío sigue usando la fecha de creación, como siempre.
-- Para corregirla después, **pestaña Diseño → «Fecha de emisión impresa»**,
-  con su propio botón de guardar —es un dato de la rifa, no del diseño, así
-  que no comparte botón con «Guardar el diseño»—. Vaciarla vuelve a usar la
-  fecha de creación.
-- La caducidad (cuántos días vale el boleto) sigue siendo el texto libre de
-  siempre: esto solo tocó la fecha de EMISIÓN, no la de caducidad.
+La columna `rifas.emision` sigue en la base y la función de borde `sorteo`
+sigue aceptando `fecha_emision` en `crear_rifa` y la acción `fijar_emision`
+—nada los llama ya desde el panel, pero no hacía falta tocar producción para
+quitar un campo del frontend—. Si algún día hace falta borrarlos de verdad,
+es un cambio aparte, en el servidor.
 
 ## Estado al 25 de octubre de 2026
 

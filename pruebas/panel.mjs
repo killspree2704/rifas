@@ -266,7 +266,6 @@ await pagina.fill('#nvDigitos', '5');
 await pagina.fill('#nvNombre', 'Rifa de prueba');
 await pagina.fill('#nvSerie', 'B');
 await pagina.fill('#nvFecha', '2026-12-24T20:00');
-await pagina.fill('#nvFechaEmision', '2026-12-20');
 await pagina.fill('#nvCantidad', '4');
 await pagina.fill('#nvPrecio', '100');
 ok('el resumen calcula lo que suma el lote',
@@ -312,11 +311,6 @@ ok('el formulario queda limpio para la siguiente',
 ok('manda la hora en la zona del evento, no la del navegador',
    cuerpoCreacion && cuerpoCreacion.fecha_sorteo === '2026-12-25T02:00:00.000Z',
    cuerpoCreacion && cuerpoCreacion.fecha_sorteo);
-// Mediodía y no medianoche: a medianoche, en una zona de desfase negativo
-// como esta, convertir a UTC puede caer en el día anterior.
-ok('la fecha de emisión también viaja en la zona del evento',
-   cuerpoCreacion && cuerpoCreacion.fecha_emision === '2026-12-20T18:00:00.000Z',
-   cuerpoCreacion && cuerpoCreacion.fecha_emision);
 
 // --- sorteo de rango chico: números que SÍ se repiten entre rifas ---
 // Aparte y con su propio navegador: crea rifas de verdad en el servidor de
@@ -729,120 +723,6 @@ ok('y el veredicto YA NO dice que todo está en orden',
 ok('sin errores de JavaScript en el diagnóstico', errD.length === 0, errD.join(' | '));
 await ctxD.close();
 
-// ------------------------------------------------------- PAPELITOS --------
-// El eslabón entre la app y la tómbola. Lo que se comprueba aquí no es que la
-// hoja se vea bonita: es que los papelitos y los boletos digan EXACTAMENTE los
-// mismos números. Un papelito de más es un boleto con doble suerte; uno de
-// menos es un boleto que nunca podría ganar.
-{
-  console.log('\n== Papelitos para la tómbola ==');
-  const ctxT = await navegador.newContext({ serviceWorkers: 'block' });
-  const pt = await ctxT.newPage();
-  const errT = [];
-  pt.on('pageerror', (e) => errT.push(String(e)));
-  await pt.goto(BASE + '/panel.html');
-  await pt.fill('#clave', 'secreta');
-  await pt.click('#btnEntrar');
-  await pt.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
-  await pt.click('.pestana[data-panel="paneRifas"]');
-  await pt.waitForSelector('#listaRifas .rifa');
-
-  const fila = pt.locator('.rifa', { hasText: 'Rifa El Muerde Manos' });
-  ok('cada rifa ofrece sus papelitos de tómbola',
-     await fila.getByText('Papelitos de tómbola').isVisible());
-
-  // Los números impresos en los BOLETOS, que son la verdad contra la que hay
-  // que comparar.
-  const [hojaB] = await Promise.all([
-    ctxT.waitForEvent('page'),
-    fila.getByText('Hoja de boletos').click(),
-  ]);
-  await hojaB.waitForSelector('.boleto .num');
-  const enBoletos = await hojaB.$$eval('.boleto .num', (n) => n.map((e) => e.textContent.trim()));
-  await hojaB.close();
-
-  const [hojaP] = await Promise.all([
-    ctxT.waitForEvent('page'),
-    fila.getByText('Papelitos de tómbola').click(),
-  ]);
-  await hojaP.waitForSelector('.papelito');
-  const enPapelitos = await hojaP.$$eval('.papelito .numero',
-    (n) => n.map((e) => e.textContent.trim().replace(/^[A-Z]+-/, '')));
-
-  ok('hay un papelito por cada número impreso, ni uno más ni uno menos',
-     enPapelitos.length === enBoletos.length,
-     enPapelitos.length + ' papelitos contra ' + enBoletos.length + ' números');
-  ok('y son exactamente los mismos números',
-     enPapelitos.slice().sort().join(',') === enBoletos.slice().sort().join(','),
-     enPapelitos.slice().sort().join(' '));
-  ok('sin repetidos: un número repetido sería un boleto con doble suerte',
-     new Set(enPapelitos).size === enPapelitos.length,
-     enPapelitos.length - new Set(enPapelitos).size + ' repetidos');
-
-  // Quien mete la mano en la tómbola no debe poder ver a quién le toca.
-  const textoPapelitos = await hojaP.$eval('body', (e) => e.textContent);
-  ok('el papelito no dice de qué boleto salió',
-     !textoPapelitos.includes('9000001052') && !/[Cc]ódigo/.test(textoPapelitos),
-     textoPapelitos.slice(0, 80).replace(/\s+/g, ' '));
-
-  ok('y avisa cuántos deben quedar, para poder contarlos',
-     (await hojaP.textContent('.guia')).includes(enBoletos.length + ' en total'),
-     (await hojaP.textContent('.guia')).replace(/\s+/g, ' ').slice(0, 90));
-  await hojaP.close();
-
-  // Un lote grande, para que la paginación entre en juego: una hoja que no se
-  // imprimió es un boleto que jamás podría ganar, así que cada hoja tiene que
-  // decir cuál es y cuántas son.
-  await pt.click('#cajaNueva > summary');
-  await pt.fill('#nvNombre', 'Rifa con tombola');
-  await pt.fill('#nvSerie', 'T');
-  await pt.fill('#nvFecha', '2026-12-31T20:00');
-  await pt.fill('#nvCantidad', '25');
-  await pt.fill('#nvFoliosPorBoleto', '4');
-  await pt.click('#btnCrear');
-  await pt.waitForFunction(() =>
-    document.getElementById('mensajeNueva').textContent.includes('confirmar'));
-  const [hojaNueva] = await Promise.all([
-    ctxT.waitForEvent('page'),
-    pt.click('#btnCrear'),
-  ]);
-  await hojaNueva.waitForSelector('.boleto');
-  await hojaNueva.close();
-
-  await pt.click('.pestana[data-panel="paneRifas"]');
-  await pt.waitForSelector('#listaRifas .rifa');
-  const filaT = pt.locator('.rifa', { hasText: 'Rifa con tombola' });
-  const [hojaT] = await Promise.all([
-    ctxT.waitForEvent('page'),
-    filaT.getByText('Papelitos de tómbola').click(),
-  ]);
-  await hojaT.waitForSelector('.papelito');
-  ok('un lote de 25 boletos de 4 números da 100 papelitos',
-     (await hojaT.locator('.papelito').count()) === 100,
-     String(await hojaT.locator('.papelito').count()));
-  ok('repartidos en dos hojas, porque en una no caben',
-     (await hojaT.locator('.hoja').count()) === 2,
-     String(await hojaT.locator('.hoja').count()));
-  const pies = await hojaT.$$eval('.pieHoja', (n) => n.map((e) => e.textContent.trim()));
-  ok('y cada hoja dice cuál es y cuántas son, para cachar una que falte',
-     pies[0].startsWith('Hoja 1 de 2') && pies[1].startsWith('Hoja 2 de 2') &&
-     pies.every((t) => t.includes('100 papelitos en total')),
-     pies.join(' | '));
-
-  // Y que ese «de 2» sea verdad AL IMPRIMIR, no solo en la pantalla: el corte
-  // de página lo decide el motor de impresión, no el DOM. Si un día se rompe,
-  // la hoja seguiría anunciando dos páginas y saldrían tres, que es
-  // exactamente la clase de mentira que hace que falten papelitos.
-  const pdf = await hojaT.pdf({ format: 'Letter' });
-  const paginas = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
-  ok('y al imprimirlo de verdad salen esas dos páginas, ni una más',
-     paginas === 2, paginas + ' páginas en el PDF');
-  await hojaT.close();
-
-  ok('sin errores de JavaScript en los papelitos', errT.length === 0, errT.join(' | '));
-  await ctxT.close();
-}
-
 // --------------------------------------------------------------- DISEÑO ----
 // Aparte y con su propio navegador: guarda un diseño en el servidor de prueba
 // y eso cambiaría la hoja que revisan las demás.
@@ -1118,11 +998,19 @@ await ctxD.close();
        .includes('boleto-suertudito-colon.png') &&
      (await hojaV.locator('.boleto .caja').count()) === 8,
      (await hojaV.locator('.boleto .caja').count()) + ' recuadros en 2 boletos');
-  ok('y con la caducidad que se escribió',
-     (await hojaV.textContent('.boleto .fechas')).includes('2 días'),
-     (await hojaV.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
-  ok('la fecha de emisión sale con guiones, igual en cualquier navegador',
-     /\d{2}-[a-z]{3}-\d{4}/.test(await hojaV.textContent('.boleto .fechas')),
+  // Chrome no imprime `background` de nada por omisión —la casilla
+  // «Gráficos de fondo» del diálogo de impresión nace destildada—, y sin
+  // esto la foto entera del boleto desaparecía al imprimir: solo quedaban
+  // bordes y texto. `printBackground: false` imita esa casilla apagada; si
+  // el PDF resultante pesa lo mismo que uno CON los fondos forzados, es que
+  // el CSS los está forzando de verdad y no que Playwright los puso solo.
+  const pdfSinForzar = await hojaV.pdf({ printBackground: false, format: 'Letter' });
+  const pdfConForzar = await hojaV.pdf({ printBackground: true, format: 'Letter' });
+  ok('la foto del boleto se imprime aunque el navegador no fuerce los fondos',
+     pdfSinForzar.length === pdfConForzar.length && pdfSinForzar.length > 500000,
+     pdfSinForzar.length + ' bytes (sin forzar) vs ' + pdfConForzar.length + ' (forzado)');
+  ok('y con la caducidad que se escribió, sin la fecha de emisión al lado',
+     (await hojaV.textContent('.boleto .fechas')).trim() === 'Caducidad: 2 días',
      (await hojaV.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
   // El día del sorteo hay que cotejar el código del panel contra el talón del
   // ganador. Si el boleto solo lo lleva dentro del QR, un QR que no se lee
@@ -1161,55 +1049,12 @@ await ctxD.close();
      'el precio mide ' + (proporcion * 60).toFixed(2) + ' mm en un boleto de 60 mm');
   await hojaV.close();
 
-  // Fecha de emisión: corrige la de esta rifa. Es de LA RIFA, no del diseño,
-  // así que se guarda aparte y solo aparece editando una rifa que ya existe.
-  await pg.click('.pestana[data-panel="paneDiseno"]');
-  await pg.waitForSelector('#vistaBoleto .boleto');
-  ok('el campo de emisión aparece porque se está editando una rifa que existe',
-     await pg.isVisible('#campoEmision') && await pg.isVisible('#btnGuardarEmision'));
-  ok('y nace vacío: sin nada guardado, el boleto usa la fecha de creación',
-     (await pg.inputValue('#dsEmision')) === '');
-  await pg.fill('#dsEmision', '2026-09-20');
-  await pg.click('#btnGuardarEmision');
-  await pg.waitForFunction(() =>
-    document.getElementById('mensajeEmision').textContent.includes('va a imprimir esa fecha'),
-    null, { timeout: 10000 });
-  ok('guarda la fecha de emisión', true);
-
-  await pg.click('.pestana[data-panel="paneRifas"]');
-  await pg.waitForSelector('#listaRifas .rifa');
-  const [hojaE] = await Promise.all([
-    ctxG.waitForEvent('page'),
-    pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
-  ]);
-  await hojaE.waitForLoadState('domcontentloaded');
-  await hojaE.waitForSelector('.boleto .fechas');
-  ok('la hoja imprime la emisión recién fijada, no la fecha de creación',
-     (await hojaE.textContent('.boleto .fechas')).includes('20-sep-2026'),
-     (await hojaE.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
-  await hojaE.close();
-
-  // Vacía otra vez: vuelve a usar la fecha de creación, sin que haga falta
-  // acordarse de cuál era.
-  await pg.click('.pestana[data-panel="paneDiseno"]');
-  await pg.waitForSelector('#vistaBoleto .boleto');
-  await pg.fill('#dsEmision', '');
-  await pg.click('#btnGuardarEmision');
-  await pg.waitForFunction(() =>
-    document.getElementById('mensajeEmision').textContent.includes('va a imprimir esa fecha'),
-    null, { timeout: 10000 });
-  await pg.click('.pestana[data-panel="paneRifas"]');
-  await pg.waitForSelector('#listaRifas .rifa');
-  const [hojaE2] = await Promise.all([
-    ctxG.waitForEvent('page'),
-    pg.locator('.rifa', { hasText: 'Rifa El Muerde Manos' }).getByText('Hoja de boletos').click(),
-  ]);
-  await hojaE2.waitForLoadState('domcontentloaded');
-  await hojaE2.waitForSelector('.boleto .fechas');
-  ok('vaciarla vuelve a usar la fecha en que se creó la rifa',
-     (await hojaE2.textContent('.boleto .fechas')).includes('01-sep-2026'),
-     (await hojaE2.textContent('.boleto .fechas')).replace(/\s+/g, ' '));
-  await hojaE2.close();
+  // La fecha de emisión se quitó del todo: ni se imprime, ni tiene campo de
+  // configuración en ninguna de las dos pestañas donde vivía antes.
+  ok('ya no hay campo de fecha de emisión en Diseño',
+     (await pg.locator('#campoEmision').count()) === 0);
+  ok('ni en Nueva rifa',
+     (await pg.locator('#nvFechaEmision').count()) === 0);
 
   // Volver al de siempre, con su confirmación.
   await pg.click('.pestana[data-panel="paneDiseno"]');
@@ -1265,19 +1110,12 @@ await ctxD.close();
      (await hojaN.textContent('.boleto .codigo')) === 'Código NUE9',
      (await hojaN.textContent('.boleto .pie')).replace(/\s+/g, ' '));
 
-  // Con cinco renglones de números los costados quedan ocupados, así que las
-  // fechas se bajan al pie en vez de quedarse verticales encima de un número.
-  ok('las fechas se mudan al pie cuando el boleto va apretado',
+  // Con cinco renglones de números los costados quedan ocupados, así que la
+  // caducidad se baja al pie en vez de quedarse vertical encima de un número.
+  ok('la caducidad se muda al pie cuando el boleto va apretado',
      (await hojaN.locator('.boleto .fechas').count()) === 0 &&
-     (await hojaN.textContent('.boleto .fechas-pie')).includes('3 días') &&
-     /\d{2}-[a-z]{3}-\d{4}/.test(await hojaN.textContent('.boleto .fechas-pie')),
+     (await hojaN.textContent('.boleto .fechas-pie')).trim() === 'Caducidad: 3 días',
      (await hojaN.textContent('.boleto .pie')).replace(/\s+/g, ' '));
-  // Esta rifa tiene `emision` distinta de `creada_en` a propósito: lo que
-  // tiene que imprimirse es la fecha de EMISIÓN del lote, no la del registro.
-  ok('la emisión impresa es la del lote, no la de cuando se creó la rifa',
-     (await hojaN.textContent('.boleto .fechas-pie')).includes('15-jul-2025') &&
-     !(await hojaN.textContent('.boleto .fechas-pie')).includes('01-jul-2025'),
-     await hojaN.textContent('.boleto .fechas-pie'));
 
   // La prueba de verdad: medir. Un número tapado por el QR o por el precio se
   // imprime igual y no se puede leer, y de eso uno se entera con los boletos
