@@ -497,14 +497,6 @@
       hoja.addEventListener('click', function () { pedirHoja(r.id, hoja, abrirHoja); });
       acciones.appendChild(hoja);
 
-      var papelitos = document.createElement('button');
-      papelitos.className = 'boton';
-      papelitos.textContent = 'Papelitos de tómbola';
-      papelitos.addEventListener('click', function () {
-        pedirHoja(r.id, papelitos, abrirPapelitos);
-      });
-      acciones.appendChild(papelitos);
-
       // Archivar no borra nada —sus folios se quedan reservados para
       // siempre—, así que no hace falta el candado del ganador: sirve
       // igual para una rifa ya cerrada que para una que apenas se creó.
@@ -745,7 +737,6 @@
     mensaje('Generando ' + (cantidad * porBoleto) + ' folios… puede tardar unos segundos.', '', 'mensajeNueva');
     $('btnCrear').disabled = true;
 
-    var fechaEmisionLocal = $('nvFechaEmision').value;
     llamar('crear_rifa', {
       nombre: nombre,
       serie: serie || 'A',
@@ -757,10 +748,6 @@
       folios_por_boleto: porBoleto,
       tope: topeEscrito(),
       precio: precio === '' ? null : Number(precio),
-      // Mediodía y no medianoche: a medianoche, en una zona con desfase
-      // negativo, convertir a UTC puede caer en el día anterior y el boleto
-      // sale con la fecha equivocada.
-      fecha_emision: fechaEmisionLocal ? conZona(fechaEmisionLocal + 'T12:00') : '',
     })
       .then(function (datos) {
         $('btnCrear').disabled = false;
@@ -796,7 +783,7 @@
    * cuando de verdad se le agrega una bolita más a una canasta—.
    */
   function limpiarFormularioNueva() {
-    ['nvNombre', 'nvSerie', 'nvFecha', 'nvFechaEmision', 'nvCantidad', 'nvPrecio'].forEach(function (id) {
+    ['nvNombre', 'nvSerie', 'nvFecha', 'nvCantidad', 'nvPrecio'].forEach(function (id) {
       $(id).value = '';
     });
     $('nvDigitos').value = '4';
@@ -845,13 +832,7 @@
   // ------------------------------------------------------------------
   // Hoja de boletos para imprimir
   // ------------------------------------------------------------------
-  /**
-   * Trae los boletos de una rifa y arma con ellos la hoja que se pida.
-   *
-   * La hoja de boletos y los papelitos de la tómbola salen de ESTA consulta,
-   * la misma para las dos. Es lo que hace imposible que un papelito traiga un
-   * número que no esté impreso en ningún boleto.
-   */
+  /** Trae los boletos de una rifa y arma con ellos la hoja que se pida. */
   function pedirHoja(id, boton, armar) {
     var antes = boton.textContent;
     boton.textContent = 'Armando…';
@@ -1296,12 +1277,17 @@
       ' background: #fff; box-sizing: border-box; padding: calc(var(--u) * 0.9);' +
       ' border-radius: calc(var(--u) * 0.8); }' +
       p + '.qr svg { width: 100%; height: auto; display: block; }' +
-      // Las fechas verticales tapan la muestra «Emisión: 30-sep-2026 /
-      // Caducidad: 1 día» que trae la foto, de ahí el fondo opaco. Empieza en
-      // 46.5 % y no antes: el recuadro de arriba a la izquierda termina en
-      // 46.35 % y un pelo más arriba se le monta encima.
+      // La caducidad va de canto, centrada en el hueco que tapa la MUESTRA
+      // de la foto («Emisión: 30-sep-2026 / Caducidad: 1 día», dos
+      // renglones) —el recuadro opaco se queda del mismo alto que esos dos
+      // renglones para taparlos enteros, aunque ahora solo se imprima uno
+      // encima—, de ahí el `display: flex` centrado en vez de dejar el
+      // texto pegado arriba. Empieza en 46.5 % y no antes: el recuadro de
+      // arriba a la izquierda termina en 46.35 % y un pelo más arriba se le
+      // monta encima.
       p + '.fechas { position: absolute; left: 4.5%; width: 12%; top: 46.5%; height: 30.5%;' +
-      ' box-sizing: border-box; background: ' + d.fondo + ';' +
+      ' box-sizing: border-box; background: ' + d.fondo + '; display: flex;' +
+      ' align-items: center; justify-content: center;' +
       ' writing-mode: vertical-rl; font-size: calc(var(--u) * 1.5); font-weight: 700;' +
       ' line-height: 1.3; white-space: nowrap; color: ' + d.tinta + '; }' +
       // El precio tapa la muestra «$20» de la foto, mismo motivo. Empieza en
@@ -1336,46 +1322,12 @@
     );
   }
 
-  var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
-               'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-  /**
-   * Una fecha corta para el boleto: 30-sep-2026.
-   *
-   * Armada a mano y no con `toLocaleDateString`: esa devuelve «30 sept 2026»
-   * o «30 sep 2026» según la versión del navegador que imprima, y un lote de
-   * boletos no puede salir distinto según la computadora que lo mandó.
-   */
-  function fechaCorta(iso) {
-    if (!iso) { return ''; }
-    var f = new Date(iso);
-    if (isNaN(f.getTime())) { return ''; }
-    // En la zona del evento, no en la del navegador que imprime.
-    var partes = new Intl.DateTimeFormat('en-CA', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      timeZone: CFG.zonaHoraria || undefined,
-    }).format(f).split('-');
-    return partes[2] + '-' + MESES[Number(partes[1]) - 1] + '-' + partes[0];
-  }
-
-  /** La misma fecha, en el formato que pide un `<input type="date">`: AAAA-MM-DD. */
-  function fechaSoloISO(iso) {
-    if (!iso) { return ''; }
-    var f = new Date(iso);
-    if (isNaN(f.getTime())) { return ''; }
-    return new Intl.DateTimeFormat('en-CA', {
-      year: 'numeric', month: '2-digit', day: '2-digit', timeZone: CFG.zonaHoraria || undefined,
-    }).format(f);
-  }
-
   function boletoSuerteHtml(rifa, boleto, url, precio, d) {
     var numeros = boleto.folios || [];
     var lugares = cajasSuerte(numeros.length);
     var apretado = suerteApretado(numeros.length);
-    var emision = fechaCorta(rifa.emision || rifa.creada_en);
     var fechas = [];
     if (d.caducidad) { fechas.push('Caducidad: ' + escapar(d.caducidad)); }
-    if (emision) { fechas.push('Emisión: ' + escapar(emision)); }
     return '<article class="boleto' + (apretado ? ' apretado' : '') + '">' +
       numeros.map(function (f, i) {
         return '<div class="caja" style="left: ' + lugares[i].izq + '%; top: ' +
@@ -1496,6 +1448,15 @@
       'button { font: inherit; padding: 3mm 6mm; margin-bottom: 6mm; }' +
       '.rejilla { display: grid; grid-template-columns: repeat(' + d.columnas + ', 1fr);' +
       ' gap: 5mm; padding: 0 6mm 8mm; }' +
+      // Sin esto, Chrome y la mayoría de navegadores NO imprimen ni
+      // `background-image` ni `background-color` por omisión —la casilla
+      // «Gráficos de fondo» del diálogo de impresión nace destildada—. Eso
+      // se lleva la foto entera del boleto «Suertudito», el fondo de la
+      // caja del número y el de las fechas/precio que tapan la muestra:
+      // la hoja sale en blanco con solo los bordes y el texto. Esta línea
+      // fuerza a imprimir los fondos siempre, sin que quien imprime tenga
+      // que saber de esa casilla.
+      '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
       estiloBoleto(d, '') +
       '@media print { .encabezado { display: none; } .rejilla { padding: 0; } }' +
       '</style></head><body><div class="encabezado">' +
@@ -1508,101 +1469,8 @@
       '<div class="rejilla">' + trozos.join('') + '</div></body></html>';
   }
 
-  // ------------------------------------------------------------------
-  // Los papelitos de la tómbola
-  // ------------------------------------------------------------------
-  /*
-   * El eslabón que faltaba entre la app y el mundo físico.
-   *
-   * La app imprime boletos con números repartidos al azar por todo el espacio
-   * de cinco dígitos. Eso es bueno contra la falsificación y malo para una
-   * tómbola: no existe la bolsa de bolitas que los traiga, y escribir
-   * ochocientos papelitos a mano es una tarde entera y un dedazo esperando a
-   * pasar. Un papelito mal escrito es un número que la app va a rechazar el
-   * día del sorteo, delante de todos.
-   *
-   * Así que los papelitos salen de la MISMA consulta que la hoja de boletos.
-   * Si un número está en un papelito, está en un boleto; si está en un boleto,
-   * tiene su papelito. No hay forma de que se desincronicen.
-   *
-   * En el papelito va el número y nada más. NO va de qué boleto salió: quien
-   * mete la mano en la tómbola no tiene por qué poder ver a quién le toca.
-   */
-  var POR_RENGLON = 6;
-  var RENGLONES = 12;
-  var POR_HOJA = POR_RENGLON * RENGLONES;
-
-  function papelitosHtml(rifa, boletos) {
-    // Todos los números de la rifa, ordenados. En orden y no revueltos a
-    // propósito: así se pueden contar y cotejar de un vistazo antes de
-    // echarlos a la tómbola. Revolverlos es trabajo de la tómbola, no de la
-    // impresora.
-    var folios = [];
-    boletos.forEach(function (b) {
-      (b.folios || []).forEach(function (f) { folios.push(f); });
-    });
-    folios.sort();
-
-    var serie = rifa.serie ? escapar(rifa.serie) + '-' : '';
-    var hojas = Math.ceil(folios.length / POR_HOJA);
-
-    var cuerpo = '';
-    for (var h = 0; h < hojas; h++) {
-      var tanda = folios.slice(h * POR_HOJA, (h + 1) * POR_HOJA);
-      cuerpo += '<section class="hoja"><div class="rejilla">' +
-        tanda.map(function (f) {
-          return '<div class="papelito"><span class="numero">' + serie + escapar(f) +
-            '</span><span class="dedonde">' + escapar(rifa.nombre) + '</span></div>';
-        }).join('') +
-        '</div><p class="pieHoja">Hoja ' + (h + 1) + ' de ' + hojas + ' · ' +
-        escapar(rifa.nombre) + ' · ' + folios.length + ' papelitos en total</p></section>';
-    }
-
-    return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" />' +
-      '<title>Papelitos para la tómbola — ' + escapar(rifa.nombre) + '</title><style>' +
-      '@page { size: letter; margin: 8mm; }' +
-      'body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;' +
-      ' margin: 0; background: #fff; color: #000; }' +
-      '.encabezado { padding: 8mm 6mm 0; }' +
-      'h1 { font-size: 14pt; margin: 0 0 3mm; }' +
-      '.guia { font-size: 10pt; line-height: 1.5; color: #333; margin: 0 0 4mm; max-width: 150mm; }' +
-      '.guia strong { color: #000; }' +
-      'button { font: inherit; padding: 3mm 6mm; margin-bottom: 6mm; }' +
-      '.hoja { break-after: page; }' +
-      '.hoja:last-child { break-after: auto; }' +
-      '.rejilla { display: grid; grid-template-columns: repeat(' + POR_RENGLON + ', 1fr); }' +
-      // Sin hueco entre papelitos y con el borde punteado compartido: se corta
-      // de un solo tijeretazo por renglón, no recuadro por recuadro.
-      '.papelito { border: 0.3mm dashed #999; margin: -0.15mm; height: 20mm;' +
-      ' display: flex; flex-direction: column; align-items: center;' +
-      ' justify-content: center; gap: 1mm; break-inside: avoid; }' +
-      '.numero { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15pt;' +
-      ' font-weight: 700; letter-spacing: 0.06em; }' +
-      '.dedonde { font-size: 5pt; color: #666; text-transform: uppercase;' +
-      ' letter-spacing: 0.08em; max-width: 90%; overflow: hidden;' +
-      ' text-overflow: ellipsis; white-space: nowrap; }' +
-      '.pieHoja { font-size: 8pt; color: #555; text-align: center; margin: 3mm 0 0; }' +
-      '@media print { .encabezado { display: none; } }' +
-      '</style></head><body><div class="encabezado">' +
-      '<h1>Papelitos para la tómbola · ' + escapar(rifa.nombre) + '</h1>' +
-      '<p class="guia">' +
-      'Un papelito por cada número de la rifa: <strong>' + folios.length + ' en total</strong>, ' +
-      'repartidos en <strong>' + hojas + ' hoja' + (hojas === 1 ? '' : 's') + '</strong>. ' +
-      'Salen de los mismos boletos que ya se imprimieron, así que no puede sobrar ni faltar ninguno.<br />' +
-      '<strong>Antes de echarlos a la tómbola, comprueba que tienes las ' + hojas + ' hojas</strong> ' +
-      '—cada una lo dice en su pie—. Una hoja que no se imprimió es un boleto que nunca podría ganar, ' +
-      'y una hoja impresa dos veces es un boleto con el doble de suerte.' +
-      '</p>' +
-      '<button onclick="window.print()">Imprimir o guardar como PDF</button></div>' +
-      cuerpo + '</body></html>';
-  }
-
   function abrirHoja(rifa, boletos) {
     abrirEnVentana(hojaHtml(rifa, boletos), 'boletos-' + rifa.id + '.html');
-  }
-
-  function abrirPapelitos(rifa, boletos) {
-    abrirEnVentana(papelitosHtml(rifa, boletos), 'papelitos-' + rifa.id + '.html');
   }
 
   /** Abre una hoja lista para imprimir, o la descarga si hay bloqueador. */
@@ -1673,13 +1541,6 @@
     $('btnGuardarDiseno').disabled = false;
     $('btnDisenoDeSiempre').disabled = false;
 
-    // La emisión es de LA RIFA, no del diseño: sin rifa no hay nada que
-    // corregir todavía, así que el campo solo sale cuando se está editando
-    // una que ya existe.
-    $('campoEmision').hidden = !r;
-    $('btnGuardarEmision').hidden = !r;
-    $('dsEmision').value = r ? fechaSoloISO(r.emision) : '';
-    mensaje('', '', 'mensajeEmision');
     disenoEnEdicion = disenoCompleto(r ? r.diseno : disenoPorOmision);
     escribirControles(disenoEnEdicion);
     refrescarVista();
@@ -2021,23 +1882,6 @@
         }
       })
       .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
-  });
-
-  $('btnGuardarEmision').addEventListener('click', function () {
-    var r = rifaConocida(rifaActual);
-    if (!r) { return; }
-    var valor = $('dsEmision').value;
-    mensaje('Guardando…', '', 'mensajeEmision');
-    llamar('fijar_emision', {
-      // Mediodía, por la misma razón que al crear la rifa: a medianoche una
-      // zona con desfase negativo puede correr la fecha al día anterior.
-      fecha_emision: valor ? conZona(valor + 'T12:00') : '',
-    })
-      .then(function (datos) {
-        r.emision = datos.rifa.emision;
-        mensaje('Listo. La próxima hoja de esta rifa va a imprimir esa fecha.', 'ok', 'mensajeEmision');
-      })
-      .catch(function (e) { mensaje(e.message, 'error', 'mensajeEmision'); });
   });
 
   $('btnDisenoDeSiempre').addEventListener('click', function () {
