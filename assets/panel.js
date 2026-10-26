@@ -2267,6 +2267,7 @@
         var activa = lista.filter(function (r) { return r.activa; })[0] || lista[0];
 
         $('vistaClave').hidden = true;
+        $('cuerpo').hidden = false;
         $('pestanas').hidden = false;
 
         // Base recién estrenada, o borrada para empezar de nuevo: no hay nada
