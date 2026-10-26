@@ -423,6 +423,17 @@ Todo desde el panel, sin tocar código ni publicar nada:
    burbujas, corazones, tréboles y fiesta, con sus propios colores—, logo y
    el aviso de letra chica.
 
+   **Tono de la foto** (solo en «Suertudito»): la foto es verde de origen
+   —así la trajo el cliente—, y este control la gira hacia otro color sin
+   tocar el archivo. No es un filtro de Instagram sobre todo el boleto: solo
+   gira la FOTO (`filter: hue-rotate()` en el pseudo-elemento que la trae de
+   fondo), el blanco del papel y el negro del QR no se mueven. Trae cinco
+   atajos —Verde (el original), Azul, Morado, Rosa, Dorado— que además
+   cambian «Tus colores» a juego, para que los recuadros y el texto no se
+   queden en verde con la foto ya de otro color; se puede afinar después con
+   los controles de siempre. También hay un control de grados (0–360) para
+   cualquier tono intermedio.
+
    > **Ojo con la letra del título.** Se pide `Times New Roman` o
    > `Liberation Serif`, que es la romana cursiva del original —no una letra
    > manuscrita: la primera versión pedía `Segoe Script` y en una máquina con
@@ -510,7 +521,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **224 comprobaciones** automáticas
+- El panel y el boleto pasan **214 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

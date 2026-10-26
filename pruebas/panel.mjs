@@ -927,15 +927,17 @@ await ctxD.close();
   await pg.waitForSelector('#vistaBoleto .boleto');
   ok('la caducidad está escondida mientras la disposición es la clásica',
      await pg.isHidden('#campoCaducidad'));
+  ok('el tono de la foto igual: la clásica no tiene foto que girar',
+     await pg.isHidden('#campoTono'));
   ok('y el logo se ve, porque la clásica sí tiene dónde ponerlo',
      await pg.isVisible('#campoLogo'));
 
   await pg.click('#disposiciones .tema[data-disposicion="suertudito"]');
   await pg.waitForSelector('#vistaBoleto .boleto .caja');
   ok('el boleto vertical trae de fondo la foto real del boleto, no un dibujo',
-     (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e).backgroundImage))
+     (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').backgroundImage))
        .includes('boleto-suertudito-colon.png'),
-     await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e).backgroundImage));
+     await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').backgroundImage));
   ok('con los cuatro números en sus cuatro recuadros',
      (await pg.$$eval('#vistaBoleto .caja', (n) => n.map((e) => e.textContent.trim())))
        .join(',') === '1018,4307,2850,3267',
@@ -973,6 +975,34 @@ await ctxD.close();
      (await pg.inputValue('#dsBorde')) === '#2e7d32',
      [await pg.inputValue('#dsFondo'), await pg.inputValue('#dsTinta'),
       await pg.inputValue('#dsAcento'), await pg.inputValue('#dsBorde')].join(' '));
+
+  // El tono de la foto: solo existe en esta disposición, y por omisión es
+  // el verde de siempre —sin filtro, para no gastar nada en el caso común—.
+  ok('el campo del tono aparece junto con la caducidad', await pg.isVisible('#campoTono'));
+  ok('y nace en verde, sin filtro de por medio',
+     (await pg.inputValue('#dsTono')) === '0' &&
+     (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').filter)) === 'none',
+     await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').filter));
+  await pg.click('#atajosTono button[data-tono="150"]');
+  await pg.waitForFunction(() => {
+    const b = document.querySelector('#vistaBoleto .boleto');
+    return getComputedStyle(b, '::before').filter.includes('150deg');
+  }, null, { timeout: 5000 });
+  ok('el atajo «Morado» gira la foto, y nada más que la foto',
+     (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').filter))
+       .includes('150deg') &&
+     (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e).filter)) === 'none',
+     'foto: ' + (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').filter)) +
+     ' | boleto: ' + (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e).filter)));
+  ok('y acompaña con una paleta morada a juego, no deja los números en verde',
+     (await pg.inputValue('#dsBorde')) === '#592e7d',
+     await pg.inputValue('#dsBorde'));
+  await pg.click('#atajosTono button[data-tono="0"]');
+  await pg.waitForFunction(() =>
+    getComputedStyle(document.querySelector('#vistaBoleto .boleto'), '::before').filter === 'none',
+    null, { timeout: 5000 });
+  ok('y «Verde» lo regresa a como estaba', (await pg.inputValue('#dsBorde')) === '#2e7d32');
+
   await pg.fill('#dsCaducidad', '2 días');
   await pg.waitForFunction(() => {
     const f = document.querySelector('#vistaBoleto .fechas');
@@ -994,7 +1024,7 @@ await ctxD.close();
   await hojaV.waitForLoadState('domcontentloaded');
   await hojaV.waitForSelector('.boleto .caja');
   ok('la hoja impresa sale con el boleto vertical, no con el clásico',
-     (await hojaV.$eval('.boleto', (e) => getComputedStyle(e).backgroundImage))
+     (await hojaV.$eval('.boleto', (e) => getComputedStyle(e, '::before').backgroundImage))
        .includes('boleto-suertudito-colon.png') &&
      (await hojaV.locator('.boleto .caja').count()) === 8,
      (await hojaV.locator('.boleto .caja').count()) + ' recuadros en 2 boletos');

@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=25" />
-  <link rel="stylesheet" href="assets/panel.css?v=25" />
+  <link rel="stylesheet" href="assets/estilos.css?v=26" />
+  <link rel="stylesheet" href="assets/panel.css?v=26" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -299,6 +299,23 @@
       </div>
       <p class="aviso-contraste" id="avisoContraste" hidden></p>
 
+      <div id="campoTono" hidden>
+        <h3 class="subtitulo-menor">Tono de la foto</h3>
+        <p class="nota">
+          La foto del boleto «Suertudito» es verde de origen —así la trajo el
+          cliente—. Esto no la recolorea de verdad, gira su tono entero hacia
+          otro color: el blanco del papel y el negro del QR se quedan igual.
+        </p>
+        <input type="range" id="dsTono" min="0" max="360" step="1" value="0" />
+        <span class="atajos" id="atajosTono">
+          <button type="button" data-tono="0">Verde</button>
+          <button type="button" data-tono="90">Azul</button>
+          <button type="button" data-tono="150">Morado</button>
+          <button type="button" data-tono="210">Rosa</button>
+          <button type="button" data-tono="285">Dorado</button>
+        </span>
+      </div>
+
       <h3 class="subtitulo-menor">Fondo del boleto</h3>
       <p class="nota">
         Las primeras son de línea, al estilo del papel de seguridad: sobrias, y
@@ -396,9 +413,9 @@
     </section>
   </main>
 
-  <script src="assets/config.js?v=25"></script>
-  <script src="assets/youtube.js?v=25"></script>
+  <script src="assets/config.js?v=26"></script>
+  <script src="assets/youtube.js?v=26"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=25"></script>
+  <script src="assets/panel.js?v=26"></script>
 </body>
 </html>
