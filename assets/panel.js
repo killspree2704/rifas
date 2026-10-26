@@ -913,6 +913,25 @@
   };
 
   /*
+   * Los colores de «Tus colores» que acompañan a cada atajo del tono de la
+   * foto. El filtro (`hue-rotate`) solo gira la FOTO —los recuadros y el
+   * texto tienen su propio color aparte, y un `filter` en el boleto entero
+   * se habría llevado por delante cualquier color que alguien eligiera a
+   * mano—, así que sin esto elegir «Morado» dejaba la foto morada con los
+   * números todavía en verde. Son el mismo «Trébol» (`#2e7d32` de marco)
+   * con el tono girado los mismos grados, en HSL, para que los dos cambien
+   * juntos de un clic y se puedan retocar después con los controles de
+   * siempre.
+   */
+  var TONOS_PALETA = {
+    0:   { fondo: '#e4e9e3', tinta: '#2a5a30', acento: '#1b4d1b', borde: '#2e7d32' },
+    90:  { fondo: '#e3e7e9', tinta: '#2a3c5a', acento: '#1b344d', borde: '#2e527d' },
+    150: { fondo: '#e5e3e9', tinta: '#482a5a', acento: '#341b4d', borde: '#592e7d' },
+    210: { fondo: '#e9e3e7', tinta: '#5a2a3c', acento: '#4d1b34', borde: '#7d2e52' },
+    285: { fondo: '#e9e6e3', tinta: '#5a542a', acento: '#4d411b', borde: '#7d6d2e' },
+  };
+
+  /*
    * Fondos del boleto. Hay de dos clases y se manejan igual:
    *
    *   - de línea: rayas, puntos, rejilla. Se dibujan con degradados de CSS y
@@ -1102,6 +1121,11 @@
       intensidad: INTENSIDADES[d.intensidad] ? d.intensidad : 'suave',
       disposicion: d.disposicion === 'suertudito' ? 'suertudito' : 'clasica',
       caducidad: typeof d.caducidad === 'string' ? d.caducidad : '1 día',
+      // Gira el tono de la FOTO del boleto «Suertudito» —que es verde de
+      // origen—, sin tocar el blanco del papel ni el negro del QR. Solo
+      // tiene efecto en esa disposición; en la clásica no hay foto que girar.
+      tono: Number.isInteger(Number(d.tono)) && Number(d.tono) >= 0 && Number(d.tono) <= 360
+        ? Number(d.tono) : 0,
     };
   }
 
@@ -1242,13 +1266,18 @@
       // inventado: si la foto cambiara de tamaño algún día, este número hay
       // que volverlo a medir junto con todo lo demás de aquí abajo.
       p + '.boleto { position: relative; box-sizing: border-box;' +
-      ' container-type: inline-size; --u: 1mm;' +
-      ' background-color: ' + d.fondo + ';' +
+      ' container-type: inline-size; --u: 1mm; background-color: ' + d.fondo + ';' +
+      ' color: ' + d.tinta + '; overflow: hidden; break-inside: avoid; }' +
+      // La foto vive en el `::before`, no en `.boleto` directo, para poder
+      // girarle el tono (`filter: hue-rotate`) SIN arrastrar con ella a los
+      // recuadros de número ni al texto de encima: un `filter` en un
+      // elemento gira también a sus hijos, y esos ya tienen su propio
+      // color configurable aparte, en «Tus colores».
+      p + '.boleto::before { content: ""; display: block;' +
+      ' padding-top: ' + FOTO_SUERTUDITO_PADDING_TOP + '%;' +
       ' background-image: url(\'' + baseDelSitio() + FOTO_SUERTUDITO + '\');' +
       ' background-size: 100% 100%; background-repeat: no-repeat;' +
-      ' color: ' + d.tinta + '; overflow: hidden; break-inside: avoid; }' +
-      p + '.boleto::before { content: ""; display: block;' +
-      ' padding-top: ' + FOTO_SUERTUDITO_PADDING_TOP + '%; }' +
+      (d.tono ? ' filter: hue-rotate(' + d.tono + 'deg);' : '') + ' }' +
       p + '.boleto > * { --u: 1mm; }' +
       '@container (min-width: 1px) { ' + p + '.boleto > * { --u: 1.6667cqw; } }' +
       // `border-box`: el recuadro vacío que trae la foto ya incluye su
@@ -1694,9 +1723,12 @@
     $('dsColumnas').value = String(d.columnas);
     $('dsIntensidad').value = d.intensidad;
     $('dsCaducidad').value = d.caducidad;
-    // La caducidad solo existe en el boleto vertical: en el clásico no hay
-    // dónde ponerla, y un control que no hace nada confunde.
+    $('dsTono').value = String(d.tono);
+    // La caducidad y el tono de la foto solo existen en el boleto vertical:
+    // en el clásico no hay fecha de canto ni foto que girar, y un control
+    // que no hace nada confunde.
     $('campoCaducidad').hidden = d.disposicion !== 'suertudito';
+    $('campoTono').hidden = d.disposicion !== 'suertudito';
     // El logo, al revés: en «Suertudito» el sello «Grupo Rural» ya viene
     // impreso en la foto, así que no hay dónde poner uno propio —subirlo no
     // haría nada, y un control que no hace nada confunde igual—.
@@ -1716,6 +1748,7 @@
     disenoEnEdicion.columnas = Number($('dsColumnas').value);
     disenoEnEdicion.intensidad = $('dsIntensidad').value;
     disenoEnEdicion.caducidad = $('dsCaducidad').value;
+    disenoEnEdicion.tono = Number($('dsTono').value);
     // Las muestras de trama llevan los colores de ahora: al moverlos, se
     // vuelven a pintar o enseñarían unos que ya no son.
     pintarTramas();
@@ -1729,6 +1762,22 @@
   $('dsColumnas').addEventListener('change', leerControles);
   $('dsIntensidad').addEventListener('change', leerControles);
   $('dsCaducidad').addEventListener('input', leerControles);
+  $('dsTono').addEventListener('input', leerControles);
+  Array.prototype.forEach.call(document.querySelectorAll('#atajosTono button'), function (b) {
+    b.addEventListener('click', function () {
+      $('dsTono').value = b.dataset.tono;
+      // Gira también los recuadros y el texto, para que no quede la foto de
+      // un color y los números de otro: ver el porqué junto a TONOS_PALETA.
+      var paleta = TONOS_PALETA[b.dataset.tono];
+      if (paleta) {
+        $('dsFondo').value = paleta.fondo;
+        $('dsTinta').value = paleta.tinta;
+        $('dsAcento').value = paleta.acento;
+        $('dsBorde').value = paleta.borde;
+      }
+      leerControles();
+    });
+  });
 
   /**
    * La vista previa. Dibuja UN boleto con el mismo código que la hoja de
