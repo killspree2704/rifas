@@ -707,8 +707,33 @@
       texto += ', que a $' + precio + ' suman $' +
         (precio * cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 });
     }
-    caja.textContent = texto + '.';
-    caja.className = 'nota';
+
+    // Un tope que apenas cruza al siguiente escalón (p. ej. 1000 en vez de
+    // 1999) deja casi vacía la canasta de más a la izquierda: con 999 de los
+    // 1000 folios empezando en 0 y solo uno en 1, esa bolita del 1 casi
+    // nunca cae en un boleto de verdad al sacarla en vivo. Se avisa ANTES de
+    // generar nada, no después de imprimir —que fue justo cómo se encontró
+    // este caso la primera vez—.
+    var avisoCanasta = '';
+    if (usaTope && digitos >= 2) {
+      var escalon = Math.pow(10, digitos - 1);
+      var escalonTope = Math.floor(tope / escalon);
+      if (escalonTope > 0) {
+        var enUltimoEscalon = tope - escalonTope * escalon + 1;
+        var fraccion = enUltimoEscalon / escalon;
+        if (fraccion < 0.3) {
+          avisoCanasta = ' Ojo: con este tope, la canasta de más a la izquierda está casi vacía ' +
+            '—solo ' + enUltimoEscalon.toLocaleString('es-MX') + ' de cada ' + escalon.toLocaleString('es-MX') +
+            ' folios posibles usan su última bolita (la del ' + escalonTope + ')—. ' +
+            'Si esa canasta de verdad tiene esa bolita armada, sube el tope hasta ' +
+            ((escalonTope + 1) * escalon - 1).toLocaleString('es-MX') +
+            ' para aprovecharla de verdad.';
+        }
+      }
+    }
+
+    caja.textContent = texto + '.' + avisoCanasta;
+    caja.className = avisoCanasta ? 'mensaje error' : 'nota';
   }
 
   ['nvCantidad', 'nvDigitos', 'nvTope', 'nvPrecio', 'nvFoliosPorBoleto'].forEach(function (id) {
