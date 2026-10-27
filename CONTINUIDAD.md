@@ -535,6 +535,56 @@ el RANGO del sorteo coincida con las bolitas armadas—.
   aprovechado, el resumen de «Nueva rifa» lo dice en rojo y sugiere el tope
   que sí la llena entera. Ver `resumenNueva()` en `assets/panel.js`.
 
+## Tres escenarios provocados a propósito (27 de octubre de 2026, segunda pasada)
+
+Pedido explícito del dueño: no solo revisar que todo esté bien, sino
+PROVOCAR fallos de verdad —catastrófico, medio, ligero— para confirmar que
+el blindaje aguanta antes de que sea el evento real.
+
+**Catastrófico — ¿se puede registrar DOS folios ganadores distintos si dos
+peticiones de «Revelar» llegan casi juntas?** Se probó de verdad: se creó
+una rifa desechable, se simuló la primera revelación (UPDATE sin ninguna
+guarda, igual a como lo escribe la función de borde), y luego se intentó
+una segunda con un folio distinto. **La base la rechazó sola**, con un
+disparador (`rifas_proteger_ganador`, función `proteger_ganador()`) que
+existía desde antes y no estaba documentado aquí: impide cambiar
+`folio_ganador` una vez puesto, e impide ponerlo si el estado no es
+`revelado`/`cerrado`. Es broma mala que en una carrera de verdad —dos
+peticiones que ya pasaron el chequeo de JavaScript (que SÍ es vulnerable,
+lee `actual` antes de escribir) antes de que ninguna terminara de
+escribir— la segunda tronaría al intentar guardar, y la función de borde ya
+devuelve ese error tal cual (`errorEscritura.message`), limpio. **No hizo
+falta ningún cambio de código: el candado de verdad ya estaba puesto, en
+el lugar correcto —la base, no la aplicación—.**
+
+**Catastrófico — Supabase entero cae justo con la rifa en vivo.**
+Simulado con el servidor de prueba: toda petición al backend truena un
+buen rato, con una rifa ya resuelta en pantalla. Resultado: la pantalla del
+participante NUNCA inventa un «ganaste»/«no ganaste», el cronómetro sigue
+corriendo solo, y al volver la red se recupera SIN que nadie recargue la
+página —gracias a los arreglos de la pasada anterior—. Del lado del panel,
+se encontró un hueco real: al fallar la red, el mensaje de error era
+literalmente «Failed to fetch» —inglés crudo del navegador, sin
+explicación—, mostrado justo en el momento más tenso del evento. Corregido
+en `llamar()` (`assets/panel.js`): un fallo de red real ahora dice «No se
+pudo conectar con el servidor. Revisa la red e inténtalo de nuevo —nada se
+guardó todavía—», distinguiéndolo del error que SÍ manda el servidor (ese
+ya traía su propio mensaje en español y se deja pasar tal cual).
+
+**Medio — la red parpadea a medio «Revelar».** El primer intento de
+revelar falla por la red; el operador reintenta cuando vuelve. Probado de
+punta a punta: el botón no se queda bloqueado tras el fallo, el reintento
+completo (confirmar dos veces, como siempre) revela un ganador limpio, sin
+rastro del intento fallido. Nada que corregir —el diseño de confirmación
+en dos pasos (`confirmar()`) ya se reinicia solo en cada intento—.
+
+**Ligero — ya cubierto en la pasada anterior**: el QR que a veces mostraba
+«página no encontrada», y la pantalla que se quedaba muda si el primer
+intento de resolver la rifa fallaba por la red. Ver la sección de arriba.
+
+254 comprobaciones automáticas en verde (antes 247), 7 nuevas que
+reproducen la caída total del backend con la rifa en vivo.
+
 ## Pasada de blindaje antes del evento real (27 de octubre de 2026)
 
 El dueño pidió una revisión a fondo, y reportó algo concreto: a veces, al
@@ -703,7 +753,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **247 comprobaciones** automáticas
+- El panel y el boleto pasan **254 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto
