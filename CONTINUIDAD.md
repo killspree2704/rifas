@@ -510,6 +510,31 @@ lista de rifas—, así que vive en su propia acción del servidor
 dentro de `diseno`. No toca folios ni boletos, así que corregirlo sigue
 siendo válido aunque la rifa ya esté cerrada.
 
+## El tope mal elegido deja una canasta casi vacía (26 de octubre de 2026)
+
+El dueño imprimió «Boletos A — 250.pdf» (250 boletos, tope 1000, 4 dígitos) y
+notó algo raro: de los 1000 folios, **999 empezaban en 0 y SOLO UNO en 1**
+(el folio 1000 mismo). Su canasta de hasta la izquierda ya trae armadas las
+bolitas 0 y 1 —no es un error de capacidad, el boleto #1000 sí se puede
+ganar—, pero con un tope apenas arriba de 1000 esa bolita casi nunca
+encuentra pareja al sacarla en vivo: 1 de cada 1000 posibles, en vez de la
+mitad que esperaría cualquiera viendo una canasta de dos bolitas.
+
+**La causa:** el tope se puso en exactamente lo que hacía falta (250×4=1000),
+no en lo que la canasta física puede producir. Con una canasta de 0 y 1 en el
+primer dígito, el tope que de verdad la aprovecha es **1999**, no 1000 —el
+sorteo de canastas no obliga a vender todos los folios posibles, solo a que
+el RANGO del sorteo coincida con las bolitas armadas—.
+
+**Arreglado:**
+- El texto de ayuda de «Tope del sorteo», en **Nueva rifa**, ahora explica
+  esto con el ejemplo exacto (999 si la canasta trae solo el 0, 1999 si
+  trae el 0 y el 1 — nunca un número a medias como 1050).
+- El panel **avisa solo**, antes de generar nada: si el tope que se escribe
+  deja la canasta de más a la izquierda con menos del 30% de su rango
+  aprovechado, el resumen de «Nueva rifa» lo dice en rojo y sugiere el tope
+  que sí la llena entera. Ver `resumenNueva()` en `assets/panel.js`.
+
 ## El panel se recorre a una barra lateral desde 880px (26 de octubre de 2026)
 
 El panel nació pensado para un celular, de una sola columna de 520px, y se
@@ -623,7 +648,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **242 comprobaciones** automáticas
+- El panel y el boleto pasan **244 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

@@ -184,6 +184,13 @@ await pagina.fill('#clave', 'secreta');
 await pagina.click('#btnEntrar');
 await pagina.waitForSelector('#pestanas:not([hidden])');
 ok('entra con la clave buena', true);
+// `#pestanas` se destapa en cuanto arranca a pintar, pero cuál PESTAÑA
+// queda abierta —Sorteo, con la rifa ya cargada— se decide un paso después,
+// al terminar `pintar()`. Sin esperar eso de verdad, `isVisible` corría la
+// carrera y a veces perdía: una condición de carrera que ya estaba ahí,
+// agrandada —no causada— por cualquier cambio que alargue un pelo el
+// arranque del script.
+await pagina.waitForSelector('#paneSorteo:not([hidden])', { timeout: 15000 });
 ok('abre en la pestaña Sorteo', await pagina.isVisible('#paneSorteo'));
 ok('toma la rifa activa', (await pagina.textContent('#tituloRifa')) === 'Rifa El Muerde Manos',
    await pagina.textContent('#tituloRifa'));
@@ -261,6 +268,27 @@ await pagina.fill('#nvCantidad', '4000');
 ok('avisa cuando los folios no alcanzan para tantos boletos',
    (await pagina.textContent('#cuentaNueva')).includes('no caben en el tope de 2,700'),
    await pagina.textContent('#cuentaNueva'));
+
+// El caso real que lo motivó: una rifa de 250 boletos × 4 números, tope
+// puesto en 1000 exacto —justo lo que hacía falta—, con una canasta de
+// cuatro dígitos (bolitas 0 y 1 en la de más a la izquierda). De los 1000
+// folios, 999 empiezan en 0 y SOLO UNO en 1: la bolita del 1 casi nunca
+// encuentra pareja al sacarla en vivo. Esto no se vio hasta tener los
+// boletos ya impresos en la mano — de ahí el aviso, antes de generar nada.
+await pagina.fill('#nvDigitos', '4');
+await pagina.fill('#nvCantidad', '250');
+await pagina.fill('#nvFoliosPorBoleto', '4');
+await pagina.fill('#nvTope', '1000');
+ok('avisa cuando el tope deja casi vacía la canasta de más a la izquierda',
+   (await pagina.textContent('#cuentaNueva')).includes('casi vacía') &&
+   (await pagina.textContent('#cuentaNueva')).includes('1,999'),
+   await pagina.textContent('#cuentaNueva'));
+await pagina.fill('#nvTope', '1999');
+ok('y con el tope que SÍ aprovecha esa bolita, el aviso desaparece',
+   !(await pagina.textContent('#cuentaNueva')).includes('casi vacía'),
+   await pagina.textContent('#cuentaNueva'));
+await pagina.fill('#nvTope', '');
+await pagina.fill('#nvFoliosPorBoleto', '4');
 await pagina.fill('#nvDigitos', '5');
 
 await pagina.fill('#nvNombre', 'Rifa de prueba');

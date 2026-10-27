@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=29" />
-  <link rel="stylesheet" href="assets/panel.css?v=29" />
+  <link rel="stylesheet" href="assets/estilos.css?v=30" />
+  <link rel="stylesheet" href="assets/panel.css?v=30" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -219,10 +219,17 @@
             <span>Tope del sorteo (opcional)</span>
             <input type="number" id="nvTope" min="1" inputmode="numeric" placeholder="ej. 999, 1999" />
             <small class="ayuda">El número más alto que puede caer en el sorteo de
-              canastas (una por dígito). Con 999, los folios van de 0001 a 0999, y
-              SÍ se repiten en la siguiente rifa — adrede. Vacío usa el modo de
-              siempre: números grandes y al azar, únicos para toda la vida del
-              proyecto.</small>
+              canastas (una por dígito). <strong>Ponlo según las bolitas que
+              de verdad tengas armadas en la canasta de hasta la izquierda,
+              no según cuántos boletos vas a imprimir</strong>: si esa canasta
+              trae solo la bolita 0, usa 999; si le agregaste también la
+              bolita 1, usa 1999 — no un número a medias como 1050, porque
+              entonces casi ningún boleto real empieza con 1 y esa bolita,
+              al sacarla, casi nunca cae en un boleto vendido. Con 999, los
+              folios van de 0001 a 0999, y SÍ se repiten en la siguiente
+              rifa — adrede, con el mismo tope de siempre que tus canastas ya
+              tienen. Vacío usa el modo de siempre: números grandes y al
+              azar, únicos para toda la vida del proyecto.</small>
           </label>
           <label class="campo">
             <span>Números por boleto</span>
@@ -444,9 +451,9 @@
     </div>
   </main>
 
-  <script src="assets/config.js?v=29"></script>
-  <script src="assets/youtube.js?v=29"></script>
+  <script src="assets/config.js?v=30"></script>
+  <script src="assets/youtube.js?v=30"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=29"></script>
+  <script src="assets/panel.js?v=30"></script>
 </body>
 </html>
