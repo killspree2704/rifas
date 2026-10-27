@@ -7,7 +7,7 @@
  * permiso a la red**. Lo único que necesita conexión es consultar el estado
  * de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v30';
+const CACHE = 'rifa-v31';
 
 // Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
 // propósito: son 215 KB, y pedirlos en una red mala haría fallar la
@@ -71,6 +71,29 @@ function conLimite(peticion, ms) {
   });
 }
 
+/**
+ * Como `conLimite`, pero con UN reintento rápido y silencioso si la red SÍ
+ * contestó y contestó mal (404, 502…) —un bache de un instante en el borde
+ * de Cloudflare, un despliegue a medio propagar, un nodo que recién
+ * despierta—, que casi siempre se cura solo en menos de medio segundo.
+ *
+ * A propósito NO reintenta cuando la red de plano no contestó —tronó o se
+ * agotó el tiempo—: ahí sí hay una red mala de verdad, y sumarle otro plazo
+ * de espera sería traicionar la regla de este archivo entero («abrir al
+ * instante vale más que abrir lo último»). Ese caso lo resuelve el
+ * `.catch()` de quien llama, sin demora extra.
+ */
+function conReintento(peticion, ms) {
+  // Clonada ANTES del primer intento: una vez que `fetch` toca la petición
+  // original, ya no se puede clonar para el segundo intento.
+  const copia = peticion.clone();
+  return conLimite(peticion, ms).then((r) => {
+    if (r && r.ok) { return r; }
+    return new Promise((resolver) => setTimeout(resolver, 400))
+      .then(() => conLimite(copia, Math.min(ms, 4000)));
+  });
+}
+
 self.addEventListener('fetch', (evento) => {
   const peticion = evento.request;
 
@@ -90,8 +113,16 @@ self.addEventListener('fetch', (evento) => {
     if (esBoleto) {
       evento.respondWith(
         caches.match('index.html').then((guardada) => {
-          const desdeRed = conLimite(peticion, 8000)
-            .then((r) => guardar(new Request('index.html'), r))
+          // Un 404/500/502 pasajero de la red —un despliegue a medio
+          // propagar en el borde, un nodo frío— NO es un «no hay copia que
+          // ofrecer»: `fetch` lo resuelve igual que a un 200, no lo rechaza.
+          // Sin este `r && r.ok`, ese error de un instante se le enseñaba
+          // al que acababa de escanear el QR tal cual, en vez de la página
+          // de «Sin conexión» de aquí abajo —que es justo para esto—. Una
+          // recarga, momentos después, volvía a pedir la red y ya salía
+          // bien: el síntoma exacto que reportó el dueño.
+          const desdeRed = conReintento(peticion, 8000)
+            .then((r) => (r && r.ok) ? guardar(new Request('index.html'), r) : null)
             .catch(() => null);
           if (guardada) {
             evento.waitUntil(desdeRed);     // refresco silencioso
@@ -110,11 +141,16 @@ self.addEventListener('fetch', (evento) => {
     // Estas NO pueden servirse desde la copia del boleto (era el error: pedir
     // el panel devolvía la pantalla del participante). Cada una se guarda con
     // su propia dirección, y para ellas manda la red: el panel siempre debe
-    // mostrar el estado real, no uno viejo.
+    // mostrar el estado real, no uno viejo. Mismo cuidado que arriba: un
+    // estado HTTP malo no es un 200 y no se enseña tal cual.
     const suPropiaCopia = new Request(url.origin + url.pathname);
     evento.respondWith(
-      conLimite(peticion, 8000)
-        .then((r) => guardar(suPropiaCopia, r))
+      conReintento(peticion, 8000)
+        .then((r) => (r && r.ok)
+          ? guardar(suPropiaCopia, r)
+          : caches.match(suPropiaCopia).then((c) => c || new Response(SIN_RED, {
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            })))
         .catch(() => caches.match(suPropiaCopia).then((r) => r || new Response(SIN_RED, {
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         })))
@@ -132,8 +168,10 @@ self.addEventListener('fetch', (evento) => {
   // esperar unos segundos; si no hay red, la copia sigue ahí de respaldo.
   if (/\/panel\.(js|css)$/.test(new URL(peticion.url).pathname)) {
     evento.respondWith(
-      conLimite(peticion, 8000)
-        .then((r) => guardar(peticion, r))
+      conReintento(peticion, 8000)
+        .then((r) => (r && r.ok)
+          ? guardar(peticion, r)
+          : caches.match(peticion).then((c) => c || Response.error()))
         .catch(() => caches.match(peticion).then((r) => r || Response.error()))
     );
     return;

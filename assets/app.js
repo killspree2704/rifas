@@ -379,7 +379,15 @@
 
   /** Una consulta, tolerante a fallos: reintenta y avisa sin romper nada. */
   function refrescar() {
-    if (!hayServidor() || hayResultado()) { return Promise.resolve(); }
+    if (hayResultado()) { return Promise.resolve(); }
+    // Hay red, pero todavía no sabemos de qué rifa es este boleto —el primer
+    // intento, al cargar la página, se quedó sin contestar—. Sin esto, el
+    // sondeo y el canal en vivo se quedaban mudos PARA SIEMPRE: los dos
+    // necesitan `rifaId`, y nada volvía a pedirlo. La pantalla parecía
+    // funcionar —el reloj corre solo— pero nunca se enteraba de que empezó
+    // la transmisión ni de quién ganó, ni siquiera con la red ya de vuelta.
+    if (hayRed() && !rifaId) { return intentarResolverYSeguir(); }
+    if (!hayServidor()) { return Promise.resolve(); }
     return leerEstado()
       .then(function (estado) {
         fallosSeguidos = 0;
@@ -597,6 +605,30 @@
     pintarEstado(rifa);
   }
 
+  /**
+   * Resuelve a qué rifa pertenece el boleto y, si se pudo, se pone a
+   * seguirla (consulta inicial, canal en vivo, sondeo). Es el único lugar
+   * que hace las dos cosas en orden, para no repetir esta cadena en el
+   * arranque Y en `refrescar()` —que la necesita si el primer intento, al
+   * cargar la página, se quedó sin red—.
+   */
+  function intentarResolverYSeguir() {
+    return resolverRifa().then(function (valido) {
+      if (!valido) {
+        mostrar('vistaInvalido');
+        $('bloqueFolio').hidden = true;
+        return;
+      }
+      // Seguía sin red: ni `rifaId` ni nada que seguir todavía. Se reintentará
+      // en el próximo sondeo o la próxima vez que vuelva la conexión.
+      if (!rifaId) { return; }
+      return refrescar().then(function () {
+        abrirCanal();
+        programarSondeo();
+      });
+    });
+  }
+
   // ------------------------------------------------------------------
   // Arranque
   // ------------------------------------------------------------------
@@ -645,18 +677,7 @@
         cliente = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
           realtime: { params: { eventsPerSecond: 2 } },
         });
-        return resolverRifa();
-      })
-      .then(function (valido) {
-        if (!valido) {
-          mostrar('vistaInvalido');
-          $('bloqueFolio').hidden = true;
-          return;
-        }
-        return refrescar().then(function () {
-          abrirCanal();
-          programarSondeo();
-        });
+        return intentarResolverYSeguir();
       })
       .catch(function () {
         // Sin servidor manda el reloj: la pantalla ya está pintada y el
