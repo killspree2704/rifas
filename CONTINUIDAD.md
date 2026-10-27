@@ -535,6 +535,61 @@ el RANGO del sorteo coincida con las bolitas armadas—.
   aprovechado, el resumen de «Nueva rifa» lo dice en rojo y sugiere el tope
   que sí la llena entera. Ver `resumenNueva()` en `assets/panel.js`.
 
+## Pasada de blindaje antes del evento real (27 de octubre de 2026)
+
+El dueño pidió una revisión a fondo, y reportó algo concreto: a veces, al
+escanear el QR, la pantalla dice «página no encontrada» a menos que recargue
+una o dos veces. Se encontraron y corrigieron DOS bugs reales, distintos
+entre sí, que juntos explican bien ese síntoma —no se pudo confirmar
+cuál de los dos fue el que vio el dueño esa noche, los logs de Supabase no
+muestran ningún error del lado del servidor en esa ventana, lo que apunta a
+que el fallo ocurrió antes de llegar ahí—.
+
+**1. El trabajador de servicio (`sw.js`) enseñaba un error de red tal cual,
+en vez de la pantalla de «Sin conexión» que existe justo para eso.**
+`fetch()` no rechaza su promesa cuando el servidor contesta con un error
+—un 404, un 502—, solo cuando la red de plano no contesta. El código
+revisaba `r || SIN_RED` (¿hubo ALGUNA respuesta?), no `r.ok` (¿la respuesta
+fue buena?), así que un 404 pasajero del borde de Cloudflare —un
+despliegue a medio propagar, algo que pasó varias veces hoy mismo, con
+nueve despliegues seguidos— se le enseñaba a quien acababa de escanear el
+QR como si fuera la página de verdad. Una recarga, momentos después,
+volvía a pedir la red y ya salía bien: el síntoma exacto. Arreglado en
+las tres rutas de navegación de `sw.js` (`r && r.ok`, no solo `r`), y se
+agregó un reintento rápido y silencioso (~400ms) para los casos donde la
+red SÍ contestó pero mal —sin ese reintento para una red que de plano no
+contesta, que sería traicionar la regla de este archivo: abrir al instante
+vale más que abrir lo último—.
+
+**2. Si el primer intento de saber a qué rifa pertenece un boleto fallaba
+por la red, la pantalla se quedaba muda PARA SIEMPRE, aunque la red
+volviera.** En `assets/app.js`, `resolverRifa()` —llamada solo una vez, al
+cargar la página— decide tratar el boleto como válido cuando no se pudo
+preguntar (correcto: el comprobante real es el papel), pero nunca dejaba
+`rifaId` puesto, y TANTO el sondeo como el canal en vivo necesitan
+`rifaId` para hacer cualquier cosa. El reloj seguía corriendo —la pantalla
+parecía funcionar— pero nunca se enteraba de que empezó la transmisión ni
+de quién ganó, ni con la red ya de vuelta. Arreglado centralizando la
+cadena «resolver → seguir» en `intentarResolverYSeguir()`, que ahora
+también se reintenta desde dentro de `refrescar()` cada vez que hay red
+pero sigue sin `rifaId` —en el próximo sondeo, o al volver la conexión—.
+
+**Revisión de la base, de paso:**
+- Confirmado por los advisors de Supabase: `boletos`, `folios`,
+  `llave_firma`, `panel_ajustes`, `panel_clave` y `sorteo_log` tienen RLS
+  encendido SIN ninguna política —a propósito, es el candado total contra
+  `anon`, documentado arriba—. La función `rifa_de_boleto` (`SECURITY
+  DEFINER`, llamable por `anon`) se revisó a mano: exige boleto Y código
+  juntos, fija su propio `search_path`, y solo devuelve lo mínimo. Ningún
+  hallazgo real, los dos avisos del linter son el diseño, no un descuido.
+- Un índice que faltaba de verdad: `sorteo_log.rifa_id` no tenía uno
+  cubriendo su llave foránea. Agregado (`indice_sorteo_log_rifa_id`).
+- Los logs de Supabase de las últimas 24 horas no muestran ni un error de
+  Postgres ni una respuesta 4xx/5xx real del servidor —la base está sana—.
+
+247 comprobaciones automáticas en verde (antes 244), tres nuevas para el
+segundo bug, comprobado con una red que se cuelga a propósito en la prueba.
+
 ## El panel se recorre a una barra lateral desde 880px (26 de octubre de 2026)
 
 El panel nació pensado para un celular, de una sola columna de 520px, y se
@@ -648,7 +703,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **244 comprobaciones** automáticas
+- El panel y el boleto pasan **247 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión, en corto

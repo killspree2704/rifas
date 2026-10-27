@@ -498,6 +498,53 @@ await p2.goto(BASE + '/?b=9000001052&c=0000');
 await p2.waitForSelector('#vistaInvalido:not([hidden])', { timeout: 15000 });
 ok('un código que no cuadra sale como boleto no válido', true);
 
+// --------------------------------------- RESOLVER LA RIFA, CON RED LENTA ---
+// El bug real que motivó esta prueba: si el PRIMER intento de saber a qué
+// rifa pertenece el boleto se cuelga (red saturada al escanear el QR, el
+// momento más probable para que pase), la página seguía funcionando a
+// simple vista —el reloj corre solo— pero `rifaId` nunca se llegaba a
+// llenar, y sin él el sondeo y el canal en vivo se quedaban mudos PARA
+// SIEMPRE: ni con la red ya de vuelta se enteraba de la transmisión ni del
+// ganador. Contexto aparte, con su propia interceptación de red —no se
+// puede colar en `p2`, que otras pruebas siguen usando sin esperar colgarse—.
+{
+  console.log('\n== Resolver la rifa cuando el primer intento se cuelga ==');
+  const ctxR = await navegador.newContext({ serviceWorkers: 'block' });
+  const pr = await ctxR.newPage();
+  const errR = [];
+  pr.on('pageerror', (e) => errR.push(String(e)));
+
+  let llamadasRpc = 0;
+  await pr.route('**/rest/v1/rpc/rifa_de_boleto', async (ruta) => {
+    llamadasRpc++;
+    if (llamadasRpc === 1) {
+      // Más que el límite de la página (7 s por omisión): fuerza el mismo
+      // tiempo agotado que daría una antena saturada.
+      await new Promise((r) => setTimeout(r, 8000));
+      return ruta.abort('timedout');
+    }
+    return ruta.continue();
+  });
+
+  await pr.goto(BASE + '/?b=9000001052&c=R5VR');
+  await pr.waitForSelector('#vistaEspera:not([hidden]), #vistaEnVivo:not([hidden])', { timeout: 15000 });
+  ok('con la red colgada, la pantalla igual se pinta —guiada por el reloj—',
+     (await pr.textContent('#tituloRifa')) === 'Rifa', await pr.textContent('#tituloRifa'));
+
+  // Vuelve la red: el mismo evento que dispara un teléfono real.
+  await pr.evaluate(() => window.dispatchEvent(new Event('online')));
+  await pr.waitForFunction(
+    () => document.getElementById('tituloRifa').textContent === 'Rifa El Muerde Manos',
+    null, { timeout: 15000 }
+  );
+  ok('y al volver la red, SÍ se entera de cuál es su rifa —ya no se queda muda—',
+     true, 'tras «online»: ' + llamadasRpc + ' llamadas a rifa_de_boleto');
+
+  ok('sin errores de JavaScript resolviendo la rifa con red lenta',
+     errR.length === 0, errR.join(' | '));
+  await ctxR.close();
+}
+
 // ------------------------------------------------ TRANSMISIÓN --------------
 console.log('\n== El enlace de la transmisión ==');
 await pagina.click('.pestana[data-panel="paneSorteo"]');
