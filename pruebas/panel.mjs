@@ -1531,6 +1531,79 @@ await ctxD.close();
   await ctxE.close();
 }
 
+// -------------------------------------------- ESCENARIO CATASTRÓFICO -------
+// Pedido explícito del dueño: provocar fallos a propósito para blindar el
+// sistema antes del evento real, no solo esperar a que uno aparezca solo.
+// Este es el peor caso razonable —Supabase entero cae en el peor momento,
+// con la rifa ya en vivo— y lo que debe pasar es que NADA mienta: ni un
+// resultado inventado en la pantalla del participante, ni el panel creyendo
+// que guardó algo que nunca llegó a guardarse. Va ANTES de «Perfil» a
+// propósito: esa prueba cambia la clave de verdad, y esta necesita la de
+// siempre («secreta») para entrar en el panel.
+{
+  console.log('\n== Escenario catastrófico: el backend entero cae en vivo ==');
+
+  // --- Lado del participante ---
+  const ctxCat = await navegador.newContext({ serviceWorkers: 'block' });
+  const pCat = await ctxCat.newPage();
+  const errCat = [];
+  pCat.on('pageerror', (e) => errCat.push(String(e)));
+
+  await pCat.goto(BASE + '/?b=9000001052&c=R5VR');
+  await pCat.waitForFunction(
+    () => document.getElementById('tituloRifa').textContent === 'Rifa El Muerde Manos',
+    null, { timeout: 15000 }
+  );
+
+  let backendCaido = true;
+  await pCat.route('**/functions/v1/sorteo', (r) => backendCaido ? r.abort('connectionrefused') : r.continue());
+  await pCat.route('**/rest/v1/**', (r) => backendCaido ? r.abort('connectionrefused') : r.continue());
+  await pCat.evaluate(() => window.dispatchEvent(new Event('online')));
+  await pCat.waitForTimeout(2000);
+
+  const veredictoCaido = await pCat.textContent('#veredicto').catch(() => '');
+  ok('con el backend caído, no aparece ningún "ganaste"/"no ganaste" inventado',
+     !/ganaste/i.test(veredictoCaido), 'veredicto durante la caída: "' + veredictoCaido + '"');
+  ok('el cronómetro sigue corriendo —la pantalla no se congela—',
+     /\d/.test(await pCat.textContent('#cDias').catch(() => '')));
+
+  backendCaido = false;
+  await pCat.evaluate(() => window.dispatchEvent(new Event('online')));
+  await pCat.waitForFunction(
+    () => !document.getElementById('vistaEspera').hidden || !document.getElementById('vistaEnVivo').hidden,
+    null, { timeout: 15000 }
+  );
+  ok('y al volver la red se recupera SOLA, sin que nadie recargue la página', true);
+  ok('sin errores de JavaScript del lado del participante durante la caída',
+     errCat.length === 0, errCat.join(' | '));
+  await ctxCat.close();
+
+  // --- Lado del operador ---
+  const ctxCat2 = await navegador.newContext({ serviceWorkers: 'block' });
+  const pCat2 = await ctxCat2.newPage();
+  const errCat2 = [];
+  pCat2.on('pageerror', (e) => errCat2.push(String(e)));
+
+  await pCat2.goto(BASE + '/panel.html');
+  await pCat2.fill('#clave', 'secreta');
+  await pCat2.click('#btnEntrar');
+  await pCat2.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+
+  await pCat2.click('#btnRevelarAzar');
+  await pCat2.waitForFunction(() => document.getElementById('mensaje').textContent.includes('no se puede deshacer'));
+  await pCat2.route('**/functions/v1/sorteo', (r) => r.abort('connectionrefused'));
+  await pCat2.click('#btnRevelarAzar');
+  await pCat2.waitForSelector('#mensaje.error', { timeout: 10000 });
+  ok('al operador se le explica el fallo en español llano, no «Failed to fetch»',
+     (await pCat2.textContent('#mensaje')).includes('No se pudo conectar'),
+     await pCat2.textContent('#mensaje'));
+  ok('y el panel NO se cree que reveló algo que nunca se guardó',
+     (await pCat2.textContent('#estadoTexto')) !== 'Revelado');
+  ok('sin errores de JavaScript del lado del operador durante la caída',
+     errCat2.length === 0, errCat2.join(' | '));
+  await ctxCat2.close();
+}
+
 // ---------------------------------------------------------------- PERFIL ---
 // Aparte y con su propio navegador: esta prueba cambia la clave del servidor
 // de verdad, y si se colara en medio de las otras las dejaría fuera.

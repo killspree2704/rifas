@@ -67,6 +67,18 @@
         if (!r.ok) { throw new Error(datos.error || 'Error ' + r.status); }
         return datos;
       });
+    }).catch(function (e) {
+      // `fetch` tira un `TypeError` —«Failed to fetch», en inglés, sin
+      // explicación— cuando la red se cae de plano. Es distinto del `Error`
+      // que se arma arriba cuando el servidor SÍ contestó pero con un
+      // error: ese ya trae un mensaje en español que vale la pena enseñar
+      // tal cual. Mostrarle el de la red cruda a quien está a medio sorteo,
+      // en vivo frente a la gente, no ayuda en nada.
+      if (e instanceof TypeError) {
+        throw new Error('No se pudo conectar con el servidor. Revisa la red e ' +
+          'inténtalo de nuevo —nada se guardó todavía—.');
+      }
+      throw e;
     });
   }
 
