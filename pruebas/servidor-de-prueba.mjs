@@ -6,14 +6,7 @@
 import http from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, extname, join } from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-
-// El mismo normalizador que usa el panel: si él cambia, la prueba lo nota.
-// `fileURLToPath` y no `.pathname`: en Windows el pathname trae la unidad con
-// una barra delante («/C:/Users/…») y ni `require` ni `spawn` la resuelven.
-const normalizarYouTube = createRequire(import.meta.url)(
-  fileURLToPath(new URL('../assets/youtube.js', import.meta.url)));
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url)).replace(/[/\\]$/, '');
 // Cambia: el panel puede reemplazarla desde la pestaña «Perfil», y la prueba
@@ -47,7 +40,9 @@ const rifas = [{
 rifas.push({
   id: 'pronto', nombre: 'Rifa que va a empezar', serie: 'P', estado: 'espera',
   activa: false, folio_ganador: null,
-  // A minuto y medio: la pantalla del boleto entra en su ritmo rápido.
+  // A minuto y medio: la pantalla del boleto entra en su ritmo rápido. La
+  // prueba que la usa reescribe esta fecha al momento —ver «El sorteo, de
+  // punta a punta»—, porque para cuando llega ahí ya pasó de sobra.
   fecha_sorteo: new Date(Date.now() + 90000).toISOString(),
   revelado_en: null, creada_en: new Date().toISOString(), emision: null, precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
@@ -310,41 +305,9 @@ function sorteo(cuerpo) {
   const folios = foliosDe(r.id);
   if (a === 'estado') return [200, { rifa: r, folios }];
 
-  if (a === 'transmision') {
-    const crudo = String(cuerpo.transmision || '').trim();
-    if (crudo && !normalizarYouTube(crudo)) {
-      return [400, { error: 'eso no parece un enlace de YouTube' }];
-    }
-    r.transmision_url = crudo ? normalizarYouTube(crudo) : null;
-    return [200, { rifa: r, folios }];
-  }
-
   if (r.folio_ganador && a !== 'cerrar') return [409, { error: 'ya tiene ganador' }];
 
-  const marca = (v) => {
-    const s = String(v || '');
-    const c = s.lastIndexOf('|');
-    return c > 0 ? { etiqueta: s.slice(0, c), id: s.slice(c + 1), crudo: s } : null;
-  };
-
-  if (a === 'en_vivo') {
-    const quien = marca(cuerpo.dispositivo);
-    const dueno = marca(r.transmite_desde);
-    if (dueno && quien && dueno.id !== quien.id && cuerpo.forzar !== true) {
-      return [409, { error: `ya se está transmitiendo desde ${dueno.etiqueta}`,
-                     transmite_desde: r.transmite_desde }];
-    }
-    const crudo = String(cuerpo.transmision || '').trim();
-    if (crudo) {
-      const limpio = normalizarYouTube(crudo);
-      if (!limpio) return [400, { error: 'eso no parece un enlace de YouTube' }];
-      r.transmision_url = limpio;
-    }
-    r.estado = 'en_vivo';
-    r.transmite_desde = quien ? quien.crudo : null;
-  }
-  else if (a === 'espera') { r.estado = 'espera'; r.transmite_desde = null; }
-  else if (a === 'cerrar') { r.estado = 'cerrado'; r.transmite_desde = null; }
+  if (a === 'cerrar') { r.estado = 'cerrado'; r.transmite_desde = null; }
   else if (a === 'revelar') {
     const g = cuerpo.folio || folios[0];
     if (!folios.includes(g)) return [400, { error: `el folio ${g} no pertenece a esta rifa` }];

@@ -6,7 +6,7 @@
  * La clave no se guarda en el navegador: si recargas, se vuelve a pedir.
  *
  * Tres pestañas:
- *   Sorteo     — poner en vivo, revelar, cerrar la rifa que se esté manejando.
+ *   Sorteo     — revelar, cerrar la rifa que se esté manejando.
  *   Rifas      — crear una nueva con folios nuevos, ver el historial completo
  *                y sacar la hoja de boletos para imprimir.
  *   Verificar  — folio + código a mano: dice si el boleto de papel es original.
@@ -23,31 +23,6 @@
   var rifasConocidas = [];       // el último historial recibido
   var disenoPorOmision = null;   // el que heredará la próxima rifa que se cree
   var ultimoEstado = null;
-
-  /**
-   * Quién es este aparato. Sirve para una cosa sola: que si la transmisión ya
-   * se prendió desde el celular, la computadora lo vea y no la prenda otra vez
-   * por su cuenta. No identifica a nadie ni sale de aquí más que como etiqueta.
-   */
-  var APARATO = (function () {
-    var guardado = null;
-    try { guardado = sessionStorage.getItem('aparato'); } catch (e) { /* modo privado */ }
-    if (guardado) { return guardado; }
-    var movil = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    var valor = (movil ? 'el celular' : 'la computadora') + '|' +
-                Math.random().toString(36).slice(2, 10);
-    try { sessionStorage.setItem('aparato', valor); } catch (e) { /* da igual */ }
-    return valor;
-  })();
-
-  function etiquetaDe(marca) {
-    var corte = String(marca || '').lastIndexOf('|');
-    return corte > 0 ? marca.slice(0, corte) : '';
-  }
-  function idDe(marca) {
-    var corte = String(marca || '').lastIndexOf('|');
-    return corte > 0 ? marca.slice(corte + 1) : '';
-  }
 
   var ETIQUETAS = {
     espera: 'En espera',
@@ -153,17 +128,7 @@
     $('conteoFolios').textContent = datos.folios.length;
     $('listaFolios').textContent = datos.folios.join(' ');
 
-    // El enlace solo se reescribe cuando no lo estás editando, para no
-    // borrarte a media escritura lo que acabas de pegar.
-    if (document.activeElement !== $('transmisionUrl')) {
-      $('transmisionUrl').value = datos.rifa.transmision_url || '';
-      avisarIncrustar();
-    }
-    pintarCandado(datos.rifa);
-
     var revelada = !!datos.rifa.folio_ganador;
-    $('btnEnVivo').disabled = revelada || datos.rifa.estado === 'en_vivo';
-    $('btnEspera').disabled = revelada || datos.rifa.estado === 'espera';
     $('btnRevelarAzar').disabled = revelada;
     $('folioGanador').disabled = revelada;
     $('btnCerrar').disabled = datos.rifa.estado === 'cerrado';
@@ -173,27 +138,6 @@
     if (revelada) {
       mensaje('Folio ganador: ' + datos.rifa.folio_ganador + ' — registrado y bloqueado.', 'ok');
     }
-  }
-
-  /** De dónde está saliendo la transmisión, si es que ya salió de algún lado. */
-  function pintarCandado(rifa) {
-    var marca = rifa.transmite_desde || '';
-    var ajeno = marca && idDe(marca) !== idDe(APARATO);
-    var aviso = $('candadoTransmision');
-
-    if (!marca || rifa.estado !== 'en_vivo') {
-      aviso.hidden = true;
-      $('btnTomarControl').hidden = true;
-      return;
-    }
-
-    aviso.hidden = false;
-    aviso.textContent = ajeno
-      ? 'Transmitiendo desde ' + etiquetaDe(marca) + '.'
-      : 'Estás transmitiendo desde este aparato.';
-    // Si el celular que transmitía se quedó sin batería, alguien tiene que
-    // poder retomar desde otro lado sin regresar la rifa a espera.
-    $('btnTomarControl').hidden = !ajeno || !!rifa.folio_ganador;
   }
 
   /**
@@ -212,95 +156,18 @@
         pintar(datos);
         if (nombre === 'revelar') {
           mensaje('Ganador revelado: ' + datos.rifa.folio_ganador + '. Ya está en todos los teléfonos.', 'ok');
-        } else if (nombre === 'en_vivo') {
-          mensaje(datos.rifa.transmision_url
-            ? 'En vivo. Las pantallas ya cambiaron y traen el botón a tu transmisión.'
-            : 'En vivo. Las pantallas ya cambiaron. (Sin enlace de transmisión: no aparece el botón.)', 'ok');
         } else {
           mensaje('Listo.', 'ok');
         }
       })
       .catch(function (e) {
         mensaje(e.message, 'error');
-        // El servidor puede saber algo que aquí no se sabía —por ejemplo, que
-        // ya hay otro aparato transmitiendo—, así que se vuelve a preguntar
-        // para que la pantalla enseñe de qué está hablando.
+        // El servidor puede saber algo que aquí no se sabía, así que se
+        // vuelve a preguntar para que la pantalla enseñe de qué está hablando.
         llamar('estado').then(pintar).catch(function () { /* ya se avisó */ });
       });
   }
 
-  $('btnEnVivo').addEventListener('click', function () { transmitir(false); });
-
-  $('btnTomarControl').addEventListener('click', function () {
-    if (!confirmar('Vas a tomar el control de la transmisión desde este aparato.')) { return; }
-    transmitir(true);
-  });
-
-  /**
-   * Prender la transmisión. Manda el enlace escrito en el momento, para que
-   * no haga falta acordarse de guardarlo antes.
-   */
-  function transmitir(forzar) {
-    var enlace = $('transmisionUrl').value.trim();
-    if (enlace && !normalizarYouTube(enlace)) {
-      mensaje('Ese enlace no es de YouTube. Revísalo antes de salir al aire.', 'error');
-      return;
-    }
-    accion('en_vivo', { dispositivo: APARATO, transmision: enlace, forzar: !!forzar });
-  }
-
-  /**
-   * Avisa, mientras se escribe, si ese enlace se va a poder ver DENTRO de la
-   * página o solo abriendo YouTube. No son equivalentes y conviene saberlo
-   * antes del sorteo, no durante.
-   */
-  function avisarIncrustar() {
-    var caja = $('avisoIncrustar');
-    var valor = $('transmisionUrl').value.trim();
-    if (!valor) {
-      caja.hidden = false;
-      caja.className = 'nota aviso-incrustar';
-      caja.textContent = 'Sin enlace, la pantalla del boleto no muestra nada de transmisión.';
-      return;
-    }
-    if (!normalizarYouTube(valor)) {
-      caja.hidden = false;
-      caja.className = 'mensaje error aviso-incrustar';
-      caja.textContent = 'Eso no es un enlace de YouTube.';
-      return;
-    }
-    caja.hidden = false;
-    if (incrustarYouTube(valor)) {
-      caja.className = 'nota aviso-incrustar bien';
-      caja.textContent = 'Con este enlace la transmisión se ve dentro de la página, ' +
-        'sin salir del boleto. Revisa que el directo tenga permitido incrustarse.';
-    } else {
-      caja.className = 'nota aviso-incrustar';
-      caja.textContent = 'Este enlace es permanente —siempre apunta al directo que esté ' +
-        'al aire— pero no se puede incrustar: la gente saldrá a YouTube. Si quieres que ' +
-        'se vea dentro de la página, pega el enlace del directo en sí.';
-    }
-  }
-
-  $('transmisionUrl').addEventListener('input', avisarIncrustar);
-
-  $('btnGuardarTransmision').addEventListener('click', function () {
-    var enlace = $('transmisionUrl').value.trim();
-    if (enlace && !normalizarYouTube(enlace)) {
-      mensaje('Eso no es un enlace de YouTube.', 'error');
-      return;
-    }
-    mensaje(enlace ? 'Guardando…' : 'Quitando el enlace…');
-    llamar('transmision', { transmision: enlace })
-      .then(function (datos) {
-        pintar(datos);
-        mensaje(datos.rifa.transmision_url
-          ? 'Enlace guardado: ' + datos.rifa.transmision_url
-          : 'Enlace quitado. Las pantallas no mostrarán el botón.', 'ok');
-      })
-      .catch(function (e) { mensaje(e.message, 'error'); });
-  });
-  $('btnEspera').addEventListener('click', function () { accion('espera'); });
   $('btnCerrar').addEventListener('click', function () { accion('cerrar'); });
 
   // ------------------------------------------------------------------

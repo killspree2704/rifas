@@ -7,7 +7,7 @@
  * permiso a la red**. Lo único que necesita conexión es consultar el estado
  * de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v32';
+const CACHE = 'rifa-v33';
 
 // Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
 // propósito: son 215 KB, y pedirlos en una red mala haría fallar la
@@ -17,7 +17,6 @@ const BASICOS = [
   'index.html',
   'assets/estilos.css',
   'assets/config.js',
-  'assets/youtube.js',
   'assets/app.js',
 ];
 

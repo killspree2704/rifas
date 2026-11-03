@@ -545,31 +545,7 @@ ok('un código que no cuadra sale como boleto no válido', true);
   await ctxR.close();
 }
 
-// ------------------------------------------------ TRANSMISIÓN --------------
-console.log('\n== El enlace de la transmisión ==');
 await pagina.click('.pestana[data-panel="paneSorteo"]');
-await pagina.fill('#transmisionUrl', 'https://vimeo.com/12345');
-await pagina.click('#btnGuardarTransmision');
-await pagina.waitForFunction(() =>
-  document.getElementById('mensaje').textContent.includes('no es un enlace de YouTube'));
-ok('rechaza un enlace que no es de YouTube', true);
-
-await pagina.fill('#transmisionUrl', 'https://www.youtube.com/@ElMuerdeManos/live');
-ok('avisa que el enlace permanente no se puede incrustar',
-   (await pagina.textContent('#avisoIncrustar')).includes('no se puede incrustar'),
-   await pagina.textContent('#avisoIncrustar'));
-
-await pagina.fill('#transmisionUrl', 'youtu.be/dQw4w9WgXcQ?si=abc');
-ok('y que el del directo sí se ve dentro de la página',
-   (await pagina.textContent('#avisoIncrustar')).includes('dentro de la página'),
-   await pagina.textContent('#avisoIncrustar'));
-
-await pagina.click('#btnGuardarTransmision');
-await pagina.waitForFunction(() =>
-  document.getElementById('mensaje').textContent.includes('Enlace guardado'));
-ok('acepta y limpia un enlace copiado de la app',
-   (await pagina.inputValue('#transmisionUrl')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-   await pagina.inputValue('#transmisionUrl'));
 
 // Una rifa se puede cerrar sin revelar a nadie. Ahí no hay perdedores.
 await p2.goto(BASE + '/?b=9000000301&c=SSSS');
@@ -643,82 +619,48 @@ const ctx3 = await navegador.newContext({ serviceWorkers: 'block' });
 const p3 = await ctx3.newPage();
 const err3 = [];
 p3.on('pageerror', (e) => err3.push(String(e)));
+
+// La hora del sorteo de esta rifa se fijó al ARRANCAR el servidor de prueba
+// (unos segundos adelante, a propósito), pero esta sección corre varios
+// minutos después, cuando ya pasó de sobra. Se reescribe aquí, al momento,
+// para que la cuenta regresiva de verdad tenga unos segundos que contar
+// —y de paso se comprueba el cruce real a «en vivo», que ahora es la ÚNICA
+// forma en que eso pasa: ya no hay botón «Transmitir» que lo adelante—.
+const fechaSorteoPrueba = new Date(Date.now() + 3000).toISOString();
+await p3.route('**/rest/v1/rpc/rifa_de_boleto', async (ruta) => {
+  const resp = await ruta.fetch();
+  const datos = await resp.json();
+  if (datos[0]) { datos[0].fecha_sorteo = fechaSorteoPrueba; }
+  await ruta.fulfill({ response: resp, json: datos });
+});
+await p3.route('**/rest/v1/rifas*', async (ruta) => {
+  const resp = await ruta.fetch();
+  const datos = await resp.json();
+  (Array.isArray(datos) ? datos : [datos]).forEach((r) => { if (r) { r.fecha_sorteo = fechaSorteoPrueba; } });
+  await ruta.fulfill({ response: resp, json: datos });
+});
+
 await p3.goto(BASE + '/?b=9000000501&c=PPPP');
 await p3.waitForSelector('#vistaEspera:not([hidden])', { timeout: 15000 });
 ok('el boleto arranca en la cuenta regresiva', true);
 
-// el panel toma esa rifa y la pone en vivo
+// El panel toma esa rifa. Ya no hay ningún botón «Transmitir» que tocar: el
+// paso a «en vivo» lo decide solo el reloj de cada teléfono, cruzando la
+// hora del sorteo —pedido explícito del dueño, sin video de YouTube—.
 await pagina.click('.pestana[data-panel="paneRifas"]');
 await pagina.locator('.rifa', { hasText: 'Rifa que va a empezar' })
   .getByText('Manejar esta').click();
 await pagina.waitForFunction(() =>
   document.getElementById('mensajeRifas').textContent.includes('Ahora manejas'));
 await pagina.click('.pestana[data-panel="paneSorteo"]');
-ok('el boleto no enseña el botón antes de que haya transmisión',
-   await p3.isHidden('#enlaceTransmision'));
 
-await pagina.fill('#transmisionUrl', 'https://youtu.be/dQw4w9WgXcQ');
-await pagina.click('#btnEnVivo');
-await pagina.waitForFunction(() => document.getElementById('estadoTexto').textContent === 'En vivo');
-ok('el panel transmite', true);
-ok('avisa que las pantallas traen el botón',
-   (await pagina.textContent('#mensaje')).includes('botón a tu transmisión'),
-   await pagina.textContent('#mensaje'));
-ok('marca que estás transmitiendo desde este aparato',
-   (await pagina.textContent('#candadoTransmision')).includes('desde este aparato'),
-   await pagina.textContent('#candadoTransmision'));
-
-await p3.waitForSelector('#vistaEnVivo:not([hidden])', { timeout: 20000 });
-ok('el teléfono cambia solo a «en vivo»', true);
-ok('con el letrero nuevo',
+await p3.waitForSelector('#vistaEnVivo:not([hidden])', { timeout: 15000 });
+ok('el teléfono cambia solo a «en vivo» al cruzar la hora, sin que nadie toque nada en el panel', true);
+ok('con el letrero de siempre',
    (await p3.textContent('#vistaEnVivo .destacada')) === 'La rifa se está llevando a cabo',
    await p3.textContent('#vistaEnVivo .destacada'));
-await p3.waitForSelector('#verAqui:not([hidden])', { timeout: 15000 });
-ok('con el botón para ver la transmisión ahí mismo', true);
-ok('y la salida a YouTube por si acaso',
-   (await p3.getAttribute('#enlaceTransmision', 'href')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' &&
-   (await p3.getAttribute('#enlaceTransmision', 'target')) === '_blank' &&
-   (await p3.getAttribute('#enlaceTransmision', 'rel')).includes('noopener'),
-   await p3.getAttribute('#enlaceTransmision', 'href'));
-
-// El reproductor no debe existir hasta que alguien lo pida: es lo que deja
-// que el boleto abra rápido en una red mala.
-ok('el reproductor NO está puesto antes de tocarlo',
-   (await p3.locator('#marcoVideo iframe').count()) === 0 &&
-   await p3.isHidden('#marcoVideo'));
-
-await p3.click('#verAqui');
-await p3.waitForSelector('#marcoVideo iframe', { timeout: 10000 });
-ok('al tocarlo, el reproductor aparece dentro de la página',
-   (await p3.getAttribute('#marcoVideo iframe', 'src'))
-     === 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&playsinline=1&rel=0',
-   await p3.getAttribute('#marcoVideo iframe', 'src'));
-ok('el tambor se quita y el botón también',
-   await p3.isHidden('#tambor') && await p3.isHidden('#verAqui'));
-
-// --- el candado de un solo aparato ---
-console.log('\n== Un solo aparato transmitiendo ==');
-const ctx4 = await navegador.newContext({ serviceWorkers: 'block' });
-const otro = await ctx4.newPage();
-await otro.goto(BASE + '/panel.html');
-await otro.fill('#clave', 'secreta');
-await otro.click('#btnEntrar');
-await otro.waitForSelector('#pestanas:not([hidden])');
-await otro.waitForFunction(() =>
-  !document.getElementById('candadoTransmision').hidden);
-ok('el segundo aparato ve de dónde sale la transmisión',
-   (await otro.textContent('#candadoTransmision')).includes('Transmitiendo desde'),
-   await otro.textContent('#candadoTransmision'));
-ok('y le ofrece tomar el control', await otro.isVisible('#btnTomarControl'));
-
-await otro.click('#btnTomarControl');
-await otro.waitForFunction(() => document.getElementById('mensaje').textContent.includes('confirmar'));
-ok('tomar el control pide confirmación', true);
-await otro.click('#btnTomarControl');
-await otro.waitForFunction(() =>
-  document.getElementById('candadoTransmision').textContent.includes('desde este aparato'));
-ok('el segundo aparato toma el control', true);
-await ctx4.close();
+ok('y sin ningún botón ni enlace de transmisión —se quitó entero—',
+   (await p3.locator('#verAqui, #alternaTransmision, #marcoVideo').count()) === 0);
 
 // Revelar un número del OTRO boleto: así el teléfono que está abierto tiene
 // que perder con sus dos números, que es lo que se quiere comprobar. Con uno
@@ -735,7 +677,6 @@ await pagina.waitForFunction(() =>
   document.getElementById('mensaje').textContent.includes('55503'));
 ok('queda registrado el ganador', true);
 ok('y ya no deja volver a revelar', await pagina.isDisabled('#btnRevelarFolio'));
-ok('ni regresar a espera', await pagina.isDisabled('#btnEspera'));
 
 await p3.waitForSelector('#vistaResultado:not([hidden])', { timeout: 25000 });
 ok('el teléfono se entera del resultado solo', true);
@@ -745,12 +686,6 @@ ok('pero le dice cuál ganó',
    (await p3.textContent('#notaResultado')).includes('55503'), await p3.textContent('#notaResultado'));
 ok('y no le marca ninguno de los suyos como ganador',
    (await p3.$$('#folios .folioGanador')).length === 0);
-ok('el reproductor se apaga al llegar el resultado, para que no siga sonando',
-   (await p3.locator('#marcoVideo iframe').count()) === 0);
-ok('y queda la puerta para seguir viendo la transmisión',
-   await p3.isVisible('#seguirViendo') &&
-   (await p3.getAttribute('#enlaceSeguir', 'href')) === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-   await p3.getAttribute('#enlaceSeguir', 'href'));
 ok('sin errores de JavaScript en el sorteo', err3.length === 0, err3.join(' | '));
 
 // ------------------------------------------------- DIAGNÓSTICO ------------

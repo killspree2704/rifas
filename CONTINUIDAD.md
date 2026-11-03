@@ -194,7 +194,7 @@ El boleto de papel                El teléfono                    El panel
 
 | Tabla | Qué guarda |
 | --- | --- |
-| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el enlace de la transmisión, desde qué aparato salió, el **diseño del boleto impreso** y si está **archivada** (`archivada`; sacada del historial del panel, sin borrar nada). Trae también `emision`, de cuando el boleto imprimía una fecha de emisión —ya no se usa desde el panel, pero la columna se quedó— |
+| `rifas` | Una fila por rifa: estado, fecha, ganador, si es la activa, el **diseño del boleto impreso** y si está **archivada** (`archivada`; sacada del historial del panel, sin borrar nada). Trae también `emision` y `transmision_url`/`transmite_desde`, de funciones que el panel ya no ofrece —ni la fecha de emisión ni el video de YouTube—, pero esas columnas se quedaron |
 | `boletos` | El boleto de papel: su identificador (el del QR) y su código. **Sin políticas: nadie lo lee desde fuera** |
 | `folios` | Un renglón por número impreso. El folio es único de por vida, entre todas las rifas, **archivadas o no**. **Sin políticas** |
 | `sorteo_log` | Cada acción del panel con su hora, **y también cada número tecleado en «Revelar» que no pertenecía a la rifa** (`intento_rechazado`) — la prueba de que un papelito ajeno a lo impreso queda rechazado y registrado, no solo rechazado |
@@ -309,20 +309,9 @@ pasados esos, solo queda descargar un respaldo.
    y reloj. Si la tercera sale en rojo, el panel no va a poder revelar aunque
    todo lo demás se vea bien.
 2. Entrar al panel y comprobar que la rifa correcta está en **En espera**.
-3. Empezar a transmitir en YouTube desde la app, con **«Permitir insertar»
-   encendido** y la **latencia en «Baja» (Low latency)**, las dos en la
-   configuración avanzada del directo, ANTES de tocar «Transmitir en vivo» —
-   después de empezado no se puede cambiar—. Con «Normal» —la que trae por
-   omisión— el directo le gana a la cámara por 15 a 30 segundos: en «Baja»
-   baja a 2–5. No pongas «Ultra baja»: esa exige una conexión más estable, y
-   es justo lo que no se puede prometer en la sede. Ya al aire, copiar el
-   enlace del directo —o dejar puesto `youtube.com/channel/UC…/live`, que
-   sirve para siempre y sí se incrusta— y presionar **Transmitir** en el
-   panel. Los teléfonos cambian solos a «La rifa se está llevando a cabo» y
-   traen el botón **Ver la transmisión aquí**, que mete el reproductor en la
-   propia pantalla del boleto. Debajo queda «o ábrela en YouTube» por si algo
-   falla. **Quien la ve no necesita cuenta de nada.**
-4. Sacar una bolita de cada canasta —de izquierda a derecha, un dígito por
+   Los teléfonos cambian solos a «La rifa se está llevando a cabo» al llegar
+   la hora del sorteo —no hace falta ningún paso aquí para eso—.
+3. Sacar una bolita de cada canasta —de izquierda a derecha, un dígito por
    canasta— y teclear el número que forman. **El ganador lo deciden las
    canastas, no la app**: «Revelar» solo registra lo que ya salió, y el
    servidor rechaza cualquier número que no pertenezca a la rifa.
@@ -331,7 +320,7 @@ pasados esos, solo queda descargar un respaldo.
    **compáralo con el talón que traes en la mano** antes de tocar Revelar, que
    no se enciende hasta entonces. Luego pide confirmar dos veces.
    **Es irreversible**: ni tú ni nadie puede cambiar el ganador después.
-5. **Cerrar**. El resultado sigue viéndose para quien escanee, para siempre.
+4. **Cerrar**. El resultado sigue viéndose para quien escanee, para siempre.
 
 Si algo sale mal con la red: la pantalla del participante funciona con el
 reloj del teléfono y se guarda sola para abrirse sin conexión. Lo único que
@@ -535,6 +524,48 @@ el RANGO del sorteo coincida con las bolitas armadas—.
   aprovechado, el resumen de «Nueva rifa» lo dice en rojo y sugiere el tope
   que sí la llena entera. Ver `resumenNueva()` en `assets/panel.js`.
 
+## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
+
+Pedido explícito del dueño: quitar el enlace y el video de YouTube por
+completo —ni el panel lo ofrece, ni la pantalla del boleto lo muestra—,
+dejando solo la parte de consultar si alguien ganó. Razón: menos gente con
+la pantalla del boleto abierta esperando un video es menos gente con el
+canal de Realtime abierto al mismo tiempo, y de paso desaparece la latencia
+de YouTube que había dado problemas justo el día anterior.
+
+**Lo que cambió:**
+- `index.html`: la pantalla «En vivo» ya no trae botón ni enlace a ningún
+  lado, solo el tambor girando y «La rifa se está llevando a cabo» —sigue
+  entrando sola al llegar la hora del sorteo, eso no cambió—. La pantalla de
+  resultado tampoco trae ya «Seguir viendo la transmisión».
+- `panel.html`: el paso «Abrir la transmisión» —enlace, botón «Transmitir»,
+  «Tomar el control», candado de qué aparato transmite— se quitó entero de
+  la pestaña Sorteo. Lo que era el paso 2 («Revelar al ganador») ahora es el
+  1, y «Cerrar» ahora es el 2. También se quitó «Regresar a espera»: sin
+  «Transmitir» no queda nada de qué regresar.
+- `assets/youtube.js` —reconocía y limpiaba enlaces de YouTube— se borró
+  entero: ya no lo usa ni el panel ni el boleto.
+- CSS muerto limpiado de paso: `.marco-video`, `.boton-transmision`,
+  `.alterna` (estilos.css), `.bloque-transmision`, `.candado`,
+  `.aviso-incrustar` (panel.css).
+
+**Lo que NO se tocó, a propósito** —mismo criterio que con la fecha de
+emisión: no vale la pena arriesgar producción por borrar algo que ya nadie
+llama—:
+- Las columnas `rifas.transmision_url` y `rifas.transmite_desde` se quedan
+  en la base, vacías para siempre en cualquier rifa nueva.
+- La función de borde `sorteo` sigue aceptando las acciones `en_vivo` y
+  `transmision` —nadie las llama ya desde el panel ni desde el boleto—.
+- El estado `en_vivo` sigue existiendo como valor posible de `rifas.estado`:
+  la pantalla del boleto lo sigue reconociendo (por si alguna rifa vieja lo
+  trajera puesto), pero ya nada en el panel lo escribe —el reloj local de
+  cada teléfono es ahora el único que decide cuándo mostrar «en vivo»—.
+
+235 comprobaciones automáticas en verde (antes 254: se quitaron las que
+probaban el video/enlace que ya no existe, y se reescribió «El sorteo, de
+punta a punta» para comprobar el cruce real a «en vivo» por el reloj, sin
+ningún botón «Transmitir» de por medio).
+
 ## Tres escenarios provocados a propósito (27 de octubre de 2026, segunda pasada)
 
 Pedido explícito del dueño: no solo revisar que todo esté bien, sino
@@ -730,8 +761,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v29` |
-| Etiquetas del panel | `?v=29` |
+| Service worker | `rifa-v33` |
+| Etiquetas del panel | `?v=33` |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -753,36 +784,18 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **254 comprobaciones** automáticas
+- El panel y el boleto pasan **235 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
-### La transmisión, en corto
+### La transmisión por YouTube — quitada (27 de octubre de 2026)
 
-- Se transmite **desde la app de YouTube**, no desde la página. Un navegador
-  no puede mandar video a YouTube: no habla RTMP, y hacerlo pediría un
-  servidor propio de por medio.
-- La transmisión **se ve dentro del boleto**, pero el reproductor solo se
-  carga cuando alguien toca el botón. Así la página sigue abriendo sin
-  depender de ningún dominio ajeno, y quien no lo toca no paga nada.
-- **Enciende «Permitir insertar»** en la configuración avanzada del directo,
-  en YouTube Studio. Viene apagado por omisión y sin eso el reproductor sale
-  en blanco.
-- **El retraso del video es de YouTube, no de esta página.** El `<iframe>`
-  solo pide `https://www.youtube.com/embed/…`; no hay nada del lado de la
-  página que meta demora —ni sondeo, ni buffer propio—. Lo que sí decide el
-  retraso es la **latencia del directo**, elegida en la app de YouTube ANTES
-  de empezar a transmitir: «Normal» (la de origen) tarda 15–30 s en llegar;
-  «Baja» (Low latency) lo baja a 2–5 s. Revisado el 26 de octubre de 2026: el
-  dueño notó 20 s viendo el directo desde el boleto, y el directo de esa
-  prueba estaba en «Normal». «Ultra baja» existe pero pide una señal más
-  estable de la que esta sede puede prometer —justo el motivo por el que todo
-  este proyecto está pensado para redes malas—, así que no se recomienda.
-- El enlace `@tucanal/live` es permanente pero **no se puede incrustar**. El
-  de `channel/UC…/live` es permanente y sí. El panel lo avisa al escribirlo.
-- **Ver no pide cuenta**; solo comentar la pide. Y si el directo queda marcado
-  como restringido por edad, sí va a pedir sesión: no lo marques.
-- **Un solo aparato transmite a la vez.** El segundo ve de dónde está saliendo
-  y puede tomar el control si el primero se cayó.
+Esta sección documentaba el video de YouTube dentro del boleto. **Se quitó
+entera**, pedido explícito del dueño: menos gente con la pantalla abierta
+esperando un video significa menos conexiones activas al mismo tiempo —menos
+riesgo de las 200 conexiones de Realtime del plan gratis, y de paso se lleva
+consigo la latencia de YouTube que había dado problemas el día anterior—.
+Ver «Se quita la transmisión por YouTube» más abajo para el detalle completo
+de qué se tocó y qué se dejó adrede sin tocar.
 
 ### Pendientes
 

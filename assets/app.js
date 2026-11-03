@@ -154,13 +154,6 @@
     if (hayResultado() && estado.estado !== 'revelado' && estado.estado !== 'cerrado') { return; }
     estadoActual = estado;
 
-    // El reloj local no sabe nada de transmisiones: solo se hace caso al
-    // estado que sí trae el dato, para no apagar el botón cuando la pantalla
-    // se pinta sola por la hora. Va antes del resultado a propósito: quien
-    // abre su boleto con la rifa ya revelada también merece la puerta de
-    // vuelta a la transmisión.
-    if ('transmision_url' in estado) { pintarTransmision(estado.transmision_url); }
-
     if (hayResultado()) {
       // Una rifa se puede cerrar sin haber revelado a nadie. Pasa de verdad:
       // se suspende, se pospone, o simplemente se cierra. Decirle «no ganaste»
@@ -189,9 +182,6 @@
       }
       // Se marca cuál de los números fue, para que no haya que cotejar a ojo.
       pintarFolios(hayGanador ? ganador : '');
-      // El video se apaga al llegar el resultado. Si se quedara puesto,
-      // seguiría sonando detrás de esta pantalla.
-      quitarVideo();
       mostrar('vistaResultado');
       avisar('');
       cerrarSeguimiento();   // ya no hace falta molestar al servidor
@@ -202,87 +192,6 @@
 
     // En espera: si el reloj ya pasó la hora, la pantalla entra sola en vivo.
     mostrar(pintarCronometro() ? 'vistaEnVivo' : 'vistaEspera');
-  }
-
-  /**
-   * Prepara las dos puertas hacia la transmisión, sin abrir ninguna.
-   *
-   * La página no trae el reproductor puesto: trae un botón. El reproductor de
-   * YouTube pesa cientos de kilobytes y vive en otro dominio, así que cargarlo
-   * al abrir desharía justo lo que hace que el boleto aparezca en una red
-   * saturada. Quien quiera verlo lo toca y lo tiene ahí mismo; quien no, no
-   * paga nada por él.
-   *
-   * La segunda puerta es el enlace a YouTube, que se abre en otra pestaña para
-   * que el boleto se quede atrás. Esa siempre funciona: si el canal no permite
-   * incrustar, o el enlace es de los que no se pueden incrustar, es la única.
-   */
-  var urlTransmision = '';
-
-  function pintarTransmision(url) {
-    // El enlace viene de la base y se pegó a mano: aquí no se confía en que
-    // venga bien. Solo YouTube, y solo lo que el normalizador reconoce.
-    urlTransmision = (window.normalizarYouTube && window.normalizarYouTube(url)) || '';
-
-    var alterna = $('alternaTransmision');
-    var boton = $('verAqui');
-    if (!alterna || !boton) { return; }
-
-    if (!urlTransmision) {
-      alterna.hidden = true;
-      boton.hidden = true;
-      quitarVideo();
-      return;
-    }
-
-    $('enlaceTransmision').href = urlTransmision;
-    alterna.hidden = false;
-    // El botón de ver aquí solo si este enlace se puede incrustar; si no,
-    // queda el de YouTube, que siempre sirve.
-    boton.hidden = !window.incrustarYouTube || !window.incrustarYouTube(urlTransmision) ||
-                   !$('marcoVideo').hidden;
-
-    var seguir = $('seguirViendo');
-    if (seguir) {
-      $('enlaceSeguir').href = urlTransmision;
-      seguir.hidden = false;
-    }
-  }
-
-  /**
-   * Mete el reproductor de YouTube en la página, en el momento en que alguien
-   * lo pide y ni un segundo antes.
-   *
-   * El reproductor de YouTube pesa cientos de kilobytes y vive en otro
-   * dominio. Traerlo al abrir la página desharía justo lo que hace que el
-   * boleto aparezca en una red saturada. Traerlo cuando lo tocan no le cuesta
-   * nada a quien no lo toca.
-   */
-  function meterVideo() {
-    var marco = $('marcoVideo');
-    var destino = window.incrustarYouTube && window.incrustarYouTube(urlTransmision);
-    if (!marco || !destino || marco.firstChild) { return; }
-
-    var cuadro = document.createElement('iframe');
-    cuadro.src = destino;
-    cuadro.title = 'Transmisión de la rifa';
-    cuadro.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-    cuadro.allowFullscreen = true;
-    cuadro.referrerPolicy = 'strict-origin-when-cross-origin';
-    marco.appendChild(cuadro);
-
-    marco.hidden = false;
-    $('tambor').hidden = true;
-    $('verAqui').hidden = true;
-  }
-
-  /** Saca el reproductor: si no, se queda sonando detrás del resultado. */
-  function quitarVideo() {
-    var marco = $('marcoVideo');
-    if (!marco) { return; }
-    marco.textContent = '';
-    marco.hidden = true;
-    if ($('tambor')) { $('tambor').hidden = false; }
   }
 
   // ------------------------------------------------------------------
@@ -367,7 +276,7 @@
   function leerEstado() {
     var consulta = cliente
       .from('rifas')
-      .select('id, estado, folio_ganador, fecha_sorteo, transmision_url')
+      .select('id, estado, folio_ganador, fecha_sorteo')
       .eq('id', rifaId)
       .single()
       .then(function (r) {
@@ -659,10 +568,6 @@
     }
 
     pintarFolios('');
-
-    if ($('verAqui')) {
-      $('verAqui').addEventListener('click', meterVideo);
-    }
 
     escucharDispositivo();
 
