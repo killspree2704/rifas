@@ -423,36 +423,6 @@ input[type="number"], input[type="datetime-local"] {
 .veredicto-boleto.falso { border-left-color: var(--sello); }
 .veredicto-boleto .nota { margin: 5px 0 0; }
 
-/* --- Transmisión -------------------------------------------------------- */
-.bloque-transmision {
-  padding: 4px 0 18px;
-  border-bottom: 1px solid var(--linea);
-}
-.bloque-transmision .campo { margin-bottom: 8px; }
-.bloque-transmision .nota { margin: 0 0 12px; }
-.bloque-transmision code {
-  font-family: var(--mono);
-  font-size: 0.85em;
-  background: var(--fondo);
-  padding: 1px 5px;
-  border-radius: 5px;
-}
-input[type="url"] {
-  width: 100%;
-  padding: 11px 13px;
-  font: inherit;
-  font-family: var(--mono);
-  font-size: 0.85rem;
-  color: var(--tinta);
-  background: var(--fondo);
-  border: 1px solid var(--linea);
-  border-radius: 9px;
-}
-.candado {
-  margin: 6px 0 0;
-  font-size: 0.85rem;
-  color: var(--oro);
-}
 .boton.chico { font-size: 0.82rem; padding: 7px 12px; margin-top: 0; }
 
 /* Atajos para la cantidad de boletos. La casilla manda; esto solo la llena. */
@@ -470,10 +440,6 @@ input[type="url"] {
 }
 .atajos button:hover { color: var(--tinta); border-color: var(--oro); }
 #cuentaNueva { margin: 4px 0 14px; }
-
-/* El aviso de si ese enlace se podrá ver dentro de la página o no. */
-.aviso-incrustar { margin: 8px 0 12px; }
-.aviso-incrustar.bien { color: var(--gana); }
 
 /* --- Cotejo del folio ganador ------------------------------------------- */
 .cotejo-fila { padding-top: 0 !important; }

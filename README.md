@@ -27,7 +27,7 @@ Un QR, un código y un precio por boleto; cuatro números impresos.
 | Estado | Pantalla |
 | --- | --- |
 | `espera` | Sus números, «Pronto conoceremos al ganador o la ganadora» y el cronómetro |
-| `en_vivo` | «La rifa se está llevando a cabo», con el botón a la transmisión si la hay — entra sola al llegar la hora |
+| `en_vivo` | «La rifa se está llevando a cabo» — entra sola al llegar la hora del sorteo |
 | `revelado` | Sus números contra el ganador: ¡Ganaste! —con el número que salió subrayado— o Suerte para la próxima |
 | `cerrado` | Igual que revelado, con la rifa terminada |
 
@@ -47,63 +47,12 @@ pestañas:
 
 | Pestaña | Para qué |
 | --- | --- |
-| **Sorteo** | Guardar el enlace de la transmisión, salir al aire, revelar al ganador (capturando el folio de la tómbola o dejando que el sistema sortee) y cerrar |
+| **Sorteo** | Revelar al ganador (capturando el folio de la tómbola o dejando que el sistema sortee) y cerrar |
 | **Rifas** | Crear una rifa nueva —eligiendo cuántos números lleva cada boleto— ver el historial completo y sacar la hoja de boletos para imprimir |
 | **Vendedores** | Dar de alta a quien reparte los boletos y asignarle un lote consecutivo o números sueltos de la rifa que se maneja. Solo bitácora de reparto: no toca folios ni ganador |
 | **Verificar** | Teclear el número del boleto —o cualquiera de sus folios— con su código, y saber si es original |
 | **Diseño** | El aspecto del boleto impreso: tema, colores, fondo, logo, disposición y, por rifa, la fecha de emisión |
 | **Perfil** | Cambiar la clave del panel |
-
-### La transmisión en vivo
-
-La transmisión se ve **dentro del boleto**, pero el reproductor **no viene
-puesto**: la pantalla trae un botón, y solo al tocarlo se mete el reproductor
-de YouTube en la página.
-
-Esa es la decisión de fondo. El reproductor pesa cientos de kilobytes y vive
-en otro dominio; traerlo al abrir desharía justo lo que hace que el boleto
-aparezca en una red saturada. Traerlo cuando lo piden no le cuesta nada a
-quien no lo pide. Debajo queda siempre un **«o ábrela en YouTube»**, en otra
-pestaña, que funciona aunque el incrustado no.
-
-- **Nadie se registra.** Ver un directo de YouTube no pide cuenta, ni público
-  ni «no listado». Solo comentar la pide, y comentar no hace falta aquí. (Un
-  directo marcado como restringido por edad sí pediría sesión: no marcarlo.)
-- **Al llegar el resultado el reproductor se quita.** Si se quedara puesto
-  seguiría sonando detrás de la pantalla del ganador. En su lugar aparece
-  «Seguir viendo la transmisión», que es justo cuando más quieren verla.
-- **El video lo transmite la app de YouTube**, que es sólida. Un navegador
-  transmitiendo desde un celular se corta en cuanto se bloquea la pantalla o
-  entra una llamada; además, **ningún navegador puede mandar video a YouTube
-  por su cuenta** —no habla RTMP— y hacerlo pediría un servidor propio de por
-  medio.
-
-#### Qué enlace pegar
-
-El panel acepta `youtu.be/…`, `/live/…`, `/watch?v=…` o la dirección con
-parámetros pegados, y las guarda ya limpias. Pero **no todas se pueden
-incrustar**, y el panel lo avisa mientras se escribe:
-
-| Forma del enlace | ¿Se ve dentro de la página? | ¿Permanente? |
-| --- | --- | --- |
-| `youtu.be/ID`, `/live/ID`, `/watch?v=ID` | **Sí** | No: cambia con cada directo |
-| `youtube.com/channel/UC…/live` | **Sí** | **Sí** |
-| `youtube.com/@tucanal/live` | No, solo abre YouTube | Sí |
-
-Incrustar necesita el identificador del video o del canal, y el arroba es un
-apodo, no un identificador: por eso con esa forma no se puede armar el
-reproductor. Si quieres las dos cosas —permanente **e** incrustable— usa la
-del `channel/UC…`.
-
-**Importante:** hay que dejar **«Permitir insertar» encendido** en la
-configuración avanzada del directo, en YouTube Studio. Viene apagado por
-omisión en los directos, y sin eso el reproductor sale en blanco.
-
-**Un solo aparato transmite.** Al salir al aire, el panel anota desde cuál
-aparato fue. Si alguien abre el panel en otro lado, ve *«Transmitiendo desde
-el celular»* y el botón no le deja prenderla otra vez —aunque puede **tomar el
-control** si hace falta, por ejemplo si ese celular se quedó sin batería.
-Regresar a espera o cerrar suelta el candado.
 
 ### Cotejar el folio ganador antes de revelarlo
 
@@ -153,7 +102,6 @@ vendedor. Aquí solo viven números.
 | `panel.html`, `assets/panel.js` | Panel de sorteo |
 | `assets/config.js` | Rifa activa, fecha del sorteo y llaves públicas |
 | `assets/panel.css` | Estilos del panel |
-| `assets/youtube.js` | Reconoce y limpia un enlace de YouTube pegado a mano |
 | `supabase/funciones/sorteo/index.ts` | Función de borde: todo lo que el panel puede hacer |
 | `supabase/esquema.sql` | Qué hay en la base y qué garantiza |
 | `herramientas/*.mjs` | Lo mismo desde la línea de comandos, de cuando no existía el panel |
@@ -339,12 +287,12 @@ node pruebas/panel.mjs
 Levanta un servidor que finge ser Supabase y conduce un navegador de verdad:
 entra con la clave, crea una rifa, saca la hoja de boletos —y **lee el QR
 impreso** para comprobar que apunta al boleto correcto—, cambia de rifa,
-verifica un boleto de papel, guarda el enlace de la transmisión, y corre el
-sorteo entero mirando cómo la pantalla del participante pasa sola a «en vivo»
-—con su botón al directo, y con el reproductor apareciendo al tocarlo— y luego
-al resultado, además del cotejo del folio, del propio diagnóstico —incluido el
-caso de la base viva con el panel caído— y del panel contra una base vacía.
-**95 comprobaciones**, ninguna contra la base real.
+verifica un boleto de papel, y corre el sorteo entero mirando cómo la
+pantalla del participante pasa sola a «en vivo» y luego al resultado, además
+del cotejo del folio, del propio diagnóstico —incluido el caso de la base
+viva con el panel caído— y del panel contra una base vacía. Ver
+`CONTINUIDAD.md` para el número de comprobaciones al día, que sube seguido;
+ninguna toca la base real.
 
 ## Ensayo sin tocar la rifa real
 

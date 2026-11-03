@@ -68,22 +68,6 @@
         <p class="pulso">● En vivo</p>
         <p class="frase destacada">La rifa se está llevando a cabo</p>
         <div class="tambor" id="tambor" aria-hidden="true"><span>?</span></div>
-
-        <!-- El reproductor NO viene en la página: se mete aquí en el momento
-             en que alguien toca el botón. Hasta entonces esto cuesta cero, que
-             es lo que deja que el boleto abra en una red saturada. -->
-        <div class="marco-video" id="marcoVideo" hidden></div>
-
-        <button class="boton-transmision" id="verAqui" type="button" hidden>
-          ▶ Ver la transmisión aquí
-        </button>
-        <!-- Salida de emergencia: si el canal no permite incrustar, o el
-             navegador se atora, este enlace siempre funciona. Va en otra
-             pestaña para que el boleto se quede atrás. -->
-        <p class="alterna" id="alternaTransmision" hidden>
-          <a id="enlaceTransmision" target="_blank" rel="noopener">o ábrela en YouTube</a>
-        </p>
-
         <p class="nota">No cierres esta pantalla: el resultado aparece solo.</p>
       </section>
 
@@ -92,13 +76,6 @@
         <p class="veredicto" id="veredicto">—</p>
         <p class="frase" id="fraseResultado"></p>
         <p class="nota" id="notaResultado"></p>
-        <!-- Justo después de saber si ganaron es cuando más quieren ver la
-             reacción. El video se apaga al llegar el resultado —si no, se
-             quedaría sonando detrás de esta pantalla—, así que aquí queda la
-             puerta para volver a él. -->
-        <p class="alterna" id="seguirViendo" hidden>
-          <a id="enlaceSeguir" target="_blank" rel="noopener">Seguir viendo la transmisión</a>
-        </p>
       </section>
 
       <!-- Boleto no válido -->
@@ -129,7 +106,6 @@
   <p class="aviso" id="avisoConexion" hidden></p>
 
   <script src="assets/config.js" defer></script>
-  <script src="assets/youtube.js" defer></script>
   <script src="assets/app.js" defer></script>
 </body>
 </html>
