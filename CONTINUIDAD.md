@@ -524,6 +524,43 @@ el RANGO del sorteo coincida con las bolitas armadas—.
   aprovechado, el resumen de «Nueva rifa» lo dice en rojo y sugiere el tope
   que sí la llena entera. Ver `resumenNueva()` en `assets/panel.js`.
 
+## El panel, de vidrio a tarjetas sólidas —«más administrativo» (6 de noviembre de 2026)
+
+Pedido del dueño, con una imagen de referencia (un dashboard genérico de
+plantilla): reestructurar el panel para que se sienta más como una
+herramienta administrativa seria y menos como una app de consumo. **No se
+copió la imagen tal cual** —traía un mapa mundial con pines y contadores
+de seguidores de Facebook/Twitter, que no tienen nada que ver con una
+rifa—, se adaptó el ESTILO (tarjetas sólidas, barra lateral oscura,
+tarjeta de acento en degradado) a datos reales de este sistema.
+
+**Qué cambió, en `assets/panel.css`:**
+- El vidrio esmerilado de `section.caja` y de la barra lateral —`blur()`,
+  fondos traslúcidos— se cambió por tarjetas sólidas y planas, con una
+  sombra discreta en vez de desenfoque. Se hizo redefiniendo las variables
+  `--vidrio*` a colores sólidos en vez de tocar cada regla que las usa —el
+  mismo truco de «la ranura importa, no el nombre» que ya traía este
+  archivo—, así que no hubo que rastrear cada tarjeta por separado.
+- La luz de fondo de colores (`body::before`, pensada para el boleto de
+  tómbola) se apaga en `body.panel`: un panel de trabajo se ve más serio
+  sobre un fondo liso.
+
+**Lo nuevo, en `panel.html` + `assets/panel.js`:** una fila de cuatro
+tarjetas de estadística arriba de la pestaña Sorteo —boletos vendidos,
+números en juego, recaudado, días para el sorteo—, con la primera en el
+acento azul del panel en degradado. **Todo sale de datos reales de la
+rifa que se está manejando, nada de muestra**: si el precio no está
+puesto, «Recaudado» se queda en guion, no en `$0.00` que haga pensar que
+de verdad no se ha vendido nada.
+
+**Un hallazgo real al construirlo:** guardar un precio nuevo desde Diseño
+actualizaba la vista previa del boleto, pero NO la tarjeta «Recaudado» de
+Sorteo —se quedaba con el número viejo hasta el siguiente refresco
+aparte—. Corregido pidiendo el estado fresco justo después de guardar.
+
+240 comprobaciones en verde (antes 235), 5 nuevas para las tarjetas y el
+refresco del precio.
+
 ## Herramienta para medir la próxima plantilla (6 de noviembre de 2026)
 
 Pedido del dueño: las plantillas futuras («Suertudito», «Bono Gana Hoy»)
@@ -792,8 +829,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v33` |
-| Etiquetas del panel | `?v=33` |
+| Service worker | `rifa-v34` |
+| Etiquetas del panel | `?v=34` |
 
 ### El «undefined» de las hojas: qué fue
 
@@ -815,7 +852,7 @@ número uno es el caché del navegador, no la base.
 
 - `assets/config.js` **no apunta a ninguna rifa**: sus valores son solo el
   respaldo del primer pintado, y la rifa de verdad la resuelve el boleto.
-- El panel y el boleto pasan **235 comprobaciones** automáticas
+- El panel y el boleto pasan **240 comprobaciones** automáticas
   (`node pruebas/panel.mjs`), todas en verde.
 
 ### La transmisión por YouTube — quitada (27 de octubre de 2026)

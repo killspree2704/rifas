@@ -1,6 +1,7 @@
-/* Panel de sorteo: herramienta de trabajo, ahora también de vidrio. Sin la
-   restricción de la pantalla pública —aquí no hay cientos de celulares en
-   una antena saturada—, el `backdrop-filter` se usa sin medias tintas.
+/* Panel de sorteo: herramienta de trabajo. El vidrio esmerilado de las
+   primeras versiones se cambió por tarjetas sólidas y planas —pedido del
+   dueño, «algo más administrativo»—: menos efecto, más lectura rápida de
+   los números reales.
 
    La gama es OTRA que la del boleto, a propósito: el boleto es de tómbola
    —oro, cartulina, estampado de feria—, pero quien administra necesita algo
@@ -21,11 +22,16 @@ body.panel {
   --sello: #be123c;  /* antes terracota: ahora un rojo limpio, solo para peligro */
   --gana: #047857;   /* antes verde bosque: ahora esmeralda */
 
-  --vidrio: rgba(244, 247, 252, 0.42);
-  --vidrio-tenue: rgba(244, 247, 252, 0.26);
-  --vidrio-borde: rgba(255, 255, 255, 0.78);
-  --vidrio-brillo: rgba(255, 255, 255, 0.68);
-  --vidrio-sombra: rgba(15, 23, 42, 0.2);
+  /* El nombre quedó de cuando esto era vidrio esmerilado; ahora son
+     colores sólidos lisos —tarjeta resaltada, tarjeta tenue, borde,
+     sombra plana— para el aspecto de panel administrativo. El «brillo»
+     ya no pinta nada (era el reflejo del vidrio): queda transparente a
+     propósito, para no tener que tocar cada regla que lo usaba. */
+  --vidrio: #eef4fe;
+  --vidrio-tenue: #f6f9fd;
+  --vidrio-borde: #dbe4f3;
+  --vidrio-brillo: transparent;
+  --vidrio-sombra: rgba(15, 23, 42, 0.08);
 
   /* Dos luces de color —azul y esmeralda— y una tercera gris neutra en vez
      del violeta: nada que lea como «de fiesta». */
@@ -45,11 +51,11 @@ body.panel {
     --sello: #fb7185;
     --gana: #34d399;
 
-    --vidrio: rgba(205, 216, 235, 0.07);
-    --vidrio-tenue: rgba(205, 216, 235, 0.045);
-    --vidrio-borde: rgba(205, 216, 235, 0.17);
-    --vidrio-brillo: rgba(215, 224, 240, 0.12);
-    --vidrio-sombra: rgba(0, 0, 2, 0.6);
+    --vidrio: #182130;
+    --vidrio-tenue: #131a26;
+    --vidrio-borde: #283249;
+    --vidrio-brillo: transparent;
+    --vidrio-sombra: rgba(0, 0, 2, 0.45);
 
     --luz-oro: rgba(59, 130, 246, 0.3);
     --luz-gana: rgba(16, 185, 129, 0.22);
@@ -81,6 +87,12 @@ body.panel {
   display: block;
   padding-block: 26px 60px;
 }
+
+/* El fondo de luces de color —pensado para el boleto de tómbola— se apaga
+   aquí: un panel de trabajo se ve más serio sobre un fondo liso. El boleto
+   del participante conserva su luz de siempre; esta regla es solo para
+   `body.panel`. */
+body.panel::before { display: none; }
 
 /* El panel nació pensado para un celular, de una sola columna, y se quedó
    ahí incluso en una pantalla de escritorio: a los 1200px de ancho de un
@@ -116,22 +128,15 @@ body.panel {
   padding: 20px;
 }
 /*
- * El vidrio del panel va en `section.caja`: cada pestaña es UNA sección así.
- * No en `.caja` a secas, porque el boleto «Suertudito» también llama `.caja`
- * a sus recuadros de número —son clases que nacieron por separado y
- * coinciden de nombre—, y esos viven en un `<div>` dentro de la vista
- * previa de impresión: el vidrio ahí la arruinaría, haciendo ver borroso
- * justo lo que esa vista existe para comprobar antes de imprimir.
+ * `section.caja` —cada pestaña es UNA— ya NO lleva el vidrio esmerilado de
+ * antes: una herramienta de trabajo administrativa se lee mejor en tarjetas
+ * sólidas y planas, con una sombra discreta en vez de un desenfoque sobre
+ * el fondo. (No se toca `.caja` a secas: el boleto «Suertudito» también
+ * llama así a sus recuadros de número, por una coincidencia de nombre con
+ * esto, y esos viven en la vista previa de impresión, sin relación.)
  */
 section.caja {
-  background: var(--vidrio);
-  border-color: var(--vidrio-borde);
-  box-shadow: 0 16px 46px var(--vidrio-sombra), inset 0 1px 0 var(--vidrio-brillo);
-  backdrop-filter: blur(20px) saturate(170%);
-  -webkit-backdrop-filter: blur(20px) saturate(170%);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  section.caja { background: var(--papel); }
+  box-shadow: 0 1px 2px var(--vidrio-sombra);
 }
 
 .campo { display: block; margin-bottom: 14px; text-align: left; }
@@ -189,6 +194,45 @@ input:focus-visible { outline: 2px solid var(--oro); outline-offset: 1px; }
   color: var(--tinta-tenue);
 }
 .estado-actual strong { font-family: var(--mono); font-size: 1.05rem; }
+
+/* --- Estadísticas de la rifa, de un vistazo --------------------------- */
+.estadisticas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.estadistica {
+  padding: 16px 18px;
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 12px;
+}
+.estadistica-etiqueta {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+  margin-bottom: 8px;
+}
+.estadistica-numero {
+  display: block;
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--tinta);
+}
+/* La tarjeta principal, con el acento del panel en degradado —el mismo
+   azul de siempre (`--oro`), no un color nuevo—: destaca el número que
+   más importa de un vistazo, sin salirse de la paleta del panel. */
+.estadistica.acento {
+  background: linear-gradient(135deg, var(--oro), color-mix(in srgb, var(--oro) 55%, #1e1b4b));
+  border-color: transparent;
+}
+.estadistica.acento .estadistica-etiqueta { color: rgba(255, 255, 255, 0.78); }
+.estadistica.acento .estadistica-numero { color: #fff; }
 
 .pasos { list-style: none; margin: 0; padding: 0; }
 .pasos > li {
@@ -299,8 +343,6 @@ input:focus-visible { outline: 2px solid var(--oro); outline-offset: 1px; }
     background: var(--vidrio-tenue);
     border: 1px solid var(--vidrio-borde);
     border-radius: 14px;
-    backdrop-filter: blur(20px) saturate(170%);
-    -webkit-backdrop-filter: blur(20px) saturate(170%);
   }
   .pestanas .marca {
     display: block;

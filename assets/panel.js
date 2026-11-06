@@ -127,6 +127,7 @@
     $('estadoTexto').textContent = ETIQUETAS[datos.rifa.estado] || datos.rifa.estado;
     $('conteoFolios').textContent = datos.folios.length;
     $('listaFolios').textContent = datos.folios.join(' ');
+    pintarEstadisticas(datos.rifa, cuantosBoletos, datos.folios.length);
 
     var revelada = !!datos.rifa.folio_ganador;
     $('btnRevelarAzar').disabled = revelada;
@@ -137,6 +138,36 @@
 
     if (revelada) {
       mensaje('Folio ganador: ' + datos.rifa.folio_ganador + ' — registrado y bloqueado.', 'ok');
+    }
+  }
+
+  /**
+   * Las cuatro cifras de arriba de la pestaña Sorteo. Todas salen de datos
+   * reales de ESTA rifa —nada inventado ni de muestra—: lo que no se puede
+   * calcular (precio sin poner, por ejemplo) se queda en guion, no en un
+   * cero que haga pensar que de verdad no hay nada recaudado.
+   */
+  function pintarEstadisticas(rifa, cuantosBoletos, cuantosFolios) {
+    $('statBoletos').textContent = cuantosBoletos.toLocaleString('es-MX');
+    $('statFolios').textContent = cuantosFolios.toLocaleString('es-MX');
+
+    var precio = rifa.precio_boleto;
+    $('statRecaudado').textContent = (precio !== null && precio !== undefined)
+      ? '$' + (precio * cuantosBoletos).toLocaleString('es-MX', { minimumFractionDigits: 2 })
+      : '—';
+
+    var faltan = $('statFaltan');
+    var fechaSorteo = rifa.fecha_sorteo ? new Date(rifa.fecha_sorteo) : null;
+    if (!fechaSorteo || isNaN(fechaSorteo.getTime())) {
+      faltan.textContent = '—';
+    } else if (rifa.folio_ganador) {
+      faltan.textContent = 'Revelada';
+    } else {
+      var dias = Math.ceil((fechaSorteo.getTime() - Date.now()) / 86400000);
+      faltan.textContent = dias > 1 ? dias + ' días'
+        : dias === 1 ? 'Mañana'
+        : dias === 0 ? 'Hoy'
+        : 'Ya pasó';
     }
   }
 
@@ -2002,6 +2033,10 @@
         r.precio_boleto = datos.rifa.precio_boleto;
         refrescarVista();
         mensaje('Listo. La próxima hoja de esta rifa va a imprimir ese precio.', 'ok', 'mensajePrecio');
+        // «Recaudado», en la pestaña Sorteo, se calcula del precio: sin
+        // esto se quedaba con el número viejo hasta el siguiente refresco,
+        // aunque el precio ya hubiera cambiado de verdad.
+        llamar('estado').then(pintar).catch(function () { /* no es urgente */ });
       })
       .catch(function (e) { mensaje(e.message, 'error', 'mensajePrecio'); });
   });

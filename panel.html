@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=33" />
-  <link rel="stylesheet" href="assets/panel.css?v=33" />
+  <link rel="stylesheet" href="assets/estilos.css?v=34" />
+  <link rel="stylesheet" href="assets/panel.css?v=34" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -100,6 +100,28 @@
       <div class="estado-actual">
         <span class="etiqueta">Estado</span>
         <strong id="estadoTexto">—</strong>
+      </div>
+
+      <!-- Números reales de la rifa que se está manejando, de un vistazo.
+           Nada inventado: lo que no se puede calcular —precio sin poner,
+           por ejemplo— se queda en guion, no en un cero que confunda. -->
+      <div class="estadisticas">
+        <div class="estadistica acento">
+          <span class="estadistica-etiqueta">Boletos vendidos</span>
+          <strong class="estadistica-numero" id="statBoletos">—</strong>
+        </div>
+        <div class="estadistica">
+          <span class="estadistica-etiqueta">Números en juego</span>
+          <strong class="estadistica-numero" id="statFolios">—</strong>
+        </div>
+        <div class="estadistica">
+          <span class="estadistica-etiqueta">Recaudado</span>
+          <strong class="estadistica-numero" id="statRecaudado">—</strong>
+        </div>
+        <div class="estadistica">
+          <span class="estadistica-etiqueta">Para el sorteo</span>
+          <strong class="estadistica-numero" id="statFaltan">—</strong>
+        </div>
       </div>
 
       <ol class="pasos">
@@ -425,8 +447,8 @@
     </div>
   </main>
 
-  <script src="assets/config.js?v=33"></script>
+  <script src="assets/config.js?v=34"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=33"></script>
+  <script src="assets/panel.js?v=34"></script>
 </body>
 </html>
