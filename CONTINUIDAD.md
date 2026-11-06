@@ -524,6 +524,37 @@ el RANGO del sorteo coincida con las bolitas armadas—.
   aprovechado, el resumen de «Nueva rifa» lo dice en rojo y sugiere el tope
   que sí la llena entera. Ver `resumenNueva()` en `assets/panel.js`.
 
+## Herramienta para medir la próxima plantilla (6 de noviembre de 2026)
+
+Pedido del dueño: las plantillas futuras («Suertudito», «Bono Gana Hoy»)
+van a seguir el mismo patrón —foto de fondo, cuatro números en dos
+columnas, QR, precio, caducidad, pie—, y preguntó si el proceso de medir
+esas fotos a mano (cuentagotas, contador de píxeles, scripts de Python
+armados una sola vez) se podía dejar listo en el código para la próxima
+vez, en vez de repetirlo desde cero.
+
+**`herramientas/medir_plantilla.py`** hace justo eso. No adivina solo
+—sigue pidiendo un punto aproximado de dónde cae cada recuadro, que un ojo
+humano ubica en segundos viendo la foto—, pero AFINA ese punto al borde
+exacto en píxeles, la parte lenta que antes se hacía a mano. Validado
+re-midiendo «Suertudito» y «Bono Gana Hoy» desde sus fotos ya guardadas: el
+resultado cae a menos de 0.2 puntos porcentuales de los valores que ya
+están en `PLANTILLAS` —una diferencia que no se nota impresa—.
+
+**Para la próxima plantilla:**
+1. Conseguir la foto (o el PDF, con `pdf_a_imagen`).
+2. Ver a ojo, en cualquier visor de imágenes, un punto aproximado DENTRO
+   de cada uno de los cuatro recuadros de número.
+3. `cuadricula_de_cajas(img, [esos cuatro puntos])` da el `caja` completo,
+   listo para pegar en `PLANTILLAS`.
+4. `color_hex(img, x, y)` para los colores del tema (fondo, acento…), con
+   el mismo sistema de coordenadas.
+5. El resto —`qr`, `fechas`, `precio`, `pie`— sigue siendo a ojo, como
+   hasta ahora: son huecos de forma y tamaño distinto en cada foto, no una
+   cuadrícula repetible como los números.
+
+Ver el docstring del archivo para el uso completo, con ejemplos.
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por

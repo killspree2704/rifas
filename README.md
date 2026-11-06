@@ -105,6 +105,7 @@ vendedor. Aquí solo viven números.
 | `supabase/funciones/sorteo/index.ts` | Función de borde: todo lo que el panel puede hacer |
 | `supabase/esquema.sql` | Qué hay en la base y qué garantiza |
 | `herramientas/*.mjs` | Lo mismo desde la línea de comandos, de cuando no existía el panel |
+| `herramientas/medir_plantilla.py` | Mide una foto de boleto nueva y saca las coordenadas que pide `PLANTILLAS` en `assets/panel.js` — ver su propio docstring |
 
 ## Preparar una rifa
 
