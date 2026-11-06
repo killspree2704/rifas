@@ -198,6 +198,17 @@ ok('el subtítulo separa boletos de números, que ya no son lo mismo',
    /^Serie A · 2 boletos · 8 números · \d{1,2} \w+\.? \d{4},/.test(await pagina.textContent('#subtitulo')),
    await pagina.textContent('#subtitulo'));
 
+// Las cuatro cifras de arriba, con los datos REALES de esta rifa —nada de
+// muestra—: 2 boletos, 8 números, $50 c/u (de la base de prueba).
+ok('«Boletos vendidos» trae el número real, no un cero ni una muestra',
+   (await pagina.textContent('#statBoletos')) === '2', await pagina.textContent('#statBoletos'));
+ok('«Números en juego» también', (await pagina.textContent('#statFolios')) === '8',
+   await pagina.textContent('#statFolios'));
+ok('«Recaudado» se calcula de precio × boletos, no se inventa',
+   (await pagina.textContent('#statRecaudado')) === '$100.00', await pagina.textContent('#statRecaudado'));
+ok('«Para el sorteo» dice días, no una fecha pelona',
+   /\d+ días/.test(await pagina.textContent('#statFaltan')), await pagina.textContent('#statFaltan'));
+
 // --- pestaña Rifas ---
 console.log('\n== Rifas ==');
 await pagina.click('.pestana[data-panel="paneRifas"]');
@@ -1265,6 +1276,15 @@ await ctxD.close();
   ok('y se ve reflejado al toque en la vista previa del boleto',
      (await pg.textContent('#vistaBoleto .precio')).trim() === '$75',
      await pg.textContent('#vistaBoleto .precio'));
+
+  // La tarjeta «Recaudado» de Sorteo se calcula del precio: sin refrescar
+  // sola al guardar, se quedaba con el número viejo hasta el siguiente
+  // refresco aparte —el bug real que motivó este cuidado—.
+  await pg.waitForFunction(() =>
+    document.getElementById('statRecaudado').textContent.includes('150'),
+    null, { timeout: 10000 });
+  ok('«Recaudado» en Sorteo se actualiza solo al guardar el precio, sin tocar nada más',
+     true, 'statRecaudado tras guardar: revisado por separado');
 
   // Sobrevive recargar la pestaña, no solo quedarse en memoria del
   // navegador: el mismo cuidado que ya atrapó el bug real del tono.
