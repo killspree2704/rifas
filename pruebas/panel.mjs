@@ -1126,8 +1126,11 @@ await ctxD.close();
      texto.includes('nunca borra nada de verdad'));
   ok('menciona «Reactivar», el botón real para recuperar una archivada',
      texto.includes('Reactivar'));
-  ok('menciona la pestaña Diseño para cargar una plantilla',
-     texto.toLowerCase().includes('medidas de esa plantilla'));
+  ok('explica cómo cargar una plantilla, con los nombres reales de los botones',
+     texto.includes('medir_plantilla.py') && texto.includes('Guardar el diseño') &&
+     texto.includes('Plantilla cargada'));
+  ok('y dice que guardarla es lo que la manda a llamar para la hoja impresa',
+     texto.includes('«la manda a llamar»'));
 
   ok('sin errores de JavaScript en Ayuda', errH.length === 0, errH.join(' | '));
   await ctxH.close();

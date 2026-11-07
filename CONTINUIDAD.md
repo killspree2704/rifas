@@ -677,6 +677,43 @@ forma obvia en vez de quedarse desactualizada en silencio. `pruebas/
 panel.mjs` comprueba justamente eso: que el texto de la pestaña siga
 citando los nombres reales. 202 comprobaciones en verde (antes 195).
 
+## La pestaña Ayuda, con GIFs reales del panel (7 de noviembre de 2026)
+
+El dueño pidió, además de los iconos animados, GIFs de verdad mostrando los
+botones — y después, en el mismo hilo, pidió explicar con más detalle cómo
+cargar un diseño de boleto y cómo «mandarlo a llamar» para que salga en la
+hoja impresa. Las dos cosas se resolvieron juntas.
+
+**Los GIFs son grabaciones reales del panel**, hechas con la extensión de
+Chrome conectada en vivo (`mcp__claude-in-chrome__gif_creator`) contra el
+**servidor de prueba** (`node pruebas/servidor-de-prueba.mjs`, clave
+`secreta`) — nunca contra producción, por la misma razón de siempre: no
+exponer la clave real en una grabación. Viven en `assets/ayuda/` (cinco
+archivos, 300 KB a 5.4 MB cada uno) y se insertan con `loading="lazy"`: el
+navegador no los pide hasta que de verdad se desplaza hasta verlos, así que
+no pesan nada si nadie abre la pestaña Ayuda.
+
+- `ayuda-entrar.gif` — entrar con la clave y llegar a Sorteo.
+- `ayuda-crear-rifa.gif` — llenar «Nueva rifa» y generar el lote.
+- `ayuda-revelar-ganador.gif` — escribir el folio, el cotejo, y «Revelar».
+- `ayuda-cargar-plantilla.gif` — subir la foto y el JSON, y «Guardar el diseño».
+- `ayuda-archivar-rifa.gif` — tocar «Archivar» y ver que sale de la lista.
+
+**El bloque de «Cómo corregir o cambiar una rifa después» se reescribió
+entero**, con los pasos completos de punta a punta: medir la foto por
+fuera (una sola vez por plantilla, con `medir_plantilla.py`), subir los
+DOS archivos en «Diseño» → «Plantilla» (mientras falte uno, el panel sigue
+diciendo que no hay ninguna plantilla cargada), y —el punto que antes no
+quedaba claro— que **tocar «Guardar el diseño» es lo que de verdad la
+manda a llamar**: subir los archivos solo los deja en el navegador, no en
+la rifa; sin guardar, «Hoja de boletos» sigue imprimiendo el diseño
+clásico. También se documentó la diferencia entre «Quitar la plantilla»
+(solo lo que estaba a medio cargar, sin guardar) y «Volver al de siempre»
+(borra la que ya estaba guardada en la rifa, con su propia confirmación).
+
+203 comprobaciones en verde (antes 202: una prueba se actualizó al texto
+nuevo de la plantilla, y se agregó otra para la frase «la manda a llamar»).
+
 **Sobre los GIFs que se pidieron:** se evaluó grabar capturas reales del
 panel en acción, pero esta sesión corre en segundo plano sin una ventana de
 Chrome conectada —no se pudo—, y grabar contra producción habría significado
@@ -927,8 +964,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v36` |
-| Etiquetas del panel | `?v=36` |
+| Service worker | `rifa-v37` |
+| Etiquetas del panel | `?v=37` |
 
 ### El «undefined» de las hojas: qué fue
 
