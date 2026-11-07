@@ -61,6 +61,38 @@ async function claveValida(clave: string) {
   return iguales(await sha256Hex(clave), data.hash);
 }
 
+// ---------------------------------------------------------------------------
+// Candado contra fuerza bruta de la clave
+// ---------------------------------------------------------------------------
+/*
+ * El retraso de 700ms de abajo es por PETICIÓN: alguien con varias conexiones
+ * a la vez prueba muchas claves en paralelo sin que ese retraso se les sume
+ * entre ellas. Este candado es la pieza que sí lo frena: una sola cuenta de
+ * fallos para TODOS los intentos —no por IP, porque la clave es una sola,
+ * compartida—, incrementada de forma atómica en la base (`registrar_fallo_
+ * clave`, evita la carrera de dos peticiones leyendo y escribiendo el mismo
+ * número a la vez). Al llegar al umbral, la clave se congela un rato, sin
+ * importar de dónde vengan los intentos.
+ */
+const CANDADO_UMBRAL = 10;      // intentos fallidos seguidos que lo disparan
+const CANDADO_MINUTOS = 15;     // cuánto dura el bloqueo
+
+async function candadoBloqueadoHasta(): Promise<Date | null> {
+  const { data } = await db
+    .from("panel_candado").select("bloqueado_hasta").eq("id", 1).maybeSingle();
+  if (!data?.bloqueado_hasta) return null;
+  const hasta = new Date(data.bloqueado_hasta);
+  return hasta.getTime() > Date.now() ? hasta : null;
+}
+
+async function registrarFalloClave() {
+  await db.rpc("registrar_fallo_clave", { umbral: CANDADO_UMBRAL, minutos: CANDADO_MINUTOS });
+}
+
+async function limpiarCandadoClave() {
+  await db.rpc("limpiar_candado_clave");
+}
+
 async function anotar(rifa: string, evento: string, detalle: unknown) {
   await db.from("sorteo_log").insert({ rifa_id: rifa, evento, detalle });
 }
@@ -431,11 +463,25 @@ Deno.serve(async (req) => {
   const clave = String(cuerpo.clave ?? "");
   if (!accion) return responder({ error: "falta la acción" }, 400);
 
+  const bloqueadoHasta = await candadoBloqueadoHasta();
+  if (bloqueadoHasta) {
+    const minutos = Math.max(1, Math.ceil((bloqueadoHasta.getTime() - Date.now()) / 60000));
+    return responder(
+      { error: `demasiados intentos fallidos; vuelve a intentar en ${minutos} minuto(s)` },
+      429,
+    );
+  }
+
   if (!(await claveValida(clave))) {
-    // Un respiro para que probar claves al por mayor no sea gratis.
+    // Un respiro para que probar claves al por mayor no sea gratis, y se
+    // anota el fallo: diez seguidos —vengan de una conexión o de muchas a la
+    // vez— congelan la clave, no solo retrasan la siguiente petición.
     await new Promise((r) => setTimeout(r, 700));
+    await registrarFalloClave();
     return responder({ error: "clave incorrecta" }, 401);
   }
+  // Clave correcta: se borra cualquier racha de fallos que venía de antes.
+  await limpiarCandadoClave();
 
   // ---- Acciones que no dependen de una rifa concreta ----------------------
 

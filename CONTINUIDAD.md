@@ -90,6 +90,24 @@ entrar.
 llave que firma los códigos son dos cosas distintas. Cambiar una no toca a la
 otra, así que restablecer la clave nunca invalida un lote.
 
+### Candado contra fuerza bruta (7 de noviembre de 2026)
+
+Diez claves equivocadas seguidas —vengan de una conexión o repartidas entre
+muchas a la vez— congelan la clave 15 minutos, aunque después se escriba la
+correcta. Es aparte del retraso de 700ms que ya traía cada petición mala: ese
+retraso es por petición, así que no frena un ataque en paralelo; el candado
+sí, porque la cuenta de fallos vive en la base (`panel_candado`), no en la
+memoria de cada petición.
+
+Si alguna vez el dueño se traba ahí por error propio (varias claves mal
+tecleadas seguidas), no hay botón en el panel para destrabarlo —a propósito,
+es el mismo candado que frena a cualquiera—: se espera, o se limpia a mano
+en el editor SQL de Supabase:
+
+```sql
+update public.panel_candado set fallos = 0, bloqueado_hasta = null where id = 1;
+```
+
 ## Las llaves
 
 | Llave | Para qué | Dónde conseguirla |
