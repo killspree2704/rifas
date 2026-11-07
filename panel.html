@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=36" />
-  <link rel="stylesheet" href="assets/panel.css?v=36" />
+  <link rel="stylesheet" href="assets/estilos.css?v=37" />
+  <link rel="stylesheet" href="assets/panel.css?v=37" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -413,6 +413,8 @@
         describe, probablemente cambió algo en el panel — avísalo.
       </p>
 
+      <img class="gif-ayuda" src="assets/ayuda/ayuda-entrar.gif" loading="lazy" alt="Entrar al panel con la clave y llegar a la pestaña Sorteo" />
+
       <details class="bloque" open>
         <summary><strong>Lo que ve la gente</strong></summary>
         <ol class="guia-pasos">
@@ -488,6 +490,7 @@
             </div>
           </li>
         </ol>
+        <img class="gif-ayuda" src="assets/ayuda/ayuda-crear-rifa.gif" loading="lazy" alt="Llenar el formulario de Nueva rifa y tocar Generar rifa y boletos" />
       </details>
 
       <details class="bloque">
@@ -530,6 +533,7 @@
             </div>
           </li>
         </ol>
+        <img class="gif-ayuda" src="assets/ayuda/ayuda-revelar-ganador.gif" loading="lazy" alt="Escribir el folio, ver el cotejo y tocar Revelar" />
       </details>
 
       <details class="bloque">
@@ -538,16 +542,46 @@
           Nada de esto toca los números, los códigos ni al ganador — son
           solo el aspecto de la hoja y los datos que se le imprimen encima.
         </p>
+        <p class="nota">
+          Sin ninguna plantilla cargada, el boleto siempre sale con el diseño
+          clásico de siempre —fondo blanco, números en recuadros—. Para usar
+          la FOTO de un boleto físico real en su lugar, estos son los pasos
+          completos, desde medirla hasta verla salir en la hoja impresa:
+        </p>
         <ol class="guia-pasos">
           <li>
             <span class="icono-paso icono-foto" aria-hidden="true"></span>
             <div>
-              <strong>Para usar la foto de un boleto físico real</strong> (en vez
-              del boleto clásico de siempre), ve a «Diseño» y sube ahí la foto y
-              el archivo de medidas de esa plantilla.
-              <p class="nota">Las medidas se obtienen por fuera, con la
-                herramienta <code>medir_plantilla.py</code> del repositorio — pide
-                ayuda si nunca lo has hecho.</p>
+              <strong>Mide la foto por fuera, una sola vez por plantilla.</strong>
+              <p class="nota">Con <code>herramientas/medir_plantilla.py</code> del
+                repositorio se obtienen dos archivos: la foto ya lista y un JSON
+                con las coordenadas exactas de cada número, el QR, el precio y el
+                pie — pide ayuda si nunca lo has hecho, es trabajo de quien toca
+                el código, no del día a día del panel.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>En «Diseño» → «Plantilla», sube los dos archivos.</strong>
+              <p class="nota">«Foto del boleto» y «Medidas (JSON)» — el orden no
+                importa, pero hacen falta los DOS: mientras falte uno, el panel
+                sigue diciendo «Todavía no hay ninguna plantilla cargada».
+                En cuanto estén los dos, el estado cambia a «Plantilla cargada»
+                y la vista previa, más abajo, dibuja el boleto real con sus
+                números y su QR encima de la foto.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>Revisa la vista previa y toca «Guardar el diseño».</strong>
+              <p class="nota">Esto es lo que de verdad «la manda a llamar»: hasta
+                no tocar este botón, la plantilla subida solo vive en tu
+                navegador, no en la rifa. Al guardar, el panel confirma «La
+                próxima hoja de boletos de esta rifa va a salir así» — y desde
+                ese momento, cada vez que toques «Hoja de boletos» en «Rifas»,
+                la hoja impresa sale con esa foto, no con el diseño clásico.</p>
             </div>
           </li>
           <li>
@@ -560,11 +594,15 @@
           <li>
             <span class="icono-paso icono-tocar" aria-hidden="true"></span>
             <div>
-              <strong>«Volver al de siempre»</strong> regresa el boleto al diseño
-              clásico, por si la plantilla cargada no quedó como esperabas.
+              <strong>«Quitar la plantilla» o «Volver al de siempre»</strong>
+              regresan el boleto al diseño clásico. El primero solo quita la
+              plantilla a medio cargar, antes de guardar; el segundo también
+              borra la que ya estaba guardada en la rifa, con su propia
+              confirmación porque no se puede deshacer.
             </div>
           </li>
         </ol>
+        <img class="gif-ayuda" src="assets/ayuda/ayuda-cargar-plantilla.gif" loading="lazy" alt="Subir la foto y el JSON de medidas, ver la vista previa y tocar Guardar el diseño" />
       </details>
 
       <details class="bloque">
@@ -594,6 +632,7 @@
             </div>
           </li>
         </ol>
+        <img class="gif-ayuda" src="assets/ayuda/ayuda-archivar-rifa.gif" loading="lazy" alt="Tocar Archivar y ver que la rifa sale de la lista" />
         <p class="nota">
           Si de verdad necesitas BORRAR una rifa —liberar sus números para
           reusarlos, algo que casi nunca hace falta—, eso no se hace desde
@@ -629,8 +668,8 @@
     </div>
   </main>
 
-  <script src="assets/config.js?v=36"></script>
+  <script src="assets/config.js?v=37"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=36"></script>
+  <script src="assets/panel.js?v=37"></script>
 </body>
 </html>

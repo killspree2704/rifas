@@ -779,3 +779,15 @@ textarea, select {
   .icono-escribir::before { animation: none; clip-path: none; }
   .icono-reloj::after { animation: none; }
 }
+
+/* Las grabaciones de verdad del panel —no los iconos de arriba—, una por
+ * paso completo. `loading="lazy"` porque son varios megabytes entre todas:
+ * el navegador solo las pide si de verdad se llega a desplazar hasta verlas. */
+.gif-ayuda {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  margin: 14px 0 4px;
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 10px;
+}
