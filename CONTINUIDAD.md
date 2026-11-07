@@ -29,7 +29,7 @@ necesitar la anterior (ver abajo).
 | --- | --- |
 | Dirección | https://rifas.el-original.workers.dev/panel.html |
 | Usuario | No hay. Solo la clave |
-| Clave | `JrIEng7X3lSz` |
+| Clave | `7AMobF7aQy` |
 
 > ### ⚠️ Este repositorio tiene que seguir siendo PRIVADO
 >
@@ -40,7 +40,9 @@ necesitar la anterior (ver abajo).
 > quitaría de ningún lado.
 >
 > El 23 de septiembre de 2026 se cambió desde el panel y se volvió a dejar
-> esta misma el mismo día, a petición del dueño.
+> esta misma el mismo día, a petición del dueño. El 7 de noviembre de 2026 el
+> dueño la había olvidado: se **reemplazó** directo en Supabase (ver «Si se
+> pierde» abajo), sin necesitar la anterior.
 >
 > **Si algún día lo vuelves público, o agregas colaboradores, cambia la clave
 > ANTES.** Git conserva para siempre lo que se le entrega: esta línea y todo
@@ -592,6 +594,53 @@ están en `PLANTILLAS` —una diferencia que no se nota impresa—.
 
 Ver el docstring del archivo para el uso completo, con ejemplos.
 
+## Se quita el catálogo de temas y plantillas: ahora se cargan (7 de noviembre de 2026)
+
+Siguiente paso natural de la herramienta de arriba: en vez de medir la foto
+por fuera y luego copiar esas medidas A MANO dentro de `PLANTILLAS` en
+`assets/panel.js` —lo que obligaba a desplegar código nuevo por cada boleto
+físico distinto que llegara—, el panel ahora SOLO sabe leer un archivo de
+medidas. Pedido explícito del dueño: «vaciar el código que no nos sirve».
+
+**Lo que se quitó entero**, del panel (HTML/CSS/JS) y de la función de
+borde: los ocho temas de color, los doce fondos (tramas de línea y de
+figura), el logo subible, el catálogo fijo de dos plantillas con foto
+(«Suertudito», «Bono Gana Hoy») y el control de tono que las giraba. Nada
+de esto decidía algo que no se pudiera resolver mejor con la foto real.
+
+**Lo que lo reemplaza:** la pestaña Diseño trae un bloque «Plantilla» con
+dos archivos para subir —la foto del boleto y un JSON de medidas— que se
+miden por fuera con `herramientas/medir_plantilla.py` (ver arriba). El
+panel junta los dos en el navegador (ninguno de los dos solo hace nada) y
+los manda juntos a `guardar_diseno`. Sin plantilla, el boleto sigue
+saliendo con el diseño clásico de siempre —fondo blanco, números en
+recuadros, sin foto—, con colores fijos y ya probados, no editables: no
+tiene sentido un selector de color para un diseño que nadie pidió cambiar.
+
+El archivo de medidas trae las mismas cinco piezas que antes vivían
+cableadas en `PLANTILLAS` —`caja`, `qr`, `fechas` (opcional), `precio`,
+`pie`— más los cuatro colores del boleto (`fondo`, `tinta`, `acento`,
+`borde`), medidos de la foto real con `color_hex()` en vez de salir de un
+tema de catálogo. `medir_plantilla.py` ahora trae `armar_medidas()` y
+`guardar_medidas()` para juntar todo eso en el archivo exacto que el panel
+pide, sin tocar ningún código del panel ni desplegar nada nuevo.
+
+La función de borde valida la FORMA de ese archivo —números entre 0 y 100,
+colores `#rrggbb`, la foto como imagen base64 de hasta 2 MB— igual que
+antes validaba el catálogo fijo, solo que ya no conoce ningún nombre de
+tema ni de disposición: lo que decide cómo se ve el boleto es, de verdad,
+lo que el dueño sube, no una lista en el código.
+
+Las fotos de «Suertudito» y «Bono Gana Hoy» (`assets/boleto-*.png`) se
+quedan en el repo —ya no las usa el panel, pero sirven de plantilla de
+prueba real para `pruebas/panel.mjs`, que ahora ejercita el flujo completo
+de carga subiendo esa misma foto y un JSON de medidas armado con los
+valores que antes estaban en `PLANTILLAS`—.
+
+195 comprobaciones en verde (antes 240: se fueron las de temas/tramas/tono/
+logo, que ya no existen, y entraron las nuevas de cargar y quitar una
+plantilla).
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
@@ -829,8 +878,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v34` |
-| Etiquetas del panel | `?v=34` |
+| Service worker | `rifa-v35` |
+| Etiquetas del panel | `?v=35` |
 
 ### El «undefined» de las hojas: qué fue
 

@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=34" />
-  <link rel="stylesheet" href="assets/panel.css?v=34" />
+  <link rel="stylesheet" href="assets/estilos.css?v=35" />
+  <link rel="stylesheet" href="assets/panel.css?v=35" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -297,73 +297,29 @@
       </p>
       <p class="nota" id="disenoDeQuien"></p>
 
-      <h3 class="subtitulo-menor">Disposición</h3>
+      <h3 class="subtitulo-menor">Plantilla</h3>
       <p class="nota">
-        Cómo está repartido el boleto. La clásica es horizontal y sobria; las
-        demás son la foto real de un boleto físico, con los números, el QR,
-        la caducidad, el precio y el código impresos encima en el lugar que
-        les toca.
+        Sin plantilla, el boleto sale con el diseño clásico de siempre. Para
+        usar la foto de un boleto físico real, mídela primero por fuera con
+        <code>herramientas/medir_plantilla.py</code> y sube aquí los dos
+        archivos que salen de ahí: la foto y el JSON de medidas. El panel solo
+        coloca encima los números, el QR, la caducidad, el precio y el código
+        en el lugar exacto que ese archivo diga —nada se adivina ni se ajusta
+        a ojo dentro del panel—.
       </p>
-      <div class="temas" id="disposiciones"></div>
-
-      <h3 class="subtitulo-menor">Tema</h3>
-      <div class="temas" id="temas"></div>
-
-      <h3 class="subtitulo-menor">Tus colores</h3>
-      <p class="nota">Parte de un tema y cámbiale lo que quieras.</p>
-      <div class="rejilla-campos">
+      <div class="fila-archivo">
         <label class="campo">
-          <span>Fondo</span>
-          <input type="color" id="dsFondo" />
+          <span>Foto del boleto</span>
+          <input type="file" id="dsPlantillaFoto" accept="image/png,image/jpeg,image/webp" />
         </label>
         <label class="campo">
-          <span>Letra</span>
-          <input type="color" id="dsTinta" />
-        </label>
-        <label class="campo">
-          <span>Números</span>
-          <input type="color" id="dsAcento" />
-        </label>
-        <label class="campo">
-          <span>Marco</span>
-          <input type="color" id="dsBorde" />
+          <span>Medidas (JSON)</span>
+          <input type="file" id="dsPlantillaJson" accept="application/json,.json" />
         </label>
       </div>
+      <p class="nota" id="plantillaEstado"></p>
       <p class="aviso-contraste" id="avisoContraste" hidden></p>
-
-      <div id="campoTono" hidden>
-        <h3 class="subtitulo-menor">Tono de la foto</h3>
-        <p class="nota" id="notaTono"></p>
-        <input type="range" id="dsTono" min="0" max="360" step="1" value="0" />
-        <span class="atajos" id="atajosTono"></span>
-      </div>
-
-      <h3 class="subtitulo-menor">Fondo del boleto</h3>
-      <p class="nota">
-        Las primeras son de línea, al estilo del papel de seguridad: sobrias, y
-        toman el color del marco. Las últimas son de figura —estrellas,
-        confeti, tréboles— y traen sus propios colores de fiesta, que es lo que
-        hace que un boleto de rifa se vea de rifa. Va detrás de todo; los
-        números llevan su propio fondo para que nada se los coma.
-      </p>
-      <div class="temas" id="tramas"></div>
-      <label class="campo" id="campoIntensidad">
-        <span>Qué tan marcada</span>
-        <select id="dsIntensidad">
-          <option value="suave">Suave — apenas se nota</option>
-          <option value="media">Media</option>
-          <option value="marcada">Marcada</option>
-        </select>
-      </label>
-
-      <div id="campoLogo">
-        <h3 class="subtitulo-menor">Logo</h3>
-        <div class="fila-logo">
-          <input type="file" id="dsLogo" accept="image/png,image/jpeg,image/webp" />
-          <button class="boton fantasma chico" id="btnQuitarLogo" hidden>Quitar</button>
-        </div>
-        <p class="nota">Se achica solo antes de guardarse. PNG con fondo transparente es lo que mejor imprime.</p>
-      </div>
+      <button class="boton fantasma chico" id="btnQuitarPlantilla" hidden>Quitar la plantilla</button>
 
       <h3 class="subtitulo-menor">Letra chica y tamaño</h3>
       <label class="campo">
@@ -447,8 +403,8 @@
     </div>
   </main>
 
-  <script src="assets/config.js?v=34"></script>
+  <script src="assets/config.js?v=35"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=34"></script>
+  <script src="assets/panel.js?v=35"></script>
 </body>
 </html>

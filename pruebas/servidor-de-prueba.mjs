@@ -65,7 +65,7 @@ rifas.push({
   // día anterior.
   revelado_en: null, creada_en: '2025-07-01T00:00:00-06:00', emision: '2025-07-15T00:00:00-06:00', precio_boleto: 100,
   folios_por_boleto: 9, transmision_url: null, transmite_desde: null,
-  diseno: { disposicion: 'suertudito', tema: 'trebol', caducidad: '3 días' },
+  diseno: { caducidad: '3 días' },
 });
 // Un boleto de papel con varios números. Igual que en el servidor de verdad:
 // el código es del boleto, no de cada folio.
@@ -134,40 +134,41 @@ function sorteo(cuerpo) {
     const entrada = cuerpo.diseno;
     let d = null;
     if (entrada) {
-      if (!['clasico', 'sobrio', 'feria', 'menta', 'oro', 'noche', 'trebol', 'bono'].includes(entrada.tema)) {
-        return [400, { error: 'ese tema no existe' }];
+      const columnas = Number(entrada.columnas ?? 2);
+      if (![1, 2, 3].includes(columnas)) {
+        return [400, { error: 'los boletos por renglón deben ser 1, 2 o 3' }];
       }
-      // La forma, no el catálogo: igual que el servidor de verdad.
-      if (!/^[a-z]{3,20}$/.test(String(entrada.trama))) {
-        return [400, { error: 'esa trama no es válida' }];
-      }
-      if (!['clasica', 'suertudito', 'bono'].includes(entrada.disposicion)) {
-        return [400, { error: 'esa disposición no existe' }];
-      }
-      for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
-                                   ['acento', 'números'], ['borde', 'marco']]) {
-        if (!/^#[0-9a-fA-F]{6}$/.test(String(entrada[campo]))) {
-          return [400, { error: `el color de ${cual} no es válido` }];
+      let plantilla = null;
+      if (entrada.plantilla) {
+        const p = entrada.plantilla;
+        if (!/^data:image\/(png|jpeg|webp);base64,/.test(String(p.foto || ''))) {
+          return [400, { error: 'la foto de la plantilla no es una imagen válida' }];
         }
+        for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
+                                     ['acento', 'números'], ['borde', 'marco']]) {
+          if (!/^#[0-9a-fA-F]{6}$/.test(String(p[campo]))) {
+            return [400, { error: `el color de ${cual} en la plantilla no es válido` }];
+          }
+        }
+        if (!p.caja || !p.qr || !p.precio || !p.pie) {
+          return [400, { error: 'a la plantilla le faltan medidas' }];
+        }
+        // Reconstruye SOLO los campos que el servidor de verdad guarda —no un
+        // passthrough del objeto entero—: así, si el panel manda un campo
+        // nuevo que el servidor de verdad todavía no conoce, la prueba lo
+        // nota en vez de dejarlo pasar de panza.
+        plantilla = {
+          foto: p.foto, fotoAncho: Number(p.fotoAncho), fotoAlto: Number(p.fotoAlto),
+          fondo: p.fondo, tinta: p.tinta, acento: p.acento, borde: p.borde,
+          caja: p.caja, qr: p.qr, precio: p.precio, pie: p.pie,
+        };
+        if (p.fechas) { plantilla.fechas = p.fechas; }
       }
-      const tono = Number(entrada.tono ?? 0);
-      if (!Number.isInteger(tono) || tono < 0 || tono > 360) {
-        return [400, { error: 'el tono debe ser un entero entre 0 y 360' }];
-      }
-      // Reconstruye SOLO los campos que el servidor de verdad guarda —no un
-      // passthrough del objeto entero—: así, si el panel manda un campo
-      // nuevo que el servidor de verdad todavía no conoce (pasó con `tono`:
-      // se veía bien en la vista previa y se perdía solo al guardar, porque
-      // `limpiarDiseno()` reconstruye un objeto con una lista fija de
-      // campos, no copia el que le llega), la prueba lo nota en vez de
-      // dejarlo pasar de panza.
       d = {
-        tema: entrada.tema, fondo: entrada.fondo, tinta: entrada.tinta,
-        acento: entrada.acento, borde: entrada.borde, logo: entrada.logo || '',
+        plantilla,
         aviso: String(entrada.aviso || '').slice(0, 200),
-        columnas: Number(entrada.columnas) || 2, trama: entrada.trama,
-        intensidad: entrada.intensidad, disposicion: entrada.disposicion,
-        caducidad: String(entrada.caducidad || '').slice(0, 40), tono,
+        columnas,
+        caducidad: String(entrada.caducidad || '').slice(0, 40),
       };
     }
     // Sin rifa: es el diseño que heredará la próxima que se cree.

@@ -570,55 +570,6 @@ input[type="number"], input[type="datetime-local"] {
   color: var(--tinta);
 }
 
-/* Los temas como muestras, no como nombres en una lista: lo que se elige es
-   una combinación de colores, y eso se decide viéndola. */
-.temas {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 8px;
-}
-.tema {
-  padding: 0;
-  font: inherit;
-  border: 2px solid var(--linea);
-  border-radius: 9px;
-  background: transparent;
-  cursor: pointer;
-  overflow: hidden;
-  text-align: center;
-}
-.tema.elegido { border-color: var(--oro); }
-.tema .muestra {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  height: 38px;
-}
-.tema .punto {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-}
-.tema .nombre {
-  display: block;
-  padding: 5px 4px 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--tinta-tenue);
-}
-.tema.elegido .nombre { color: var(--tinta); }
-
-input[type="color"] {
-  width: 100%;
-  height: 44px;
-  padding: 3px;
-  border: 1px solid var(--linea);
-  border-radius: 9px;
-  background: var(--papel);
-  cursor: pointer;
-}
-
 textarea, select {
   width: 100%;
   padding: 11px 13px;
@@ -641,8 +592,8 @@ textarea, select {
   border-radius: 0 8px 8px 0;
 }
 
-.fila-logo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.fila-logo input[type="file"] { flex: 1 1 200px; font-size: 0.85rem; color: var(--tinta-tenue); }
+.fila-archivo { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.fila-archivo input[type="file"] { flex: 1 1 200px; font-size: 0.85rem; color: var(--tinta-tenue); }
 
 /* El boleto se dibuja a su tamaño real de impresión, en milímetros, y luego
    se encoge para que quepa en la pantalla. Así lo que se ve guarda las

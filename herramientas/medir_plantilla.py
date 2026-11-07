@@ -1,8 +1,10 @@
 """
-Medir una foto de boleto para sacar las coordenadas que pide `PLANTILLAS`
-en `assets/panel.js` (caja, qr, fechas, precio, pie) — SIN repetir, cada
+Medir una foto de boleto para sacar el archivo de medidas que ahora pide el
+panel («Diseño» → «Plantilla») al cargar una foto nueva — SIN repetir, cada
 vez, el trabajo manual de cuentagotas y contador de píxeles que costó
-"Suertudito" y "Bono Gana Hoy".
+"Suertudito" y "Bono Gana Hoy", y SIN tener que tocar el código del panel
+ni volver a desplegar nada: el panel ya no trae ningún catálogo de
+plantillas, solo sabe leer este archivo.
 
 No es magia ni adivina solo: sigue pidiendo un punto APROXIMADO de dónde
 cae cada cosa —el ojo humano para eso sigue siendo más rápido que
@@ -37,18 +39,34 @@ USO TÍPICO, paso a paso
     print(cajas)
     # {'primer': 37.27, 'ultimo': 76.29, 'alto': 7.24, 'ancho': 26.43,
     #  'columna': [7.43, 69.03]}
-    # ^ esto se pega TAL CUAL en el campo `caja` de PLANTILLAS.
+    # ^ esto va TAL CUAL en el campo `caja` del archivo de medidas.
 
-    # 3) El color exacto de un punto (para "trebol" en el tema, o para
-    #    confirmar el fondo detrás de un recuadro):
+    # 3) El color exacto de un punto —el panel ya no trae temas: los cuatro
+    #    colores del boleto (fondo, letra, números, marco) se miden de la
+    #    FOTO real con cuentagotas, igual que antes se hacía a mano:
     print(color_hex(img, 0.5, 0.02))   # '#e4e9e3'
 
     # 4) Si lo que se midió es el recorte de un PDF, no una imagen suelta:
     img = pdf_a_imagen("Boletos A - 250.pdf", pagina=0, dpi=400)
 
+    # 5) Con todo medido, armar el archivo que el panel pide al cargar la
+    #    plantilla (botón «Medidas (JSON)» en Diseño) y guardarlo:
+    medidas = armar_medidas(
+        fondo="#e4e9e3", tinta="#2a5a30", acento="#1b4d1b", borde="#2e7d32",
+        caja=cajas,
+        qr={"left": 34, "width": 31, "top": 50, "height": 23},
+        precio={"left": 33.5, "width": 28.5, "top": 75, "height": 9},
+        pie={"left": 13, "right": 6, "top": 93.6, "height": 2.4},
+        # fechas es opcional: solo si la foto trae una muestra que tapar.
+        fechas={"left": 4.5, "width": 12, "top": 46.5, "height": 30.5, "vertical": True, "fuente": 1.5},
+    )
+    guardar_medidas("medidas-del-boleto.json", medidas)
+    # La FOTO se sube aparte, tal cual, en el otro botón del panel: este
+    # archivo no la lleva, solo las medidas y los colores.
+
 Todas las coordenadas que entran y salen son FRACCIONES de 0 a 1 (no
 porcentajes ni píxeles) excepto donde se indique lo contrario; multiplica
-por 100 para pegarlas en `PLANTILLAS`, que si usa porcentaje.
+por 100 para pegarlas en el archivo de medidas, que sí usa porcentaje.
 """
 
 from __future__ import annotations
@@ -224,6 +242,34 @@ def cuadricula_de_cajas(img: Image.Image, puntos_aprox: list[tuple[float, float]
         "ancho": ancho_prom,
         "columna": [columna_izquierda, columna_derecha],
     }
+
+
+# ---------------------------------------------------------------------------
+# El archivo final: lo que el panel pide al cargar una plantilla
+# ---------------------------------------------------------------------------
+
+import json
+
+
+def armar_medidas(*, fondo, tinta, acento, borde, caja, qr, precio, pie, fechas=None) -> dict:
+    """Junta todo lo medido en el único archivo que el panel sabe leer.
+
+    No valida nada —eso lo hace la función de borde al guardar, que es la
+    que manda—: esto solo junta en un diccionario lo que ya se midió por
+    separado, en la forma exacta que el panel espera.
+    """
+    medidas = {
+        "fondo": fondo, "tinta": tinta, "acento": acento, "borde": borde,
+        "caja": caja, "qr": qr, "precio": precio, "pie": pie,
+    }
+    if fechas is not None:
+        medidas["fechas"] = fechas
+    return medidas
+
+
+def guardar_medidas(ruta, medidas: dict) -> None:
+    """Escribe el archivo de medidas, listo para subirlo al panel."""
+    Path(ruta).write_text(json.dumps(medidas, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
