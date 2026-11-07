@@ -753,6 +753,60 @@ mira, así que la prueba lo nota en vez de la gente.
 212 comprobaciones en verde (antes 203: 9 nuevas, una por cada GIF más
 la que cuenta que sean exactamente ocho).
 
+## Los GIFs salían «imagen sobre imagen» — causa y arreglo (7 de noviembre de 2026)
+
+El dueño los probó y se veían mal: como una captura encimada sobre otra,
+nada fluido. La causa: `gif_creator` mete a la grabación CUALQUIER acción
+de `computer`/`navigate` que ocurra mientras está grabando, y durante las
+ocho grabaciones de arriba se intercalaron muchas capturas `zoom` propias
+—para ver dónde estaban los botones antes de hacer clic con coordenadas
+fijas—, cada una a un tamaño de recorte ligeramente distinto al de los
+fotogramas normales de clic/tecleo. El GIF terminaba mezclando fotogramas
+de tamaños distintos, y eso es justo lo que se ve como una imagen pegada
+encima de otra.
+
+**El arreglo fue dejar de usar coordenadas fijas del todo.** En vez de
+tomar una captura para ADIVINAR dónde está un botón y luego hacer clic en
+esas coordenadas, se usa `find()` (busca un elemento por descripción, no
+mete fotogramas a la grabación) para obtener su referencia, y se hace clic
+directo sobre esa referencia (`computer` con `ref`, no con `coordinate`).
+Así cada fotograma de la grabación viene SOLO de una acción real sobre el
+panel, todas del mismo tamaño, sin capturas de verificación de por medio.
+Para confirmar un estado (¿ya se reveló el ganador?, ¿qué dice el mensaje
+de error?) se usa `javascript_tool` —lee el DOM directo, tampoco mete
+fotogramas— en vez de otra captura.
+
+De paso se encontraron y rodearon dos problemas reales de automatización,
+no del panel: el campo `datetime-local` de «Día y hora del sorteo» no
+admite teclear por segmentos de forma confiable con clics por referencia
+—el cursor no siempre cae en el segmento del mes—, así que esa fecha se
+fija por JavaScript (`el.value = '...'; dispatchEvent('input')`); y la
+doble confirmación de los botones peligrosos (crear rifa, revelar,
+archivar, volver al de siempre) necesita los dos clics MUY seguidos —el
+viaje de ida y vuelta de cada clic por referencia, con sus esperas,
+puede acercarse a los 8 segundos de la ventana de confirmación—, así que
+el segundo clic de cada par se dispara con `elemento.click()` por
+JavaScript en vez de esperar al siguiente turno de herramienta.
+
+**También se completó la cobertura: ahora son diez GIFs, uno por cada
+punto real de la guía**, no solo los que se consideraron «importantes» la
+vez pasada:
+
+- `ayuda-entrar.gif`
+- `ayuda-boleto-publico.gif` — nuevo: la pantalla que ve quien escanea el QR (`index.html?b=…&c=…`), para «Lo que ve la gente».
+- `ayuda-crear-rifa.gif`
+- `ayuda-revelar-ganador.gif` — ahora empieza en «Manejar esta», el primer paso real del bloque.
+- `ayuda-cargar-plantilla.gif`
+- `ayuda-volver-de-siempre.gif` — nuevo: el punto de «Quitar la plantilla»/«Volver al de siempre».
+- `ayuda-archivar-rifa.gif`
+- `ayuda-reactivar-rifa.gif`
+- `ayuda-verificar-boleto.gif`
+- `ayuda-cambiar-clave.gif`
+
+214 comprobaciones en verde (antes 212: una prueba se actualizó a diez
+GIFs en vez de ocho, y entraron dos comprobaciones nuevas de que esos
+dos archivos existen).
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
@@ -990,8 +1044,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v38` |
-| Etiquetas del panel | `?v=38` |
+| Service worker | `rifa-v39` |
+| Etiquetas del panel | `?v=39` |
 
 ### El «undefined» de las hojas: qué fue
 

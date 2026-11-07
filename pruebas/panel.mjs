@@ -1135,8 +1135,8 @@ await ctxD.close();
   // Los GIFs son grabaciones reales del panel, no los iconos animados: un
   // `src` roto ahí se queda mudo en la pantalla, nadie lo nota sin mirar.
   const gifs = await ph.locator('#paneAyuda img.gif-ayuda').all();
-  ok('trae un GIF real por cada paso importante, no solo los ocho iconos',
-     gifs.length === 8, String(gifs.length));
+  ok('trae un GIF real por cada paso importante, no solo los iconos',
+     gifs.length === 10, String(gifs.length));
   for (const img of gifs) {
     const src = await img.getAttribute('src');
     const estado = await ph.evaluate((s) => fetch(s).then((r) => r.status), src);
