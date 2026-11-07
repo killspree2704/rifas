@@ -344,6 +344,12 @@ input:focus-visible { outline: 2px solid var(--oro); outline-offset: 1px; }
     border: 1px solid var(--vidrio-borde);
     border-radius: 14px;
   }
+  /* Una columna `1fr` de grid no se encoge por debajo del ancho de su
+     contenido más ancho a menos que se le diga —el medidor de plantilla,
+     con su foto a tamaño real, era justo ese contenido—: sin esto, la
+     página entera se ensanchaba y aparecía una barra de scroll horizontal
+     en todo el panel en vez de solo dentro del lienzo del medidor. */
+  .contenido { min-width: 0; }
   .pestanas .marca {
     display: block;
     margin: 4px 8px 10px;
@@ -594,6 +600,64 @@ textarea, select {
 
 .fila-archivo { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
 .fila-archivo input[type="file"] { flex: 1 1 200px; font-size: 0.85rem; color: var(--tinta-tenue); }
+
+/* --- Medidor de plantilla: mide la foto del boleto en el navegador, sin
+   instalar nada, como reemplazo de pasar por herramientas/medir_plantilla.py
+   a mano. --- */
+.medidor-plantilla {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 10px;
+}
+.medidor-paso strong { font-size: 0.95rem; }
+.medidor-lienzo-envoltura {
+  margin-top: 10px;
+  max-width: 100%;
+  min-width: 0;
+  max-height: 60vh;
+  overflow: auto;
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  background: repeating-conic-gradient(#8884 0% 25%, transparent 0% 50%) 50% / 16px 16px;
+}
+#medidorLienzo { display: block; cursor: crosshair; touch-action: none; }
+.medidor-zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: var(--tinta-tenue);
+}
+.medidor-zoom input[type="range"] { flex: 1; }
+.medidor-extra { margin-top: 12px; display: grid; gap: 10px; }
+.campo.chico { margin-bottom: 0; }
+.campo.chico > span { text-transform: none; letter-spacing: normal; font-size: 0.8rem; }
+.medidor-colores {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+.medidor-muestra {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--linea);
+  display: inline-block;
+}
+.medidor-controles { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.medidor-controles .boton { width: auto; margin-top: 0; flex: 0 0 auto; }
+.medidor-avanzado { margin-top: 14px; }
+.medidor-avanzado summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--tinta-tenue);
+}
+.medidor-avanzado[open] summary { margin-bottom: 8px; }
 
 /* El boleto se dibuja a su tamaño real de impresión, en milímetros, y luego
    se encoge para que quepa en la pantalla. Así lo que se ve guarda las
