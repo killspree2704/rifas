@@ -1132,6 +1132,17 @@ await ctxD.close();
   ok('y dice que guardarla es lo que la manda a llamar para la hoja impresa',
      texto.includes('«la manda a llamar»'));
 
+  // Los GIFs son grabaciones reales del panel, no los iconos animados: un
+  // `src` roto ahí se queda mudo en la pantalla, nadie lo nota sin mirar.
+  const gifs = await ph.locator('#paneAyuda img.gif-ayuda').all();
+  ok('trae un GIF real por cada paso importante, no solo los ocho iconos',
+     gifs.length === 8, String(gifs.length));
+  for (const img of gifs) {
+    const src = await img.getAttribute('src');
+    const estado = await ph.evaluate((s) => fetch(s).then((r) => r.status), src);
+    ok('el GIF ' + src + ' existe de verdad (200, no un enlace roto)', estado === 200, String(estado));
+  }
+
   ok('sin errores de JavaScript en Ayuda', errH.length === 0, errH.join(' | '));
   await ctxH.close();
 }
