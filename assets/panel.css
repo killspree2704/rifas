@@ -608,3 +608,174 @@ textarea, select {
 .vista-boleto .envoltura { transform-origin: top left; }
 
 .fila { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* --- Pestaña Ayuda: pasos con un icono animado en vez de texto pelón ---
+ *
+ * No son GIFs grabados del panel de verdad: una captura de pantalla se
+ * desactualiza en cuanto cambia un botón, y esto no. Son formas simples en
+ * CSS que imitan el gesto —un toque, un teclear, una flecha subiendo— para
+ * que el paso se entienda de un vistazo, no solo leyendo.
+ */
+.guia-pasos {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 14px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.guia-pasos > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.guia-pasos > li > div { flex: 1 1 auto; min-width: 0; }
+.guia-pasos .nota { margin-top: 4px; }
+
+.icono-paso {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
+}
+
+/* Un toque: un puntito que hace «pulso» hacia afuera, como un clic. */
+.icono-tocar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--oro);
+}
+.icono-tocar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--oro);
+  animation: pulso-toque 1.6s ease-out infinite;
+}
+
+/* Escribir: tres puntos que se encienden uno tras otro, como tecleando. */
+.icono-escribir::before {
+  content: "• • •";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--oro);
+  animation: parpadeo-escribir 1.4s steps(1) infinite;
+}
+
+/* Un archivo subiendo: una flecha que sube dentro del círculo. */
+.icono-foto, .icono-imprimir {
+  color: var(--oro);
+}
+.icono-foto::before, .icono-imprimir::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 9px;
+  width: 2px;
+  height: 12px;
+  background: var(--oro);
+  transform: translateX(-50%);
+  animation: subir-flecha 1.6s ease-in-out infinite;
+}
+.icono-foto::after, .icono-imprimir::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid var(--oro);
+  border-right: 2px solid var(--oro);
+  transform: translateX(-50%) rotate(-45deg);
+  animation: subir-flecha 1.6s ease-in-out infinite;
+}
+
+/* El candado: un gancho que se cierra. */
+.icono-candado::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 9px;
+  width: 12px;
+  height: 9px;
+  border: 2px solid var(--oro);
+  border-bottom: none;
+  border-radius: 7px 7px 0 0;
+  transform: translateX(-50%);
+}
+.icono-candado::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 15px;
+  width: 14px;
+  height: 11px;
+  background: var(--oro);
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+
+/* El reloj: una manecilla dando vueltas. */
+.icono-reloj::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 2px solid var(--oro);
+  border-radius: 50%;
+}
+.icono-reloj::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.5px;
+  height: 7px;
+  background: var(--oro);
+  transform-origin: bottom center;
+  transform: translate(-50%, -100%);
+  animation: girar-reloj 3s linear infinite;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes pulso-toque {
+    0% { transform: scale(0.6); opacity: 1; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+  @keyframes parpadeo-escribir {
+    0%, 100% { clip-path: inset(0 100% 0 0); }
+    33% { clip-path: inset(0 66% 0 0); }
+    66% { clip-path: inset(0 33% 0 0); }
+    90% { clip-path: inset(0 0 0 0); }
+  }
+  @keyframes subir-flecha {
+    0%, 100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+    50% { transform: translateX(-50%) translateY(-4px); opacity: 0.6; }
+  }
+  .icono-foto::after, .icono-imprimir::after { animation-name: subir-flecha; }
+  @keyframes girar-reloj {
+    from { transform: translate(-50%, -100%) rotate(0deg); }
+    to { transform: translate(-50%, -100%) rotate(360deg); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .icono-tocar::after { animation: none; opacity: 0.5; }
+  .icono-escribir::before { animation: none; clip-path: none; }
+  .icono-reloj::after { animation: none; }
+}

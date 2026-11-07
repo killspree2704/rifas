@@ -659,6 +659,37 @@ valores que antes estaban en `PLANTILLAS`—.
 logo, que ya no existen, y entraron las nuevas de cargar y quitar una
 plantilla).
 
+## Pestaña «Ayuda»: la guía vive dentro del panel (7 de noviembre de 2026)
+
+Pedido del dueño: una sección en el panel que explique, en español llano,
+cómo funciona la página de la rifa para el público y los pasos para crear,
+revelar, corregir y «cancelar» (archivar) una rifa — algo que el dueño
+pueda leer sin tener que preguntar.
+
+**`#paneAyuda`**, sexta pestaña, con seis bloques plegables: lo que ve la
+gente (QR, cuenta regresiva, por qué nadie más puede cambiar nada), cómo
+crear una rifa, cómo revelar y cerrar, cómo corregir el diseño después,
+cómo archivar/reactivar (y por qué no hay «borrar»), y Verificar/Perfil.
+Cada paso cita el texto REAL de su botón («Generar rifa y boletos»,
+«Manejar esta», «Revelar», «Archivar», «Reactivar»…), no una paráfrasis —
+así, si algún día un botón cambia de nombre, la guía queda mintiendo de
+forma obvia en vez de quedarse desactualizada en silencio. `pruebas/
+panel.mjs` comprueba justamente eso: que el texto de la pestaña siga
+citando los nombres reales. 202 comprobaciones en verde (antes 195).
+
+**Sobre los GIFs que se pidieron:** se evaluó grabar capturas reales del
+panel en acción, pero esta sesión corre en segundo plano sin una ventana de
+Chrome conectada —no se pudo—, y grabar contra producción habría significado
+escribir la clave real del panel en una pantalla en grabación. En su lugar,
+cada paso lleva un icono animado en CSS puro (un toque, un tecleo, una
+flecha subiendo, un candado, un reloj dando vueltas: ver `.icono-paso` en
+`assets/panel.css`) que no es un GIF grabado del panel —así que nunca se
+desactualiza si cambia el diseño de un botón— pero da la misma pista visual
+de qué clase de acción es cada paso. Si más adelante se quieren GIFs reales
+del panel de verdad, hay que grabarlos en una sesión con Chrome conectado,
+contra el servidor de prueba (`node pruebas/servidor-de-prueba.mjs`, clave
+`secreta`), nunca contra producción.
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
@@ -896,8 +927,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v35` |
-| Etiquetas del panel | `?v=35` |
+| Service worker | `rifa-v36` |
+| Etiquetas del panel | `?v=36` |
 
 ### El «undefined» de las hojas: qué fue
 

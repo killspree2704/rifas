@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=35" />
-  <link rel="stylesheet" href="assets/panel.css?v=35" />
+  <link rel="stylesheet" href="assets/estilos.css?v=36" />
+  <link rel="stylesheet" href="assets/panel.css?v=36" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -86,6 +86,10 @@
         <button class="pestana" data-panel="panePerfil">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.3" r="3.3" /><path d="M5.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" /></svg>
           <span>Perfil</span>
+        </button>
+        <button class="pestana" data-panel="paneAyuda">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.3a2.5 2.5 0 1 1 3.9 2.4c-.7.5-1.4 1-1.4 2" /><circle cx="12" cy="16.8" r="0.15" fill="currentColor" /></svg>
+          <span>Ayuda</span>
         </button>
       </nav>
 
@@ -399,12 +403,234 @@
         distintas.
       </p>
     </section>
+
+    <!-- 6. Ayuda -->
+    <section id="paneAyuda" class="caja" hidden>
+      <h2 class="subtitulo-seccion">Cómo funciona todo esto</h2>
+      <p class="nota">
+        Esta pestaña no hace nada por sí sola: es la explicación de las
+        otras cinco, en español llano. Si algo no sale como aquí se
+        describe, probablemente cambió algo en el panel — avísalo.
+      </p>
+
+      <details class="bloque" open>
+        <summary><strong>Lo que ve la gente</strong></summary>
+        <ol class="guia-pasos">
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>Cada boleto de papel trae un QR y unos números grandes.</strong>
+              <p class="nota">Al escanear el QR, el celular de quien compró abre una
+                página con el nombre de la rifa, sus números y una cuenta regresiva
+                hasta la hora del sorteo. No necesita instalar nada ni crear cuenta.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-reloj" aria-hidden="true"></span>
+            <div>
+              <strong>Esa pantalla se actualiza sola.</strong>
+              <p class="nota">En cuanto reveles un ganador aquí en el panel, todos los
+                teléfonos que tengan esa página abierta —o la vuelvan a abrir
+                después— se enteran solos, sin que nadie tenga que avisar nada.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-candado" aria-hidden="true"></span>
+            <div>
+              <strong>El panel es lo único que puede cambiar algo.</strong>
+              <p class="nota">Quien solo tiene el boleto nunca puede alterar un
+                resultado ni ver boletos ajenos. Solo quien entra aquí, con la
+                clave, puede crear rifas o revelar un ganador.</p>
+            </div>
+          </li>
+        </ol>
+      </details>
+
+      <details class="bloque">
+        <summary><strong>Cómo crear una rifa nueva</strong></summary>
+        <ol class="guia-pasos">
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>Ve a la pestaña «Rifas» y abre «Nueva rifa».</strong>
+              <p class="nota">Es el primer bloque de esa pestaña, plegado por
+                omisión; tócalo para desplegarlo.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-escribir" aria-hidden="true"></span>
+            <div>
+              <strong>Llena nombre, serie, día y hora del sorteo, y cuántos
+                boletos quieres.</strong>
+              <p class="nota">Los demás campos —dígitos del folio, tope, números
+                por boleto, precio— ya traen un valor razonable; solo cámbialos
+                si de verdad lo necesitas. Si tienes dudas sobre el «tope», léelo
+                con calma ahí mismo: el panel te avisa si el número que pusiste
+                deja una canasta casi vacía.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>Toca «Generar rifa y boletos».</strong>
+              <p class="nota">El servidor inventa los folios, los firma, y en
+                segundos tienes el lote completo. El panel salta solo a la
+                pestaña «Sorteo», ya manejando la rifa nueva.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-imprimir" aria-hidden="true"></span>
+            <div>
+              <strong>Imprime la hoja de boletos.</strong>
+              <p class="nota">De vuelta en «Rifas», busca tu rifa en el historial
+                y toca «Hoja de boletos»: se abre una página lista para imprimir
+                o guardar como PDF desde el mismo diálogo de impresión.</p>
+            </div>
+          </li>
+        </ol>
+      </details>
+
+      <details class="bloque">
+        <summary><strong>Cómo revelar al ganador y cerrar la rifa</strong></summary>
+        <ol class="guia-pasos">
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>En «Rifas», toca «Manejar esta» en la rifa del sorteo de hoy.</strong>
+              <p class="nota">El panel solo puede revelar o cerrar la rifa que
+                está manejando en ese momento — por eso siempre se elige primero.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-escribir" aria-hidden="true"></span>
+            <div>
+              <strong>En «Sorteo», escribe el número que salió de la tómbola
+                física y espera a que aparezca su código.</strong>
+              <p class="nota">Ese código es tu forma de comparar el papel real
+                que sacaste contra lo que dice el sistema, antes de confirmar
+                nada. Si el número no es de esta rifa, el panel lo dice ahí mismo.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>Toca «Revelar» (o «Sortear al azar» si no hay tómbola física).</strong>
+              <p class="nota"><strong>Esto no se puede deshacer.</strong> En cuanto
+                confirmes, todos los teléfonos que abran su boleto van a ver el
+                resultado.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>Cuando ya se entregó el premio, toca «Cerrar».</strong>
+              <p class="nota">Es solo una etiqueta para tu propio orden —«Cerrada»
+                en vez de «Ganador revelado»—; no cambia nada de los boletos ni
+                del ganador.</p>
+            </div>
+          </li>
+        </ol>
+      </details>
+
+      <details class="bloque">
+        <summary><strong>Cómo corregir o cambiar una rifa después</strong></summary>
+        <p class="nota">
+          Nada de esto toca los números, los códigos ni al ganador — son
+          solo el aspecto de la hoja y los datos que se le imprimen encima.
+        </p>
+        <ol class="guia-pasos">
+          <li>
+            <span class="icono-paso icono-foto" aria-hidden="true"></span>
+            <div>
+              <strong>Para usar la foto de un boleto físico real</strong> (en vez
+              del boleto clásico de siempre), ve a «Diseño» y sube ahí la foto y
+              el archivo de medidas de esa plantilla.
+              <p class="nota">Las medidas se obtienen por fuera, con la
+                herramienta <code>medir_plantilla.py</code> del repositorio — pide
+                ayuda si nunca lo has hecho.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-escribir" aria-hidden="true"></span>
+            <div>
+              <strong>El precio se corrige con su propio botón</strong>, dentro de
+              «Diseño», sin tocar nada más de la rifa.
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>«Volver al de siempre»</strong> regresa el boleto al diseño
+              clásico, por si la plantilla cargada no quedó como esperabas.
+            </div>
+          </li>
+        </ol>
+      </details>
+
+      <details class="bloque">
+        <summary><strong>Cómo «cancelar» una rifa (archivarla)</strong></summary>
+        <p class="nota">
+          <strong>El panel nunca borra nada de verdad.</strong> Lo que hay es
+          «Archivar»: saca la rifa de la lista de arriba, pero sus números se
+          quedan reservados para siempre —así ninguno se repite por accidente
+          más adelante— y cualquier boleto ya impreso de esa rifa sigue
+          abriendo su resultado igual que antes.
+        </p>
+        <ol class="guia-pasos">
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>En «Rifas», toca «Archivar» en la rifa que ya no quieres ver en la lista.</strong>
+              <p class="nota">Funciona igual si ya tiene ganador revelado que si
+                no: archivar es independiente del sorteo.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>Para recuperarla, abre «Archivadas» y toca «Reactivar».</strong>
+              <p class="nota">Vuelve a aparecer en la lista de siempre, exactamente
+                como estaba.</p>
+            </div>
+          </li>
+        </ol>
+        <p class="nota">
+          Si de verdad necesitas BORRAR una rifa —liberar sus números para
+          reusarlos, algo que casi nunca hace falta—, eso no se hace desde
+          aquí a propósito: pide ese borrado aparte, directo en la base de
+          datos, y solo confirmando por nombre exactamente cuál rifa.
+        </p>
+      </details>
+
+      <details class="bloque">
+        <summary><strong>Verificar un boleto de papel, y cambiar tu clave</strong></summary>
+        <ol class="guia-pasos">
+          <li>
+            <span class="icono-paso icono-escribir" aria-hidden="true"></span>
+            <div>
+              <strong>«Verificar»</strong> es para el día del evento: alguien duda
+              si su papel es original. Escribe el boleto (o cualquiera de sus
+              números) junto con el código impreso, y el panel dice si calza.
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-candado" aria-hidden="true"></span>
+            <div>
+              <strong>«Perfil»</strong> es donde cambias la clave del panel —pide
+              la actual, tecleada, no la que la pantalla ya tenía guardada—.
+              Si la pierdes, no hay botón que la recupere: se reemplaza directo
+              en Supabase, pide ayuda para eso.
+            </div>
+          </li>
+        </ol>
+      </details>
+    </section>
       </div>
     </div>
   </main>
 
-  <script src="assets/config.js?v=35"></script>
+  <script src="assets/config.js?v=36"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=35"></script>
+  <script src="assets/panel.js?v=36"></script>
 </body>
 </html>

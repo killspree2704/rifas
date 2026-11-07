@@ -1098,6 +1098,41 @@ await ctxD.close();
   await ctxN.close();
 }
 
+// ------------------------------------------------------------- AYUDA ----
+// La pestaña no hace ninguna llamada al servidor: solo texto y los iconos
+// animados de cada paso. Lo que hay que comprobar es que exista, se abra, y
+// que explique con los nombres REALES de los botones (si algún botón cambia
+// de texto algún día, esto lo nota).
+{
+  console.log('\n== Pestaña Ayuda ==');
+  const ctxH = await navegador.newContext({ serviceWorkers: 'block' });
+  const ph = await ctxH.newPage();
+  const errH = [];
+  ph.on('pageerror', (e) => errH.push(String(e)));
+  await ph.goto(BASE + '/panel.html');
+  await ph.fill('#clave', 'secreta');
+  await ph.click('#btnEntrar');
+  await ph.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+
+  await ph.click('.pestana[data-panel="paneAyuda"]');
+  ok('hay una pestaña Ayuda y se abre', await ph.isVisible('#paneAyuda'));
+
+  const texto = await ph.textContent('#paneAyuda');
+  ok('explica cómo crear una rifa, con el nombre real del botón',
+     texto.includes('Generar rifa y boletos'));
+  ok('explica cómo revelar, con los nombres reales de los botones',
+     texto.includes('Revelar') && texto.includes('Sortear al azar'));
+  ok('explica que archivar no borra nada',
+     texto.includes('nunca borra nada de verdad'));
+  ok('menciona «Reactivar», el botón real para recuperar una archivada',
+     texto.includes('Reactivar'));
+  ok('menciona la pestaña Diseño para cargar una plantilla',
+     texto.toLowerCase().includes('medidas de esa plantilla'));
+
+  ok('sin errores de JavaScript en Ayuda', errH.length === 0, errH.join(' | '));
+  await ctxH.close();
+}
+
 // ---------------------------------------------- BARRA LATERAL DEL PANEL ----
 // El resto de este archivo corre en el ancho por omisión de Playwright
 // (1280px), que ya cae dentro del umbral de la barra lateral —por eso las
