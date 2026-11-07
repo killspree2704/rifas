@@ -93,7 +93,7 @@
   // ------------------------------------------------------------------
   // Pestañas
   // ------------------------------------------------------------------
-  var PANES = ['paneSorteo', 'paneRifas', 'paneVerificar', 'paneDiseno', 'panePerfil'];
+  var PANES = ['paneSorteo', 'paneRifas', 'paneVerificar', 'paneDiseno', 'panePerfil', 'paneAyuda'];
 
   function abrirPestana(id) {
     PANES.forEach(function (p) { $(p).hidden = (p !== id); });
