@@ -1,6 +1,7 @@
 -- Esquema de la base de rifas (aplicado con las migraciones esquema_rifas,
 -- realtime_rifas, endurecer_trigger, rifa_activa_y_llave, rifa_de_folio,
--- transmision, rifa_de_folio_con_transmision y boleto_con_varios_folios).
+-- transmision, rifa_de_folio_con_transmision, boleto_con_varios_folios y
+-- candado_clave_panel).
 --
 -- Regla del proyecto: aquí NO se guarda ningún dato personal. Solo folios,
 -- códigos de verificación y el estado de la rifa. Quién compró cada boleto
@@ -26,6 +27,11 @@
 --   panel_clave hash de la clave del panel; sin políticas, nadie lo lee
 --   llave_firma llave HMAC con la que se firman los códigos; sin políticas,
 --               solo la alcanza la función de borde `sorteo`
+--   panel_candado  bloqueo contra fuerza bruta de la clave del panel: una
+--               sola cuenta de fallos para TODOS los intentos (no por IP,
+--               porque la clave es una sola), incrementada de forma atómica
+--               por `registrar_fallo_clave()`. Diez fallos seguidos —vengan
+--               de una conexión o de muchas a la vez— la congelan 15 minutos
 --
 -- `rifas.emision` es la fecha de emisión del lote impreso si es distinta de
 -- `creada_en`; nula usa esa de siempre. `rifas.archivada` saca una rifa del

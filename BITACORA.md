@@ -169,6 +169,7 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 | **«Failed to fetch» mostrado tal cual, en el peor momento posible** | Provocando la caída total del backend con la rifa ya en vivo (el escenario catastrófico de verdad, no solo el de la condición de carrera), se encontró que el panel, al fallar la red, le enseñaba al operador el mensaje crudo de Chrome —«Failed to fetch», en inglés, sin explicación— justo cuando está a medio sorteo, en vivo frente a la gente. `fetch()` tira un `TypeError` cuando la red se cae de plano, distinto del `Error` que ya se arma a mano cuando el SERVIDOR contesta con un error de verdad (ese sí trae su propio mensaje en español, y se deja pasar tal cual). Se corrigió en `llamar()`: un `TypeError` ahora se traduce a «No se pudo conectar con el servidor. Revisa la red e inténtalo de nuevo —nada se guardó todavía—», sin tocar el mensaje de los errores que sí vienen del servidor |
 | **Una tarjeta de «Recaudado» que se quedaba con el precio de ayer** | Al agregar las tarjetas de estadística al rediseño del panel, se encontró que guardar un precio nuevo desde Diseño actualizaba la vista previa del boleto —ya tenía su propio refresco— pero NO la tarjeta «Recaudado» de Sorteo, que solo se repinta dentro de `pintar()`, y nada llamaba a `pintar()` después de `fijar_precio`. El número viejo se quedaba ahí hasta el siguiente refresco por otra vía —cambiar de rifa, por ejemplo—, mostrando un total que ya no era cierto sin ningún aviso de que estaba desactualizado. Corregido pidiendo `estado` fresco justo después de guardar el precio, igual que ya hacía el manejo de errores de otras acciones. La lección: cualquier número nuevo en pantalla que dependa de un dato editable necesita su propio camino de refresco —no basta con que OTRA parte de la pantalla ya se actualice, dos lugares no se enteran solos uno del otro— |
 | **Un catálogo de plantillas que crecía adentro del código, en vez de vivir fuera de él** | «Suertudito» y «Bono Gana Hoy» se construyeron bien, pero cada una requería medir la foto a mano y después copiar esas medidas DENTRO de `PLANTILLAS`, en `assets/panel.js`, lo que significa un despliegue de código por cada boleto físico nuevo que llegue —algo que va a pasar seguido, no una vez—. El dueño lo notó al preguntar si el proceso de medición se podía meter al código: la respuesta correcta no era automatizar la medición (ya se hizo, con `medir_plantilla.py`) sino dejar de guardar el RESULTADO de esa medición en el código fuente. Se quitó el catálogo entero —con él, los ocho temas de color, las doce tramas y el logo subible, que tampoco eran plantillas sino el mismo problema en miniatura: decisiones de diseño cableadas donde debían ser datos— y se reemplazó por un archivo que el panel SOLO sabe leer (foto + JSON de medidas), armado por fuera con la misma herramienta. La lección: cuando el mismo patrón de código se repite por cada entrada nueva de un catálogo pequeño pero creciente, la solución no siempre es generalizar el código —a veces es dejar de tener catálogo, y cargar el dato en vez de desplegarlo |
+| **Una «puerta trasera» cableada en el código, descartada antes de escribirse** | El dueño pidió un acceso especial para él mismo, por si algún día hay que entrar a reparar algo sin pasar por el candado normal del panel. La petición en sí es razonable —de hecho ya existe y se usa (resetear la clave directo en Supabase, sin el panel)—, pero la forma en que se pidió —algo escrito en `index.ts`— es exactamente lo que NO hay que construir: git conserva cada versión de cada archivo para siempre, así que una clave maestra o un `if` especial en el código queda ahí aunque se borre después, disponible para cualquiera que alguna vez lea el repositorio. Es la contradicción del pedido original: «blindar por si se encuentra en git» y «meterlo en el código» son dos cosas que se cancelan entre sí. La solución correcta no es una puerta nueva: es la que ya existe —entrar a Supabase con la cuenta del dueño y correr SQL— porque esa nunca toca el repositorio |
 
 ## Cómo llegó a ser lo que es
 
@@ -205,6 +206,22 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
   adivinable, y el folio ganador se saca con ese mismo sorteo.
 - **El panel, contra el servidor real:** se creó una rifa de 500 boletos, se
   transmitió, se reveló al azar y se cerró. Funcionó.
+- **Repaso de seguridad (7 de noviembre de 2026):** RLS activado y sin
+  ninguna política en `boletos`, `folios`, `llave_firma`, `panel_clave`,
+  `panel_ajustes` y `sorteo_log` —confirmado con el escáner de seguridad de
+  Supabase—, así que nada de eso lo alcanza `anon` ni `authenticated`, solo
+  la función de borde con la llave de servicio. `rifa_de_boleto` (la que
+  resuelve el QR público) exige boleto Y código juntos, revisada línea por
+  línea: no deja enumerar boletos ajenos. Revisado también el historial
+  completo de git: ningún JWT, llave de servicio ni llave de firma quedó
+  ahí jamás —solo viven como referencia a variable de entorno o en la base—;
+  lo único expuesto son las claves del panel, documentadas a propósito (ver
+  CONTINUIDAD.md). El único hueco real que se encontró —el retraso de 700ms
+  contra fuerza bruta de la clave es por petición, no global, así que varias
+  conexiones en paralelo lo esquivan— se cerró con un candado atómico en la
+  base (`panel_candado`): diez fallos seguidos, de donde sea, congelan la
+  clave 15 minutos. Probado de verdad contra producción: diez claves malas
+  disparan el bloqueo, y ni la clave correcta pasa mientras dure.
 
 ## Lo que queda pendiente
 
