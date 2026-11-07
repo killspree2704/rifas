@@ -224,92 +224,118 @@ function repartir<T>(lista: T[], porGrupo: number): T[][] {
  * tal cual en un `style`, así que se admite exactamente la forma de un color
  * y nada más. El panel ya filtra igual; esto es lo que manda, porque una
  * comprobación que solo vive en el navegador no comprueba nada.
- */
-const TEMAS_VALIDOS = ["clasico", "sobrio", "feria", "menta", "oro", "noche", "trebol", "bono"];
-const DISPOSICIONES_VALIDAS = ["clasica", "suertudito", "bono"];
-/*
- * De la trama solo viaja y se guarda el NOMBRE; el dibujo lo arma el panel a
- * partir de él. Aquí se comprueba la FORMA, no el catálogo, y es a propósito:
  *
- *   - Para la seguridad basta con esto. Un nombre de puras minúsculas no puede
- *     escaparse de ningún sitio, valga lo que valga.
- *   - Tener el catálogo también aquí obligaría a volver a desplegar la función
- *     cada vez que se agrega un motivo nuevo, que es puro adorno. Ese
- *     acoplamiento no compra nada.
- *
- * Quién decide qué existe es el panel: un nombre que no conozca lo pinta como
- * «ninguna». Un dedazo sale sin trama, no roto.
+ * Ya no hay temas, tramas ni logo que armar aquí: el boleto se ve como la
+ * FOTO que el dueño sube, medida por fuera con `herramientas/medir_plantilla.py`
+ * (el mismo trabajo a mano que antes se copiaba dentro de este código para
+ * «Suertudito» y «Bono Gana Hoy», ahora sin necesitar un despliegue nuevo por
+ * cada plantilla). Sin plantilla, el boleto sale con el diseño clásico fijo
+ * que ya trae `assets/panel.js` —sin colores que elegir—.
  */
-const TRAMA = /^[a-z]{3,20}$/;
-const INTENSIDADES_VALIDAS = ["suave", "media", "marcada"];
 const COLOR = /^#[0-9a-fA-F]{6}$/;
-const LOGO_MAX = 200 * 1024;
+// Toda la foto del boleto, no un logo: pesa más, pero sigue siendo una sola
+// imagen de unos cuantos cientos de KB ya comprimida por el panel.
+const PLANTILLA_FOTO_MAX = 2 * 1024 * 1024;
 
-function limpiarDiseno(entrada: unknown) {
-  // Nulo es legítimo: significa «el tema de siempre».
+/** Una medida de 0 a 100 (porcentaje), tal como la entrega medir_plantilla.py. */
+function medida(valor: unknown, cual: string): number {
+  const n = Number(valor);
+  if (!Number.isFinite(n) || n < 0 || n > 100) throw new Error(`la medida «${cual}» de la plantilla no es válida`);
+  return Math.round(n * 100) / 100;
+}
+
+function limpiarCaja(entrada: unknown, cual: string) {
+  if (!entrada || typeof entrada !== "object") throw new Error(`a la plantilla le falta «${cual}»`);
+  const c = entrada as Record<string, unknown>;
+  return { left: medida(c.left, cual), width: medida(c.width, cual), top: medida(c.top, cual), height: medida(c.height, cual) };
+}
+
+function limpiarPie(entrada: unknown) {
+  if (!entrada || typeof entrada !== "object") throw new Error("a la plantilla le falta «pie»");
+  const c = entrada as Record<string, unknown>;
+  return { left: medida(c.left, "pie"), right: medida(c.right, "pie"), top: medida(c.top, "pie"), height: medida(c.height, "pie") };
+}
+
+function limpiarCuadricula(entrada: unknown) {
+  if (!entrada || typeof entrada !== "object") throw new Error("a la plantilla le falta «caja»");
+  const c = entrada as Record<string, unknown>;
+  const columna = c.columna;
+  if (!Array.isArray(columna) || columna.length !== 2) {
+    throw new Error("la columna de la plantilla no es válida");
+  }
+  return {
+    primer: medida(c.primer, "caja"), ultimo: medida(c.ultimo, "caja"),
+    alto: medida(c.alto, "caja"), ancho: medida(c.ancho, "caja"),
+    columna: [medida(columna[0], "caja"), medida(columna[1], "caja")] as [number, number],
+  };
+}
+
+function limpiarPlantilla(entrada: unknown) {
+  // Nulo es legítimo: significa «el boleto clásico de siempre», sin foto.
   if (entrada === null || entrada === undefined) return null;
-  if (typeof entrada !== "object") throw new Error("el diseño no es válido");
-  const d = entrada as Record<string, unknown>;
+  if (typeof entrada !== "object") throw new Error("la plantilla no es válida");
+  const p = entrada as Record<string, unknown>;
 
-  const tema = String(d.tema ?? "clasico");
-  if (!TEMAS_VALIDOS.includes(tema)) throw new Error("ese tema no existe");
+  const foto = String(p.foto ?? "");
+  if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(foto)) {
+    throw new Error("la foto de la plantilla no es una imagen válida");
+  }
+  if (foto.length > PLANTILLA_FOTO_MAX) throw new Error("la foto de la plantilla pesa demasiado");
+
+  const fotoAncho = Number(p.fotoAncho);
+  const fotoAlto = Number(p.fotoAlto);
+  if (!Number.isInteger(fotoAncho) || fotoAncho <= 0 || !Number.isInteger(fotoAlto) || fotoAlto <= 0) {
+    throw new Error("el tamaño de la foto no es válido");
+  }
 
   const color = (valor: unknown, cual: string) => {
     const texto = String(valor ?? "");
-    if (!COLOR.test(texto)) throw new Error(`el color de ${cual} no es válido`);
+    if (!COLOR.test(texto)) throw new Error(`el color de ${cual} en la plantilla no es válido`);
     return texto.toLowerCase();
   };
 
-  const logo = String(d.logo ?? "");
-  if (logo) {
-    if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo)) {
-      throw new Error("el logo no es una imagen válida");
-    }
-    if (logo.length > LOGO_MAX) throw new Error("el logo pesa demasiado");
+  const resultado: Record<string, unknown> = {
+    foto, fotoAncho, fotoAlto,
+    fondo: color(p.fondo, "fondo"),
+    tinta: color(p.tinta, "letra"),
+    acento: color(p.acento, "números"),
+    borde: color(p.borde, "marco"),
+    caja: limpiarCuadricula(p.caja),
+    qr: limpiarCaja(p.qr, "qr"),
+    precio: limpiarCaja(p.precio, "precio"),
+    pie: limpiarPie(p.pie),
+  };
+
+  // Opcional: no todas las fotos traen un hueco propio que tapar (ver
+  // «Bono Gana Hoy», donde ese lugar lo ocupa el QR).
+  if (p.fechas && typeof p.fechas === "object") {
+    const f = p.fechas as Record<string, unknown>;
+    resultado.fechas = {
+      ...limpiarCaja(f, "fechas"),
+      vertical: !!f.vertical,
+      fuente: Number(f.fuente) > 0 ? Number(f.fuente) : 1.5,
+    };
   }
+
+  return resultado;
+}
+
+function limpiarDiseno(entrada: unknown) {
+  // Nulo es legítimo: significa «el de siempre».
+  if (entrada === null || entrada === undefined) return null;
+  if (typeof entrada !== "object") throw new Error("el diseño no es válido");
+  const d = entrada as Record<string, unknown>;
 
   const columnas = Number(d.columnas ?? 2);
   if (columnas !== 1 && columnas !== 2 && columnas !== 3) {
     throw new Error("los boletos por renglón deben ser 1, 2 o 3");
   }
 
-  const trama = String(d.trama ?? "ninguna");
-  if (!TRAMA.test(trama)) throw new Error("esa trama no es válida");
-
-  const intensidad = String(d.intensidad ?? "suave");
-  if (!INTENSIDADES_VALIDAS.includes(intensidad)) {
-    throw new Error("esa intensidad no existe");
-  }
-
-  // La disposición sí lleva catálogo, al revés que la trama: cada una es una
-  // plantilla distinta en el panel, no un adorno, y son tres contadas.
-  const disposicion = String(d.disposicion ?? "clasica");
-  if (!DISPOSICIONES_VALIDAS.includes(disposicion)) {
-    throw new Error("esa disposición no existe");
-  }
-
-  // El tono gira la FOTO de las disposiciones con foto (0 = la de origen).
-  // Entero y entre 0 y 360: lo mismo que ya comprueba el panel antes de
-  // mandarlo, para que un dedazo no se cuele hasta la base.
-  const tono = Number(d.tono ?? 0);
-  if (!Number.isInteger(tono) || tono < 0 || tono > 360) {
-    throw new Error("el tono debe ser un entero entre 0 y 360");
-  }
-
   return {
-    tema,
-    fondo: color(d.fondo, "fondo"),
-    tinta: color(d.tinta, "letra"),
-    acento: color(d.acento, "números"),
-    borde: color(d.borde, "marco"),
-    logo,
+    plantilla: limpiarPlantilla(d.plantilla),
     aviso: String(d.aviso ?? "").slice(0, 200),
     columnas,
-    trama,
-    intensidad,
-    disposicion,
     caducidad: String(d.caducidad ?? "").slice(0, 40),
-    tono,
   };
 }
 
@@ -790,9 +816,10 @@ Deno.serve(async (req) => {
     if (error) return responder({ error: error.message }, 400);
     if (!data) return responder({ error: "rifa no encontrada" }, 404);
 
-    // En la bitácora va el tema y si lleva logo, no el logo: son cien kilos de
-    // base64 que no le sirven a nadie dentro de un registro de auditoría.
-    await anotar(rifaPedida, "diseno", { tema: limpio?.tema ?? null, logo: !!limpio?.logo });
+    // En la bitácora va si quedó con plantilla o no, nunca la foto: son cien
+    // kilos de base64 que no le sirven a nadie dentro de un registro de
+    // auditoría.
+    await anotar(rifaPedida, "diseno", { plantilla: !!limpio?.plantilla });
     return responder({ rifa: data });
   }
 

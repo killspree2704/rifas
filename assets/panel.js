@@ -832,265 +832,6 @@
    * miente, y de eso uno se entera con doscientos boletos ya impresos.
    */
 
-  // Temas pensados para el papel, no para la pantalla. El orden es el que se
-  // ve en el panel.
-  var TEMAS = {
-    clasico: { nombre: 'Clásico', fondo: '#ffffff', tinta: '#111111', acento: '#c2185b', borde: '#333333' },
-    sobrio:  { nombre: 'Sobrio',  fondo: '#ffffff', tinta: '#000000', acento: '#000000', borde: '#000000' },
-    feria:   { nombre: 'Feria',   fondo: '#fff8ec', tinta: '#3b2a1a', acento: '#c62828', borde: '#8d6e39' },
-    menta:   { nombre: 'Menta',   fondo: '#f2fbf6', tinta: '#12301f', acento: '#00796b', borde: '#4f8f74' },
-    oro:     { nombre: 'Oro',     fondo: '#fdf6e3', tinta: '#2a2113', acento: '#9a6f0a', borde: '#b08d3a' },
-    noche:   { nombre: 'Noche',   fondo: '#1b2432', tinta: '#f2f5f9', acento: '#ffd166', borde: '#5b6b82' },
-    // Los cuatro colores sacados con cuentagotas del boleto que trajo el
-    // dueño, no elegidos a gusto: el papel verde pálido, el verde medio de
-    // los textos, el verde oscuro de las cifras y el verde vivo del marco.
-    trebol:  { nombre: 'Trébol',  fondo: '#e4e9e3', tinta: '#2a5a30', acento: '#1b4d1b', borde: '#2e7d32' },
-    // Igual, con cuentagotas sobre el segundo boleto: el marco y el título
-    // son rojos, el «$20» es café, y el recuadro del número es gris oscuro
-    // —no rojo—, así que el acento se saca del marco y el borde del
-    // recuadro, no los dos del mismo lugar.
-    bono:    { nombre: 'Bono',    fondo: '#ffffff', tinta: '#7a1f1f', acento: '#c21212', borde: '#4a4a4a' },
-  };
-
-  /*
-   * Gira un color en HSL, para los atajos del tono de la foto (ver más
-   * abajo, junto a `atajosTono`). No es una tabla fija de antes: cada
-   * disposición con foto tiene su propio color de origen —verde el
-   * «Suertudito», rojo el «Bono»—, y el mismo atajo «Azul» tiene que girar
-   * CADA UNO desde su propio punto de partida, no desde uno solo cableado
-   * a mano. `rgbAHsl`/`hslARgb` son la ida y vuelta de siempre —no hay
-   * `Color` nativo en el navegador que haga esto con la precisión que
-   * hace falta para no perder el tono exacto al volver.
-   */
-  function hexARgb(hex) {
-    return [parseInt(hex.substr(1, 2), 16), parseInt(hex.substr(3, 2), 16), parseInt(hex.substr(5, 2), 16)];
-  }
-  function rgbAHex(r, g, b) {
-    function h(v) { return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'); }
-    return '#' + h(r) + h(g) + h(b);
-  }
-  function rgbAHsl(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    var max = Math.max(r, g, b), min = Math.min(r, g, b), h, s, l = (max + min) / 2;
-    if (max === min) { h = s = 0; } else {
-      var d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === r) { h = (g - b) / d + (g < b ? 6 : 0); }
-      else if (max === g) { h = (b - r) / d + 2; }
-      else { h = (r - g) / d + 4; }
-      h /= 6;
-    }
-    return [h * 360, s * 100, l * 100];
-  }
-  function hslARgb(h, s, l) {
-    h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
-    var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, r, g, b;
-    if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; }
-    else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; }
-    else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; }
-    return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
-  }
-  function girarColor(hex, grados) {
-    var hsl = rgbAHsl.apply(null, hexARgb(hex));
-    return rgbAHex.apply(null, hslARgb(hsl[0] + grados, hsl[1], hsl[2]));
-  }
-  /** «Tus colores» girados los mismos grados que la foto, desde el tema base de esa disposición. */
-  function paletaDelTono(tema, grados) {
-    return {
-      fondo: girarColor(tema.fondo, grados), tinta: girarColor(tema.tinta, grados),
-      acento: girarColor(tema.acento, grados), borde: girarColor(tema.borde, grados),
-    };
-  }
-
-  /*
-   * Los atajos del tono no traen un número de grados fijo: cada foto arranca
-   * de un color distinto —verde el «Suertudito», rojo el «Bono»—, así que
-   * «Azul» tiene que girar DISTINTO en cada una para llegar al mismo azul.
-   * Lo que sí es fijo es el tono DE LLEGADA (`objetivo`, en grados HSL de
-   * toda la vida: 0 rojo, 120 verde, 210 azul...); los grados que hay que
-   * aplicar se calculan restando el tono de salida del tema base, cada vez
-   * que se pintan los botones.
-   */
-  var ATAJOS_TONO = [
-    { nombre: 'Original', objetivo: null },
-    { nombre: 'Azul', objetivo: 210 },
-    { nombre: 'Morado', objetivo: 270 },
-    { nombre: 'Rosa', objetivo: 330 },
-    { nombre: 'Dorado', objetivo: 45 },
-  ];
-
-  /** Los grados que hay que girar el tema `tema` para que su acento llegue al `objetivo`. */
-  function gradosParaLlegar(tema, objetivo) {
-    if (objetivo === null) { return 0; }
-    var huePropia = rgbAHsl.apply(null, hexARgb(tema.acento))[0];
-    return Math.round(((objetivo - huePropia) % 360 + 360) % 360);
-  }
-
-  /*
-   * Fondos del boleto. Hay de dos clases y se manejan igual:
-   *
-   *   - de línea: rayas, puntos, rejilla. Se dibujan con degradados de CSS y
-   *     toman el color del marco, rebajado. Son el papel de seguridad sobrio.
-   *   - de figura: estrellas, confeti, tréboles. Son un SVG diminuto que se
-   *     repite, con su propia paleta de colores de fiesta. Es lo que hace que
-   *     un boleto de rifa se vea de rifa y no de recibo.
-   *
-   * Lo que se guarda en la base es el NOMBRE, nunca el dibujo. El panel lo
-   * arma a partir de él, así que no hay forma de colar nada dentro del estilo
-   * del boleto. Y el SVG va por `encodeURIComponent`, que se lleva los `<`,
-   * los `>` y las comillas: lo que queda no puede escaparse de la hoja de
-   * estilos aunque se quisiera.
-   */
-
-  // Pastel, como los boletos que se venden en la calle. No sale del tema
-  // porque la gracia de las figuras es justo que sean de varios colores.
-  var COLORES_FIESTA = ['#ef9ebc', '#8fcbe4', '#9ed8ae', '#c3aade', '#f6d08a'];
-
-  var ESTRELLA = '<path d="M0,-10 L2.35,-3.24 L9.51,-3.09 L3.8,1.24 L5.88,8.09 ' +
-    'L0,4 L-5.88,8.09 L-3.8,1.24 L-9.51,-3.09 L-2.35,-3.24 Z"/>';
-  var CORAZON = '<path d="M0,7 C-9,-1 -7,-11 0,-5 C7,-11 9,-1 0,7 Z"/>';
-  var TREBOL = '<g><circle cx="-3.5" cy="-1" r="3.6"/><circle cx="3.5" cy="-1" r="3.6"/>' +
-    '<circle cx="0" cy="-5" r="3.6"/><circle cx="0" cy="3" r="3.6"/>' +
-    '<rect x="-0.7" y="2" width="1.4" height="7" rx="0.7"/></g>';
-  var CONFETI = '<rect x="-5" y="-1.6" width="10" height="3.2" rx="1.6"/>';
-  var BURBUJA = '<circle cx="0" cy="0" r="6"/>';
-
-  /**
-   * Reparte una figura por el mosaico que se va a repetir.
-   *
-   * Las posiciones son fijas, NO al azar. Un lote de doscientos boletos tiene
-   * que salir igual que la vista previa y que la reimpresión de mañana; un
-   * fondo distinto cada vez sería un fondo que nadie eligió.
-   */
-  var SEMBRADO = [
-    [18, 20, 0, 1], [62, 14, 25, 0.75], [88, 42, -15, 0.9],
-    [40, 54, 12, 1.1], [12, 78, -20, 0.8], [72, 80, 8, 0.95],
-  ];
-
-  function esparcir(figura, escala) {
-    return function (alfa) {
-      return SEMBRADO.map(function (p, i) {
-        return '<g transform="translate(' + p[0] + ',' + p[1] + ') rotate(' + p[2] +
-          ') scale(' + (escala * p[3]).toFixed(2) + ')" fill="' +
-          COLORES_FIESTA[i % COLORES_FIESTA.length] +
-          '" fill-opacity="' + alfa + '">' + figura + '</g>';
-      }).join('');
-    };
-  }
-
-  /** Un mosaico de SVG listo para usarse como fondo repetido. */
-  function mosaico(contenido, ladoMm) {
-    // Con width y height además del viewBox: así el mosaico trae su propio
-    // tamaño y no depende de que quien lo use se lo dé.
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" ' +
-      'viewBox="0 0 100 100">' + contenido + '</svg>';
-    return 'background-image: url("data:image/svg+xml,' + encodeURIComponent(svg) + '");' +
-      ' background-size: ' + ladoMm + 'mm ' + ladoMm + 'mm;';
-  }
-
-  var TRAMAS = {
-    ninguna: { nombre: 'Ninguna', tipo: 'linea', css: function () { return ''; } },
-
-    // --- De línea -----------------------------------------------------
-    lineas: {
-      nombre: 'Líneas', tipo: 'linea',
-      css: function (c) {
-        return 'background-image: repeating-linear-gradient(45deg,' +
-               c + ' 0 0.35mm, transparent 0.35mm 2mm);';
-      },
-    },
-    puntos: {
-      nombre: 'Puntos', tipo: 'linea',
-      css: function (c) {
-        return 'background-image: radial-gradient(' + c + ' 0.25mm, transparent 0.26mm);' +
-               ' background-size: 2mm 2mm;';
-      },
-    },
-    rejilla: {
-      nombre: 'Rejilla', tipo: 'linea',
-      css: function (c) {
-        return 'background-image: repeating-linear-gradient(0deg,' +
-               c + ' 0 0.2mm, transparent 0.2mm 2.5mm),' +
-               ' repeating-linear-gradient(90deg,' + c + ' 0 0.2mm, transparent 0.2mm 2.5mm);';
-      },
-    },
-    cruzado: {
-      nombre: 'Cruzado', tipo: 'linea',
-      css: function (c) {
-        return 'background-image: repeating-linear-gradient(45deg,' +
-               c + ' 0 0.25mm, transparent 0.25mm 2mm),' +
-               ' repeating-linear-gradient(-45deg,' + c + ' 0 0.25mm, transparent 0.25mm 2mm);';
-      },
-    },
-    zigzag: {
-      nombre: 'Zigzag', tipo: 'linea',
-      css: function (c) {
-        return 'background-image: linear-gradient(135deg,' + c + ' 25%, transparent 25%),' +
-               ' linear-gradient(225deg,' + c + ' 25%, transparent 25%);' +
-               ' background-size: 3mm 3mm;';
-      },
-    },
-
-    // --- De figura ----------------------------------------------------
-    estrellas: {
-      nombre: 'Estrellas', tipo: 'figura',
-      css: function (c, alfa) { return mosaico(esparcir(ESTRELLA, 1)(alfa), 16); },
-    },
-    confeti: {
-      nombre: 'Confeti', tipo: 'figura',
-      css: function (c, alfa) { return mosaico(esparcir(CONFETI, 2)(alfa), 17); },
-    },
-    burbujas: {
-      nombre: 'Burbujas', tipo: 'figura',
-      css: function (c, alfa) { return mosaico(esparcir(BURBUJA, 1.3)(alfa), 16); },
-    },
-    corazones: {
-      nombre: 'Corazones', tipo: 'figura',
-      css: function (c, alfa) { return mosaico(esparcir(CORAZON, 1.4)(alfa), 17); },
-    },
-    treboles: {
-      nombre: 'Tréboles', tipo: 'figura',
-      css: function (c, alfa) { return mosaico(esparcir(TREBOL, 1.3)(alfa), 18); },
-    },
-    fiesta: {
-      nombre: 'Fiesta', tipo: 'figura',
-      css: function (c, alfa) {
-        // Estrellas y confeti revueltos, que es como se ven los boletos de
-        // feria de verdad: no un patrón, un puñado de cosas tiradas.
-        return mosaico(esparcir(ESTRELLA, 1.1)(alfa) +
-          '<g transform="translate(50,88) rotate(-12) scale(1.7)" fill="' +
-          COLORES_FIESTA[1] + '" fill-opacity="' + alfa + '">' + CONFETI + '</g>' +
-          '<g transform="translate(90,10) rotate(30) scale(1.6)" fill="' +
-          COLORES_FIESTA[4] + '" fill-opacity="' + alfa + '">' + CONFETI + '</g>', 20);
-      },
-    },
-  };
-
-  /*
-   * Qué tan marcado va el fondo. Las dos clases piden números muy distintos:
-   * una raya al 60 % ensucia el boleto, y una estrella al 7 % no se ve. Por
-   * eso la intensidad se lee por tipo y no como un número suelto.
-   */
-  var INTENSIDADES = {
-    suave:   { linea: 0.07, figura: 0.35 },
-    media:   { linea: 0.14, figura: 0.60 },
-    marcada: { linea: 0.24, figura: 0.90 },
-  };
-
-  /** El color de la trama de línea: el del marco, rebajado. */
-  function conAlfa(hex, alfa) {
-    return 'rgba(' + parseInt(hex.substr(1, 2), 16) + ',' +
-           parseInt(hex.substr(3, 2), 16) + ',' +
-           parseInt(hex.substr(5, 2), 16) + ',' + alfa + ')';
-  }
-
-  /** El fondo completo de un boleto, sea de línea o de figura. */
-  function fondoDe(d) {
-    var trama = TRAMAS[d.trama];
-    var alfa = INTENSIDADES[d.intensidad][trama.tipo];
-    return trama.css(conAlfa(d.borde, alfa), alfa);
-  }
-
   var AVISO_DE_SIEMPRE = 'El boleto se anulará si se encuentra roto, con tachones, ' +
     'borrones o enmendaduras.';
 
@@ -1098,29 +839,18 @@
    * Un diseño guardado, completado con lo que falte.
    *
    * Nulo significa «el de siempre»: por eso las rifas de antes de que esto
-   * existiera siguen imprimiéndose exactamente igual que antes.
+   * existiera siguen imprimiéndose exactamente igual que antes. Ya no hay
+   * temas ni colores que elegir: sin plantilla el boleto sale con el diseño
+   * clásico fijo (ver `estiloBoleto`); con plantilla, sale con la foto y las
+   * medidas que se hayan cargado.
    */
   function disenoCompleto(guardado) {
     var d = guardado && typeof guardado === 'object' ? guardado : {};
-    var base = TEMAS[d.tema] || TEMAS.clasico;
     return {
-      tema: TEMAS[d.tema] ? d.tema : 'clasico',
-      fondo: color(d.fondo) || base.fondo,
-      tinta: color(d.tinta) || base.tinta,
-      acento: color(d.acento) || base.acento,
-      borde: color(d.borde) || base.borde,
-      logo: typeof d.logo === 'string' && d.logo.indexOf('data:image/') === 0 ? d.logo : '',
+      plantilla: plantillaValida(d.plantilla) ? d.plantilla : null,
       aviso: typeof d.aviso === 'string' ? d.aviso : AVISO_DE_SIEMPRE,
       columnas: (d.columnas === 1 || d.columnas === 3) ? d.columnas : 2,
-      trama: TRAMAS[d.trama] ? d.trama : 'ninguna',
-      intensidad: INTENSIDADES[d.intensidad] ? d.intensidad : 'suave',
-      disposicion: PLANTILLAS[d.disposicion] ? d.disposicion : 'clasica',
       caducidad: typeof d.caducidad === 'string' ? d.caducidad : '1 día',
-      // Gira el tono de la FOTO del boleto «Suertudito» —que es verde de
-      // origen—, sin tocar el blanco del papel ni el negro del QR. Solo
-      // tiene efecto en esa disposición; en la clásica no hay foto que girar.
-      tono: Number.isInteger(Number(d.tono)) && Number(d.tono) >= 0 && Number(d.tono) <= 360
-        ? Number(d.tono) : 0,
     };
   }
 
@@ -1129,12 +859,23 @@
     return /^#[0-9a-fA-F]{6}$/.test(String(valor || '')) ? String(valor).toLowerCase() : '';
   }
 
+  /** ¿Trae esto lo mínimo que una plantilla necesita para dibujarse? */
+  function plantillaValida(p) {
+    return !!(p && typeof p === 'object' &&
+      typeof p.foto === 'string' && p.foto.indexOf('data:image/') === 0 &&
+      Number(p.fotoAncho) > 0 && Number(p.fotoAlto) > 0 &&
+      color(p.fondo) && color(p.tinta) && color(p.acento) && color(p.borde) &&
+      p.caja && p.qr && p.precio && p.pie);
+  }
+
   // --- Contraste -----------------------------------------------------
   /*
    * En pantalla un color flojo se ve flojo. En papel, y sobre todo fotocopiado
    * o impreso en una impresora con poca tinta, desaparece. Esto no prohíbe
-   * nada —el gusto es de quien imprime— pero avisa antes de las doscientas
-   * copias, que es cuando ya no tiene remedio.
+   * nada —el gusto es de quien sube la plantilla— pero avisa antes de las
+   * doscientas copias, que es cuando ya no tiene remedio. El boleto clásico
+   * (sin plantilla) ya usa colores fijos y probados: no hace falta avisar
+   * de nada ahí.
    */
   function luminancia(hex) {
     var canales = [1, 3, 5].map(function (i) {
@@ -1151,80 +892,18 @@
 
   /** Qué habría que arreglar antes de imprimir, en palabras. */
   function avisosDeContraste(d) {
+    if (!d.plantilla) { return []; }
+    var p = d.plantilla;
     var avisos = [];
     // 4.5 es el mínimo para texto corrido; los números van grandes y aguantan 3.
-    if (contraste(d.tinta, d.fondo) < 4.5) {
+    if (contraste(p.tinta, p.fondo) < 4.5) {
       avisos.push('la letra chica casi no se distingue del fondo');
     }
-    if (contraste(d.acento, d.fondo) < 3) {
+    if (contraste(p.acento, p.fondo) < 3) {
       avisos.push('los números se pierden contra el fondo');
-    }
-    // El marco de las disposiciones con foto viene impreso en la foto, no
-    // se dibuja con `d.borde`: ahí ese contraste no aplica.
-    if (!PLANTILLAS[d.disposicion] && contraste(d.borde, d.fondo) < 1.6) {
-      avisos.push('el marco del boleto va a quedar invisible, y es la línea por donde se recorta');
     }
     return avisos;
   }
-
-  // ------------------------------------------------------------------
-  // Plantillas con foto real de fondo: «Suertudito» y «Bono Gana Hoy»
-  // ------------------------------------------------------------------
-  /*
-   * La foto real del boleto que trajo el dueño va de fondo, tal cual —todo
-   * lo fijo (marco, título, adornos, aviso) viene impreso en ella, no se
-   * dibuja—. Encima solo se ponen los datos que cambian de boleto a boleto:
-   * los números, el QR, la caducidad, el precio y, al pie, el identificador
-   * y el código. Donde la foto trae una MUESTRA (el QR de ejemplo, «$20»,
-   * fechas de ejemplo) el elemento que va encima lleva su propio fondo
-   * opaco para taparla: nunca debe verse un dato de muestra en un boleto
-   * real.
-   *
-   * Dos plantillas hoy —«Suertudito» y «Bono Gana Hoy»— comparten el mismo
-   * motor de abajo: lo único que cambia entre una y otra es la foto y estas
-   * medidas, todas tomadas midiendo los píxeles de cada imagen, no a ojo.
-   * Si llega una tercera foto algún día, es una entrada más aquí, no una
-   * copia del motor entero.
-   */
-  var PLANTILLAS = {
-    suertudito: {
-      nombre: 'Suertudito',
-      foto: 'assets/boleto-suertudito-colon.png',
-      fotoAncho: 896, fotoAlto: 1200,
-      tema: 'trebol',
-      colorOrigen: 'verde',
-      caja: { primer: 39.25, ultimo: 77.58, alto: 7.1, ancho: 26.3, columna: [6.81, 68.19] },
-      qr: { left: 34, width: 31, top: 50, height: 23 },
-      // Tapa la MUESTRA «Emisión: 30-sep-2026 / Caducidad: 1 día» —dos
-      // renglones, de canto— que trae la foto. Va centrada (`display: flex`)
-      // porque ahora solo se imprime un renglón y el hueco sigue siendo el
-      // de los dos.
-      fechas: { left: 4.5, width: 12, top: 46.5, height: 30.5, vertical: true, fuente: 1.5 },
-      precio: { left: 33.5, width: 28.5, top: 75, height: 9 },
-      pie: { left: 13, right: 6, top: 93.6, height: 2.4 },
-    },
-    bono: {
-      nombre: 'Bono Gana Hoy',
-      foto: 'assets/boleto-bono-gana-hoy.png',
-      fotoAncho: 900, fotoAlto: 1228,
-      tema: 'bono',
-      colorOrigen: 'rojo',
-      caja: { primer: 37.27, ultimo: 76.29, alto: 7.24, ancho: 26.43, columna: [7.43, 69.03] },
-      // El logo de muestra (herradura y bolsa de dinero), de 25 % a 49.57 %,
-      // es parte del diseño y se queda VISIBLE: el QR va en el hueco vacío
-      // de abajo, no encima. (Antes el QR se ponía ahí mismo y se lo tapaba
-      // entero —el dueño lo notó viendo el boleto ya impreso—.)
-      qr: { left: 36.5, width: 28.6, top: 51.3, height: 21 },
-      // Esta foto no trae ninguna fecha de muestra que tapar y, con el QR
-      // ahora en su mismo hueco, ya no le queda un renglón propio: por eso
-      // no hay `fechas` aquí —a diferencia de «Suertudito»— y la caducidad
-      // siempre sale en el pie, como la de un boleto apretado. Ver el `||`
-      // en `boletoPlantillaHtml`.
-      // Tapa el «$20» de muestra, que en esta foto es café, no verde.
-      precio: { left: 34, width: 28, top: 74, height: 8.5 },
-      pie: { left: 8, right: 8, top: 93, height: 2.3 },
-    },
-  };
 
   /**
    * El lugar de cada número, para un boleto de `cuantos` folios.
@@ -1267,9 +946,10 @@
    * uno, dos o tres por renglón y el boleto conserva su forma en los tres
    * casos, en vez de estirarse.
    */
-  function estiloPlantilla(plantilla, d, p) {
-    // Suertudito trae `fechas` —cubre una muestra de la foto—; Bono no: su
-    // hueco lo ocupa el QR y la caducidad siempre va al pie (ver más abajo).
+  function estiloPlantilla(plantilla, p) {
+    // Algunas plantillas traen `fechas` —cubre una muestra de la foto—;
+    // otras no: su hueco lo ocupa el QR y la caducidad siempre va al pie
+    // (ver más abajo, en `boletoPlantillaHtml`).
     var f = plantilla.fechas;
     return (
       // Todo el boleto se mide en `--u`, que vale un milímetro del boleto
@@ -1284,26 +964,20 @@
       // El milímetro va primero: un navegador viejo que no entienda
       // `@container` se queda con él y el papel sale igual que siempre.
       p + '.boleto { position: relative; box-sizing: border-box;' +
-      ' container-type: inline-size; --u: 1mm; background-color: ' + d.fondo + ';' +
-      ' color: ' + d.tinta + '; overflow: hidden; break-inside: avoid; }' +
-      // La foto vive en el `::before`, no en `.boleto` directo, para poder
-      // girarle el tono (`filter: hue-rotate`) SIN arrastrar con ella a los
-      // recuadros de número ni al texto de encima: un `filter` en un
-      // elemento gira también a sus hijos, y esos ya tienen su propio
-      // color configurable aparte, en «Tus colores». El relleno de arriba es
-      // el de la FOTO de esta plantilla, no un valor inventado: si la foto
-      // cambiara de tamaño algún día, este número hay que volverlo a medir
-      // junto con todo lo demás de aquí abajo. El truco del `padding-top` —
-      // en vez de `aspect-ratio`— hace falta porque varios navegadores,
-      // Chromium entre ellos, no le dan una altura «definida» a un elemento
-      // que solo trae `aspect-ratio`: los hijos con `height` en porcentaje
-      // se quedan en 0 aunque el boleto se vea perfecto. El `padding-top` sí
-      // cuenta, porque se calcula contra el ANCHO, que nunca tiene ese lío.
+      ' container-type: inline-size; --u: 1mm; background-color: ' + plantilla.fondo + ';' +
+      ' color: ' + plantilla.tinta + '; overflow: hidden; break-inside: avoid; }' +
+      // El relleno de abajo es el de la FOTO de esta plantilla, no un valor
+      // inventado: viene de `fotoAncho`/`fotoAlto`, medidos junto con todo lo
+      // demás de aquí abajo. El truco del `padding-top` —en vez de
+      // `aspect-ratio`— hace falta porque varios navegadores, Chromium entre
+      // ellos, no le dan una altura «definida» a un elemento que solo trae
+      // `aspect-ratio`: los hijos con `height` en porcentaje se quedan en 0
+      // aunque el boleto se vea perfecto. El `padding-top` sí cuenta, porque
+      // se calcula contra el ANCHO, que nunca tiene ese lío.
       p + '.boleto::before { content: ""; display: block;' +
       ' padding-top: ' + (plantilla.fotoAlto / plantilla.fotoAncho * 100).toFixed(4) + '%;' +
-      ' background-image: url(\'' + baseDelSitio() + plantilla.foto + '\');' +
-      ' background-size: 100% 100%; background-repeat: no-repeat;' +
-      (d.tono ? ' filter: hue-rotate(' + d.tono + 'deg);' : '') + ' }' +
+      ' background-image: url(\'' + plantilla.foto + '\');' +
+      ' background-size: 100% 100%; background-repeat: no-repeat; }' +
       p + '.boleto > * { --u: 1mm; }' +
       '@container (min-width: 1px) { ' + p + '.boleto > * { --u: 1.6667cqw; } }' +
       // `border-box`: el recuadro vacío que trae la foto ya incluye su
@@ -1320,11 +994,11 @@
       // es lo que de verdad arregla el tamaño del recuadro.
       p + '.caja { position: absolute; box-sizing: border-box; padding: 0;' +
       ' width: ' + plantilla.caja.ancho + '%; height: ' + plantilla.caja.alto + '%;' +
-      ' border: calc(var(--u) * 0.26) solid ' + d.borde + ';' +
+      ' border: calc(var(--u) * 0.26) solid ' + plantilla.borde + ';' +
       ' border-radius: calc(var(--u) * 0.85); display: flex;' +
-      ' align-items: center; justify-content: center; background: ' + d.fondo + ';' +
+      ' align-items: center; justify-content: center; background: ' + plantilla.fondo + ';' +
       ' font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700;' +
-      ' font-size: calc(var(--u) * 4.4); color: ' + d.acento + '; }' +
+      ' font-size: calc(var(--u) * 4.4); color: ' + plantilla.acento + '; }' +
       // El QR, siempre sobre blanco y con su margen: no se negocia ni aquí.
       // Tapa lo que haya de muestra en ese lugar de la foto —QR o logo—, por
       // eso es opaco y no un poco más grande que la malla real: tiene que
@@ -1337,18 +1011,18 @@
       (f
         ? p + '.fechas { position: absolute; left: ' + f.left + '%; width: ' + f.width + '%;' +
           ' top: ' + f.top + '%; height: ' + f.height + '%;' +
-          ' box-sizing: border-box; background: ' + d.fondo + '; display: flex;' +
+          ' box-sizing: border-box; background: ' + plantilla.fondo + '; display: flex;' +
           ' align-items: center; justify-content: center; text-align: center;' +
           (f.vertical ? ' writing-mode: vertical-rl;' : '') +
           ' font-size: calc(var(--u) * ' + f.fuente + '); font-weight: 700;' +
-          ' line-height: 1.3; white-space: nowrap; color: ' + d.tinta + '; }'
+          ' line-height: 1.3; white-space: nowrap; color: ' + plantilla.tinta + '; }'
         : '') +
       p + '.precio { position: absolute; left: ' + plantilla.precio.left + '%; width: ' + plantilla.precio.width + '%;' +
       ' top: ' + plantilla.precio.top + '%; height: ' + plantilla.precio.height + '%;' +
-      ' box-sizing: border-box; background: ' + d.fondo + ';' +
+      ' box-sizing: border-box; background: ' + plantilla.fondo + ';' +
       ' display: flex; align-items: center; justify-content: center;' +
       ' font-size: calc(var(--u) * 5.25); font-weight: 800; font-style: italic;' +
-      ' color: ' + d.acento + '; text-shadow: calc(var(--u) * 0.35) calc(var(--u) * 0.4)' +
+      ' color: ' + plantilla.acento + '; text-shadow: calc(var(--u) * 0.35) calc(var(--u) * 0.4)' +
       ' calc(var(--u) * 0.45) rgba(0, 0, 0, 0.45); }' +
       // El identificador y el código, impresos. El día del sorteo hay que
       // cotejar el código del panel contra el talón que trae el ganador, y un
@@ -1371,7 +1045,7 @@
       ' margin: 0; padding-top: 0; border-top: none;' +
       ' display: flex; align-items: center; justify-content: space-between;' +
       ' gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.6); line-height: 1;' +
-      ' color: ' + d.tinta + '; opacity: 0.85; }' +
+      ' color: ' + plantilla.tinta + '; opacity: 0.85; }' +
       p + '.pie span { font-family: ui-monospace, Menlo, Consolas, monospace;' +
       ' white-space: nowrap; }' +
       p + '.serial { letter-spacing: 0.04em; }' +
@@ -1421,16 +1095,17 @@
    * `sufijo` permite encerrarlo bajo un selector en la vista previa, para que
    * los colores del boleto no se desparramen por el panel.
    */
+  // El boleto clásico (sin plantilla) usa siempre estos cuatro colores: ya
+  // no hay temas que elegir, y son los que ya se venían usando por omisión.
+  var CLASICO = { fondo: '#ffffff', tinta: '#111111', acento: '#c2185b', borde: '#333333' };
+
   function estiloBoleto(d, prefijo) {
     var p = prefijo || '';
-    if (PLANTILLAS[d.disposicion]) { return estiloPlantilla(PLANTILLAS[d.disposicion], d, p); }
+    if (d.plantilla) { return estiloPlantilla(d.plantilla, p); }
     return (
-      // El color va por separado de la imagen: `background` a secas borraría
-      // la trama que viene justo después.
-      p + '.boleto { background-color: ' + d.fondo + '; color: ' + d.tinta + ';' +
-      ' border: 1px solid ' + d.borde + '; border-radius: 2mm; padding: 3mm 4mm;' +
-      ' break-inside: avoid; ' + fondoDe(d) + ' }' +
-      p + '.logo { display: block; max-height: 9mm; max-width: 60%; margin: 0 auto 1mm; }' +
+      p + '.boleto { background-color: ' + CLASICO.fondo + '; color: ' + CLASICO.tinta + ';' +
+      ' border: 1px solid ' + CLASICO.borde + '; border-radius: 2mm; padding: 3mm 4mm;' +
+      ' break-inside: avoid; }' +
       p + '.marca { font-size: 13pt; font-weight: 700; text-transform: uppercase;' +
       ' letter-spacing: 0.04em; text-align: center; margin: 0 0 1mm; }' +
       p + '.aviso { font-size: 5.5pt; opacity: 0.75; text-align: center; margin: 0 0 2mm;' +
@@ -1440,11 +1115,9 @@
       // y con uno o dos la caja no se deforma.
       p + '.numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));' +
       ' gap: 1.5mm; flex: 1 1 auto; }' +
-      // Con fondo propio: los números son lo único que de verdad hay que poder
-      // leer de lejos, y una trama por debajo se los come.
       p + '.num { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14pt;' +
-      ' font-weight: 700; color: ' + d.acento + '; background: ' + d.fondo + ';' +
-      ' border: 0.4mm solid ' + d.borde + ';' +
+      ' font-weight: 700; color: ' + CLASICO.acento + '; background: ' + CLASICO.fondo + ';' +
+      ' border: 0.4mm solid ' + CLASICO.borde + ';' +
       ' border-radius: 1mm; padding: 0.8mm 1mm; text-align: center; letter-spacing: 0.03em; }' +
       // El QR SIEMPRE sobre blanco y con su margen. No es negociable ni con el
       // tema más oscuro: un QR sin contraste no lo lee ningún teléfono, y de
@@ -1469,15 +1142,14 @@
    * para que el que llama no tenga que saber cuál disposición es cuál.
    */
   function boletoHtml(rifa, boleto, url, precio, d) {
-    if (PLANTILLAS[d.disposicion]) {
-      return boletoPlantillaHtml(PLANTILLAS[d.disposicion], rifa, boleto, url, precio, d);
+    if (d.plantilla) {
+      return boletoPlantillaHtml(d.plantilla, rifa, boleto, url, precio, d);
     }
     var nombre = rifa.nombre;
     var numeros = (boleto.folios || []).map(function (f) {
       return '<span class="num">' + escapar(f) + '</span>';
     }).join('');
     return '<article class="boleto">' +
-      (d.logo ? '<img class="logo" src="' + escapar(d.logo) + '" alt="" />' : '') +
       '<p class="marca">' + escapar(nombre) + '</p>' +
       (d.aviso ? '<p class="aviso">' + escapar(d.aviso) + '</p>' : '') +
       '<div class="medio">' +
@@ -1638,236 +1310,144 @@
     refrescarVista();
   }
 
-  function pintarTemas() {
-    var caja = $('temas');
-    caja.textContent = '';
-    Object.keys(TEMAS).forEach(function (llave) {
-      var t = TEMAS[llave];
-      var boton = document.createElement('button');
-      boton.type = 'button';
-      boton.className = 'tema' + (llave === disenoEnEdicion.tema ? ' elegido' : '');
-      boton.dataset.tema = llave;
-
-      var muestra = document.createElement('span');
-      muestra.className = 'muestra';
-      muestra.style.background = t.fondo;
-      [t.tinta, t.acento, t.borde].forEach(function (c) {
-        var punto = document.createElement('span');
-        punto.className = 'punto';
-        punto.style.background = c;
-        muestra.appendChild(punto);
-      });
-
-      var nombre = document.createElement('span');
-      nombre.className = 'nombre';
-      nombre.textContent = t.nombre;
-
-      boton.appendChild(muestra);
-      boton.appendChild(nombre);
-      boton.addEventListener('click', function () { elegirTema(llave); });
-      caja.appendChild(boton);
-    });
-  }
-
-  var DISPOSICIONES = {
-    clasica: { nombre: 'Clásica', razon: '16 / 9' },
-    suertudito: { nombre: 'Suertudito', razon: '60 / 84.7' },
-    bono: { nombre: 'Bono Gana Hoy', razon: '900 / 1228' },
-  };
-
-  function pintarDisposiciones() {
-    var caja = $('disposiciones');
-    caja.textContent = '';
-    var d = disenoCompleto(disenoEnEdicion);
-    Object.keys(DISPOSICIONES).forEach(function (llave) {
-      var info = DISPOSICIONES[llave];
-      var boton = document.createElement('button');
-      boton.type = 'button';
-      boton.className = 'tema' + (llave === d.disposicion ? ' elegido' : '');
-      boton.dataset.disposicion = llave;
-
-      // La muestra enseña la FORMA, que es lo que de verdad cambia.
-      var muestra = document.createElement('span');
-      muestra.className = 'muestra';
-      var papel = document.createElement('span');
-      papel.style.cssText = 'aspect-ratio:' + info.razon + ';height:28px;border:1.5px solid ' +
-        d.borde + ';border-radius:2px;background:' + d.fondo;
-      muestra.appendChild(papel);
-
-      var nombre = document.createElement('span');
-      nombre.className = 'nombre';
-      nombre.textContent = info.nombre;
-
-      boton.appendChild(muestra);
-      boton.appendChild(nombre);
-      boton.addEventListener('click', function () { elegirDisposicion(llave); });
-      caja.appendChild(boton);
-    });
-  }
-
   /**
-   * Los atajos del tono, recalculados cada vez: los grados que hacen falta
-   * para llegar a cada color cambian según de qué color sale la foto de la
-   * disposición puesta (ver `gradosParaLlegar`), así que no se pueden dejar
-   * fijos en el HTML como los demás botones de esta pestaña.
+   * La plantilla se arma con DOS archivos, en cualquier orden: la foto del
+   * boleto y el JSON de medidas que salió de `medir_plantilla.py` corrido
+   * por fuera. Mientras falte uno de los dos, el otro se queda a la espera
+   * —no hay plantilla a medias—.
    */
-  function pintarAtajosTono() {
-    var caja = $('atajosTono');
-    caja.textContent = '';
-    var plantilla = PLANTILLAS[disenoEnEdicion.disposicion];
-    if (!plantilla) { return; }
-    var tema = TEMAS[plantilla.tema];
-    $('notaTono').textContent = 'La foto de «' + plantilla.nombre + '» es ' + plantilla.colorOrigen +
-      ' de origen —así la trajo el cliente—. Esto no la recolorea de verdad, gira su tono entero ' +
-      'hacia otro color: el blanco del papel y el negro del QR se quedan igual.';
-    ATAJOS_TONO.forEach(function (atajo) {
-      var grados = gradosParaLlegar(tema, atajo.objetivo);
-      var boton = document.createElement('button');
-      boton.type = 'button';
-      boton.textContent = atajo.nombre;
-      boton.addEventListener('click', function () {
-        $('dsTono').value = String(grados);
-        // Gira también los recuadros y el texto, para que no quede la foto
-        // de un color y los números de otro: ver `paletaDelTono`.
-        var paleta = paletaDelTono(tema, grados);
-        $('dsFondo').value = paleta.fondo;
-        $('dsTinta').value = paleta.tinta;
-        $('dsAcento').value = paleta.acento;
-        $('dsBorde').value = paleta.borde;
-        leerControles();
-      });
-      caja.appendChild(boton);
+  var plantillaFotoCargada = null;   // { foto, fotoAncho, fotoAlto }
+  var plantillaJsonCargado = null;   // { fondo, tinta, acento, borde, caja, qr, fechas?, precio, pie }
+
+  var PLANTILLA_MAX_ANCHO = 1400;
+  var PLANTILLA_MAX_BYTES = 1.4 * 1024 * 1024;
+
+  /** Achica la foto de la plantilla y regresa su tamaño real, ya achicado. */
+  function prepararFotoPlantilla(archivo) {
+    return new Promise(function (resolver, rechazar) {
+      var lector = new FileReader();
+      lector.onerror = function () { rechazar(new Error('No se pudo leer esa imagen.')); };
+      lector.onload = function () {
+        var img = new Image();
+        img.onerror = function () { rechazar(new Error('Eso no parece una imagen.')); };
+        img.onload = function () {
+          var ancho = Math.min(PLANTILLA_MAX_ANCHO, img.width);
+          for (var intento = 0; intento < 5; intento++) {
+            var lienzo = document.createElement('canvas');
+            lienzo.width = Math.round(ancho);
+            lienzo.height = Math.round(img.height * (ancho / img.width));
+            lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+            var dataUrl = lienzo.toDataURL('image/jpeg', 0.88);
+            if (dataUrl.length * 0.75 <= PLANTILLA_MAX_BYTES) {
+              return resolver({ foto: dataUrl, fotoAncho: lienzo.width, fotoAlto: lienzo.height });
+            }
+            ancho = ancho * 0.75;
+          }
+          rechazar(new Error('Esa foto no se pudo achicar lo suficiente. Prueba con una más chica.'));
+        };
+        img.src = lector.result;
+      };
+      lector.readAsDataURL(archivo);
     });
   }
 
-  /**
-   * Cambiar de disposición ajusta los boletos por renglón Y los colores.
-   *
-   * Un boleto vertical a dos por renglón sale de 90 mm de ancho y 126 de
-   * alto: enorme. Tres es el tamaño del original.
-   *
-   * Y con los colores pasa lo mismo que con el tamaño: la disposición no es
-   * una forma, es el boleto del cliente entero, y ese boleto es verde sobre
-   * papel verde pálido. Elegirla en blanco y negro no se parecía al original
-   * y había que acertarle a mano a cuatro colores. Las dos cosas son
-   * sugerencia, no candado: se cambian enseguida desde los controles.
-   */
-  function elegirDisposicion(llave) {
-    disenoEnEdicion.disposicion = llave;
-    var plantilla = PLANTILLAS[llave];
-    disenoEnEdicion.columnas = plantilla ? 3 : 2;
-    var tema = plantilla ? plantilla.tema : 'clasico';
-    disenoEnEdicion.tema = tema;
-    disenoEnEdicion.fondo = TEMAS[tema].fondo;
-    disenoEnEdicion.tinta = TEMAS[tema].tinta;
-    disenoEnEdicion.acento = TEMAS[tema].acento;
-    disenoEnEdicion.borde = TEMAS[tema].borde;
-    // El tono es de la FOTO de esta plantilla: el de la plantilla anterior
-    // no significa nada aquí, y dejarlo puesto giraría la foto nueva sin
-    // que los colores recién asignados —sin girar— combinaran con ella.
-    disenoEnEdicion.tono = 0;
-    escribirControles(disenoEnEdicion);
+  /** Lee y comprueba el JSON de medidas: solo la FORMA, el servidor manda igual. */
+  function leerJsonMedidas(archivo) {
+    return new Promise(function (resolver, rechazar) {
+      var lector = new FileReader();
+      lector.onerror = function () { rechazar(new Error('No se pudo leer ese archivo.')); };
+      lector.onload = function () {
+        var datos;
+        try { datos = JSON.parse(lector.result); }
+        catch (e) { return rechazar(new Error('Ese archivo no es un JSON válido.')); }
+        var FALTA = ['caja', 'qr', 'precio', 'pie', 'fondo', 'tinta', 'acento', 'borde'];
+        var falta = FALTA.filter(function (campo) { return !(campo in datos); });
+        if (falta.length) {
+          return rechazar(new Error('Al archivo de medidas le falta: ' + falta.join(', ') + '.'));
+        }
+        resolver(datos);
+      };
+      lector.readAsText(archivo);
+    });
+  }
+
+  /** Cuando ya se tienen los dos archivos, se arma la plantilla completa. */
+  function intentarArmarPlantilla() {
+    if (!plantillaFotoCargada || !plantillaJsonCargado) { return; }
+    disenoEnEdicion.plantilla = Object.assign({}, plantillaJsonCargado, plantillaFotoCargada);
+    mensaje('Plantilla cargada. Revisa la vista previa antes de guardar.', 'ok', 'mensajeDiseno');
+    pintarEstadoPlantilla();
     refrescarVista();
   }
 
-  function pintarTramas() {
-    var caja = $('tramas');
-    caja.textContent = '';
-    var d = disenoCompleto(disenoEnEdicion);
-    Object.keys(TRAMAS).forEach(function (llave) {
-      var boton = document.createElement('button');
-      boton.type = 'button';
-      boton.className = 'tema' + (llave === d.trama ? ' elegido' : '');
-      boton.dataset.trama = llave;
+  $('dsPlantillaFoto').addEventListener('change', function () {
+    var archivo = this.files && this.files[0];
+    if (!archivo) { return; }
+    mensaje('Preparando la foto…', '', 'mensajeDiseno');
+    prepararFotoPlantilla(archivo)
+      .then(function (resultado) {
+        plantillaFotoCargada = resultado;
+        mensaje('', '', 'mensajeDiseno');
+        intentarArmarPlantilla();
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
+  });
 
-      // La muestra se pinta con los colores que el boleto tiene ahora mismo,
-      // no con unos de catálogo: así se elige viendo cómo va a quedar.
-      var muestra = document.createElement('span');
-      muestra.className = 'muestra';
-      // Cada muestra se pinta con SU trama pero con los colores que el boleto
-      // tiene ahora: se elige viendo cómo va a quedar, no un catálogo.
-      muestra.style.cssText = 'background-color:' + d.fondo + ';' +
-        fondoDe({ trama: llave, intensidad: d.intensidad, borde: d.borde });
+  $('dsPlantillaJson').addEventListener('change', function () {
+    var archivo = this.files && this.files[0];
+    if (!archivo) { return; }
+    leerJsonMedidas(archivo)
+      .then(function (datos) {
+        plantillaJsonCargado = datos;
+        intentarArmarPlantilla();
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
+  });
 
-      var nombre = document.createElement('span');
-      nombre.className = 'nombre';
-      nombre.textContent = TRAMAS[llave].nombre;
-
-      boton.appendChild(muestra);
-      boton.appendChild(nombre);
-      boton.addEventListener('click', function () {
-        disenoEnEdicion.trama = llave;
-        escribirControles(disenoEnEdicion);
-        refrescarVista();
-      });
-      caja.appendChild(boton);
-    });
-    // Sin trama no hay nada que graduar.
-    $('campoIntensidad').hidden = d.trama === 'ninguna';
-  }
-
-  /** Elegir un tema reemplaza los cuatro colores: es el punto de un tema. */
-  function elegirTema(llave) {
-    var t = TEMAS[llave];
-    disenoEnEdicion.tema = llave;
-    disenoEnEdicion.fondo = t.fondo;
-    disenoEnEdicion.tinta = t.tinta;
-    disenoEnEdicion.acento = t.acento;
-    disenoEnEdicion.borde = t.borde;
-    escribirControles(disenoEnEdicion);
+  $('btnQuitarPlantilla').addEventListener('click', function () {
+    disenoEnEdicion.plantilla = null;
+    plantillaFotoCargada = null;
+    plantillaJsonCargado = null;
+    $('dsPlantillaFoto').value = '';
+    $('dsPlantillaJson').value = '';
+    pintarEstadoPlantilla();
     refrescarVista();
+  });
+
+  function pintarEstadoPlantilla() {
+    var p = disenoEnEdicion.plantilla;
+    $('plantillaEstado').textContent = p
+      ? 'Plantilla cargada: foto de ' + p.fotoAncho + '×' + p.fotoAlto + ' px.'
+      : 'Todavía no hay ninguna plantilla cargada: el boleto sale con el diseño clásico de siempre.';
+    $('btnQuitarPlantilla').hidden = !p;
+    // La caducidad solo tiene dónde imprimirse cuando hay una foto de fondo:
+    // el boleto clásico no trae ese hueco.
+    $('campoCaducidad').hidden = !p;
   }
 
   function escribirControles(d) {
-    $('dsFondo').value = d.fondo;
-    $('dsTinta').value = d.tinta;
-    $('dsAcento').value = d.acento;
-    $('dsBorde').value = d.borde;
     $('dsAviso').value = d.aviso;
     $('dsColumnas').value = String(d.columnas);
-    $('dsIntensidad').value = d.intensidad;
     $('dsCaducidad').value = d.caducidad;
-    $('dsTono').value = String(d.tono);
-    // La caducidad y el tono de la foto solo existen en las disposiciones
-    // CON foto: en la clásica no hay fecha que mostrar ahí ni foto que
-    // girar, y un control que no hace nada confunde.
-    $('campoCaducidad').hidden = !PLANTILLAS[d.disposicion];
-    $('campoTono').hidden = !PLANTILLAS[d.disposicion];
-    // El logo, al revés: en las disposiciones con foto el sello ya viene
-    // impreso en la imagen, así que no hay dónde poner uno propio —subirlo
-    // no haría nada, y un control que no hace nada confunde igual—.
-    $('campoLogo').hidden = !!PLANTILLAS[d.disposicion];
-    $('btnQuitarLogo').hidden = !d.logo;
-    pintarDisposiciones();
-    pintarTemas();
-    pintarTramas();
-    pintarAtajosTono();
+    // Un diseño recién leído empieza sin archivos a medio cargar: si ya
+    // trae plantilla, está completa de una pieza, no hay nada que esperar.
+    plantillaFotoCargada = null;
+    plantillaJsonCargado = null;
+    $('dsPlantillaFoto').value = '';
+    $('dsPlantillaJson').value = '';
+    pintarEstadoPlantilla();
   }
 
   function leerControles() {
-    disenoEnEdicion.fondo = $('dsFondo').value;
-    disenoEnEdicion.tinta = $('dsTinta').value;
-    disenoEnEdicion.acento = $('dsAcento').value;
-    disenoEnEdicion.borde = $('dsBorde').value;
     disenoEnEdicion.aviso = $('dsAviso').value;
     disenoEnEdicion.columnas = Number($('dsColumnas').value);
-    disenoEnEdicion.intensidad = $('dsIntensidad').value;
     disenoEnEdicion.caducidad = $('dsCaducidad').value;
-    disenoEnEdicion.tono = Number($('dsTono').value);
-    // Las muestras de trama llevan los colores de ahora: al moverlos, se
-    // vuelven a pintar o enseñarían unos que ya no son.
-    pintarTramas();
     refrescarVista();
   }
 
-  ['dsFondo', 'dsTinta', 'dsAcento', 'dsBorde'].forEach(function (id) {
-    $(id).addEventListener('input', leerControles);
-  });
   $('dsAviso').addEventListener('input', leerControles);
   $('dsColumnas').addEventListener('change', leerControles);
-  $('dsIntensidad').addEventListener('change', leerControles);
   $('dsCaducidad').addEventListener('input', leerControles);
-  $('dsTono').addEventListener('input', leerControles);
 
   /**
    * La vista previa. Dibuja UN boleto con el mismo código que la hoja de
@@ -1939,69 +1519,6 @@
     }
   }
 
-  // --- El logo -------------------------------------------------------
-  /*
-   * La imagen se achica en el navegador antes de mandarla. Un logo sacado de
-   * la galería del celular pesa megabytes y va a parar a un renglón de la base
-   * que después viaja completo en cada consulta de boletos. Impreso a nueve
-   * milímetros de alto, 400 píxeles de ancho sobran.
-   */
-  var LOGO_MAX_ANCHO = 400;
-  var LOGO_MAX_BYTES = 120 * 1024;
-
-  $('dsLogo').addEventListener('change', function () {
-    var archivo = this.files && this.files[0];
-    if (!archivo) { return; }
-    mensaje('Preparando el logo…', '', 'mensajeDiseno');
-    achicarImagen(archivo)
-      .then(function (dataUrl) {
-        disenoEnEdicion.logo = dataUrl;
-        $('btnQuitarLogo').hidden = false;
-        mensaje('', '', 'mensajeDiseno');
-        refrescarVista();
-      })
-      .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
-  });
-
-  $('btnQuitarLogo').addEventListener('click', function () {
-    disenoEnEdicion.logo = '';
-    $('dsLogo').value = '';
-    this.hidden = true;
-    refrescarVista();
-  });
-
-  function achicarImagen(archivo) {
-    return new Promise(function (resolver, rechazar) {
-      var lector = new FileReader();
-      lector.onerror = function () { rechazar(new Error('No se pudo leer esa imagen.')); };
-      lector.onload = function () {
-        var img = new Image();
-        img.onerror = function () { rechazar(new Error('Eso no parece una imagen.')); };
-        img.onload = function () {
-          // PNG conserva el fondo transparente, que es lo que un logo necesita
-          // para no salir con un rectángulo blanco encima del boleto.
-          var conAlfa = /png|webp/i.test(archivo.type);
-          var ancho = Math.min(LOGO_MAX_ANCHO, img.width);
-          for (var intento = 0; intento < 5; intento++) {
-            var lienzo = document.createElement('canvas');
-            lienzo.width = Math.round(ancho);
-            lienzo.height = Math.round(img.height * (ancho / img.width));
-            lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
-            var dataUrl = conAlfa
-              ? lienzo.toDataURL('image/png')
-              : lienzo.toDataURL('image/jpeg', 0.85);
-            if (dataUrl.length * 0.75 <= LOGO_MAX_BYTES) { return resolver(dataUrl); }
-            ancho = ancho * 0.7;
-          }
-          rechazar(new Error('Esa imagen no se pudo achicar lo suficiente. ' +
-                             'Prueba con una más sencilla o con menos colores.'));
-        };
-        img.src = lector.result;
-      };
-      lector.readAsDataURL(archivo);
-    });
-  }
-
   // --- Guardar -------------------------------------------------------
   $('btnGuardarDiseno').addEventListener('click', function () {
     var d = disenoCompleto(disenoEnEdicion);
@@ -2042,7 +1559,7 @@
   });
 
   $('btnDisenoDeSiempre').addEventListener('click', function () {
-    confirmarDiseno('Vuelve al tema clásico, sin trama y sin logo. ¿Seguro?');
+    confirmarDiseno('Vuelve al boleto clásico, sin la plantilla cargada. ¿Seguro?');
   });
 
   var pendienteDiseno = null;
@@ -2059,7 +1576,6 @@
           var r = rifaConocida(rifaActual);
           if (r) { r.diseno = null; } else { disenoPorOmision = null; }
           disenoEnEdicion = disenoCompleto(null);
-          $('dsLogo').value = '';
           escribirControles(disenoEnEdicion);
           refrescarVista();
           mensaje('Volvió al diseño de siempre.', 'ok', 'mensajeDiseno');
