@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=39" />
-  <link rel="stylesheet" href="assets/panel.css?v=39" />
+  <link rel="stylesheet" href="assets/estilos.css?v=40" />
+  <link rel="stylesheet" href="assets/panel.css?v=40" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -304,23 +304,70 @@
       <h3 class="subtitulo-menor">Plantilla</h3>
       <p class="nota">
         Sin plantilla, el boleto sale con el diseño clásico de siempre. Para
-        usar la foto de un boleto físico real, mídela primero por fuera con
-        <code>herramientas/medir_plantilla.py</code> y sube aquí los dos
-        archivos que salen de ahí: la foto y el JSON de medidas. El panel solo
-        coloca encima los números, el QR, la caducidad, el precio y el código
-        en el lugar exacto que ese archivo diga —nada se adivina ni se ajusta
-        a ojo dentro del panel—.
+        usar la foto de un boleto físico real, sube aquí la foto y luego
+        márcala directamente en esta página — sin instalar nada ni tocar el
+        repositorio. El panel coloca encima los números, el QR, la caducidad,
+        el precio y el código en el lugar exacto que se haya marcado —nada se
+        adivina ni se ajusta a ojo dentro del panel—.
       </p>
       <div class="fila-archivo">
         <label class="campo">
           <span>Foto del boleto</span>
           <input type="file" id="dsPlantillaFoto" accept="image/png,image/jpeg,image/webp" />
         </label>
+      </div>
+      <button class="boton primario" id="btnIniciarMedidor" hidden>
+        Medir esta foto aquí mismo
+      </button>
+
+      <div id="medidorPlantilla" class="medidor-plantilla" hidden>
+        <div class="medidor-paso">
+          <strong id="medidorTitulo"></strong>
+          <p class="nota" id="medidorAyuda"></p>
+        </div>
+        <div class="medidor-lienzo-envoltura" id="medidorEnvoltura">
+          <canvas id="medidorLienzo"></canvas>
+        </div>
+        <div class="medidor-zoom">
+          <span>Acercar</span>
+          <input type="range" id="medidorZoom" min="1" max="4" step="0.1" value="1.6" />
+        </div>
+        <div id="medidorExtra" class="medidor-extra" hidden>
+          <label class="campo chico">
+            <input type="checkbox" id="medidorVertical" />
+            <span>El texto de esa franja va de lado (vertical)</span>
+          </label>
+          <label class="campo chico">
+            <span>Tamaño de letra ahí (si se ve muy grande o chico en la vista previa, ajusta y vuelve a medir este paso)</span>
+            <input type="number" id="medidorFuente" value="1.5" min="0.5" max="4" step="0.1" />
+          </label>
+        </div>
+        <div class="medidor-colores" id="medidorColorVisto" hidden>
+          <span>Color tomado:</span>
+          <span class="medidor-muestra" id="medidorMuestraColor"></span>
+          <code id="medidorHexColor"></code>
+        </div>
+        <div class="medidor-controles">
+          <button class="boton fantasma chico" id="btnMedidorSaltar" hidden>Este boleto no lleva eso: saltar paso</button>
+          <button class="boton fantasma chico" id="btnMedidorDeshacer">Deshacer el último punto</button>
+          <button class="boton fantasma chico" id="btnMedidorCancelar">Cancelar el medidor</button>
+        </div>
+        <p class="mensaje" id="mensajeMedidor" role="status" aria-live="polite"></p>
+      </div>
+
+      <details class="medidor-avanzado">
+        <summary>Avanzado: ya tengo un archivo de medidas (JSON)</summary>
+        <p class="nota">
+          Para quien prefiera medir por fuera con
+          <code>herramientas/medir_plantilla.py</code> del repositorio, o
+          reutilizar el archivo de una plantilla ya medida antes.
+        </p>
         <label class="campo">
           <span>Medidas (JSON)</span>
           <input type="file" id="dsPlantillaJson" accept="application/json,.json" />
         </label>
-      </div>
+      </details>
+
       <p class="nota" id="plantillaEstado"></p>
       <p class="aviso-contraste" id="avisoContraste" hidden></p>
       <button class="boton fantasma chico" id="btnQuitarPlantilla" hidden>Quitar la plantilla</button>
@@ -555,22 +602,23 @@
           <li>
             <span class="icono-paso icono-foto" aria-hidden="true"></span>
             <div>
-              <strong>Mide la foto por fuera, una sola vez por plantilla.</strong>
-              <p class="nota">Con <code>herramientas/medir_plantilla.py</code> del
-                repositorio se obtienen dos archivos: la foto ya lista y un JSON
-                con las coordenadas exactas de cada número, el QR, el precio y el
-                pie — pide ayuda si nunca lo has hecho, es trabajo de quien toca
-                el código, no del día a día del panel.</p>
+              <strong>En «Diseño» → «Plantilla», sube la foto del boleto.</strong>
+              <p class="nota">En cuanto subas la foto aparece el botón «Medir esta foto aquí mismo» — no hace falta instalar nada ni tocar
+                el repositorio.</p>
             </div>
           </li>
           <li>
             <span class="icono-paso icono-tocar" aria-hidden="true"></span>
             <div>
-              <strong>En «Diseño» → «Plantilla», sube los dos archivos.</strong>
-              <p class="nota">«Foto del boleto» y «Medidas (JSON)» — el orden no
-                importa, pero hacen falta los DOS: mientras falte uno, el panel
-                sigue diciendo «Todavía no hay ninguna plantilla cargada».
-                En cuanto estén los dos, el estado cambia a «Plantilla cargada»
+              <strong>Marca cada parte sobre la foto, paso por paso.</strong>
+              <p class="nota">El medidor va pidiendo, uno por uno: los cuatro
+                recuadros de número, el QR, el precio, el pie, y por último
+                cuatro colores con cuentagotas (fondo, letra chica, números,
+                marco). No hace falta ser exacto al marcar los recuadros de
+                número: basta un clic cerca del borde y el navegador encuentra
+                el borde exacto solo. Usa el control de «Acercar» si algo se
+                ve muy chico para marcarlo bien. Al terminar el último paso, la
+                plantilla queda lista — el estado cambia a «Plantilla cargada»
                 y la vista previa, más abajo, dibuja el boleto real con sus
                 números y su QR encima de la foto.</p>
             </div>
@@ -677,8 +725,8 @@
     </div>
   </main>
 
-  <script src="assets/config.js?v=39"></script>
+  <script src="assets/config.js?v=40"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=39"></script>
+  <script src="assets/panel.js?v=40"></script>
 </body>
 </html>

@@ -1389,8 +1389,397 @@
         plantillaFotoCargada = resultado;
         mensaje('', '', 'mensajeDiseno');
         intentarArmarPlantilla();
+        prepararMedidorConFoto(resultado);
       })
       .catch(function (e) { mensaje(e.message, 'error', 'mensajeDiseno'); });
+  });
+
+  // -------------------------------------------------------------------------
+  // Medidor de plantilla: mide la foto del boleto AQUÍ MISMO, en el
+  // navegador, para quien no quiera tocar herramientas/medir_plantilla.py ni
+  // el repositorio. Reimplementa en JS, sobre un <canvas>, el mismo
+  // algoritmo del script: dado un punto aproximado de dónde cae el marco de
+  // un recuadro, camina hacia los cuatro lados buscando el primer salto de
+  // contraste (el borde). El resto de las zonas (QR, precio, pie, fechas) no
+  // tienen un borde que detectar solas, así que se marcan arrastrando un
+  // rectángulo a ojo, igual de válido porque ahí la medida nunca fue del
+  // borde sino de dónde el panel debe COLOCAR esos elementos encima.
+  // -------------------------------------------------------------------------
+  var PASOS_MEDIDOR = [
+    {
+      tipo: 'puntos4', clave: 'caja', titulo: 'Los cuatro recuadros de número',
+      ayuda: 'Haz clic cerca del borde de CADA uno de los cuatro recuadros ' +
+        'donde van los números del boleto —el orden no importa—. No hace ' +
+        'falta ser exacto: basta acercarse, el navegador encuentra el ' +
+        'borde exacto escaneando alrededor del punto.',
+    },
+    {
+      tipo: 'rectangulo', clave: 'qr', titulo: 'El código QR',
+      ayuda: 'Arrastra un rectángulo que cubra el espacio completo donde va el QR.',
+    },
+    {
+      tipo: 'rectangulo', clave: 'precio', titulo: 'El precio del boleto',
+      ayuda: 'Arrastra un rectángulo sobre dónde debe aparecer el precio.',
+    },
+    {
+      tipo: 'rectanguloPie', clave: 'pie', titulo: 'El pie (folio y código en letra chica)',
+      ayuda: 'Arrastra un rectángulo angosto cerca del borde de abajo, a lo ' +
+        'ancho de donde va a ir el folio con su código de verificación.',
+    },
+    {
+      tipo: 'rectanguloFechas', clave: 'fechas', titulo: '(Opcional) Franja de fechas a tapar',
+      ayuda: 'Solo si la FOTO ya trae impresa una fecha de muestra que haya ' +
+        'que cubrir con la fecha real. Si esta foto no trae nada así, salta este paso.',
+      opcional: true,
+    },
+    {
+      tipo: 'color', clave: 'fondo', titulo: 'Color de fondo',
+      ayuda: 'Haz clic sobre una zona de fondo liso del boleto, lejos de letras o líneas.',
+    },
+    {
+      tipo: 'color', clave: 'tinta', titulo: 'Color de la letra chica',
+      ayuda: 'Haz clic sobre el texto pequeño del boleto, por ejemplo el aviso legal.',
+    },
+    {
+      tipo: 'color', clave: 'acento', titulo: 'Color de los números',
+      ayuda: 'Haz clic sobre uno de los números ya impresos en el boleto.',
+    },
+    {
+      tipo: 'color', clave: 'borde', titulo: 'Color del marco de los recuadros',
+      ayuda: 'Haz clic sobre la línea que dibuja el marco de un recuadro de número.',
+    },
+  ];
+
+  var medidorImagen = null;       // Image ya cargada, tamaño natural = fotoAncho×fotoAlto
+  var medidorGris = null;         // Int32Array de luminancia, una entrada por píxel
+  var medidorPixeles = null;      // Uint8ClampedArray RGBA, de getImageData
+  var medidorAncho = 0;
+  var medidorAlto = 0;
+  var medidorPaso = 0;            // índice en PASOS_MEDIDOR
+  var medidorPuntos = [];         // puntos sueltos del paso 'puntos4' ya confirmados
+  var medidorResultado = {};      // piezas ya armadas: caja, qr, precio, pie, fechas?, fondo…
+  var medidorArrastrando = null;  // {x0,y0,x1,y1} en fracción, mientras se arrastra un rectángulo
+  var medidorCtx = null;
+
+  function redondear2(n) { return Math.round(n * 100) / 100; }
+
+  /** Construye la escala de grises y el RGBA una sola vez por foto cargada. */
+  function prepararMedidorConFoto(resultado) {
+    var img = new Image();
+    img.onload = function () {
+      medidorImagen = img;
+      medidorAncho = resultado.fotoAncho;
+      medidorAlto = resultado.fotoAlto;
+      var lienzo = document.createElement('canvas');
+      lienzo.width = medidorAncho;
+      lienzo.height = medidorAlto;
+      var ctx = lienzo.getContext('2d');
+      ctx.drawImage(img, 0, 0, medidorAncho, medidorAlto);
+      var datos = ctx.getImageData(0, 0, medidorAncho, medidorAlto);
+      medidorPixeles = datos.data;
+      medidorGris = new Int32Array(medidorAncho * medidorAlto);
+      for (var i = 0, p = 0; i < medidorPixeles.length; i += 4, p++) {
+        medidorGris[p] = ((medidorPixeles[i] + medidorPixeles[i + 1] + medidorPixeles[i + 2]) / 3) | 0;
+      }
+      $('btnIniciarMedidor').hidden = false;
+    };
+    img.src = resultado.foto;
+  }
+
+  /** El algoritmo central: desde `centro`, el primer salto de contraste > umbral. */
+  function primerSalto(perfil, centro, umbral, direccion) {
+    var base = perfil[centro];
+    var i = centro;
+    var n = perfil.length;
+    while (i + direccion >= 0 && i + direccion < n) {
+      i += direccion;
+      if (Math.abs(perfil[i] - base) > umbral) { return i; }
+    }
+    return i;
+  }
+
+  /** Dado un punto aproximado, el rectángulo exacto del recuadro con marco. */
+  function recuadroCercano(xAprox, yAprox, ventana, umbral) {
+    ventana = ventana || 0.10;
+    umbral = umbral || 24;
+    var ancho = medidorAncho, alto = medidorAlto;
+    var cx = Math.max(0, Math.min(ancho - 1, Math.round(xAprox * ancho)));
+    var cy = Math.max(0, Math.min(alto - 1, Math.round(yAprox * alto)));
+    var radio = Math.round(ventana * Math.max(ancho, alto));
+    var x0 = Math.max(0, cx - radio), x1 = Math.min(ancho, cx + radio);
+    var y0 = Math.max(0, cy - radio), y1 = Math.min(alto, cy + radio);
+
+    var fila = [];
+    for (var x = x0; x < x1; x++) { fila.push(medidorGris[cy * ancho + x]); }
+    var columna = [];
+    for (var y = y0; y < y1; y++) { columna.push(medidorGris[y * ancho + cx]); }
+
+    var cxLocal = cx - x0, cyLocal = cy - y0;
+    var li = primerSalto(fila, cxLocal, umbral, -1);
+    var ld = primerSalto(fila, cxLocal, umbral, +1);
+    var ti = primerSalto(columna, cyLocal, umbral, -1);
+    var td = primerSalto(columna, cyLocal, umbral, +1);
+
+    var izqPx = x0 + li, derPx = x0 + ld;
+    var arrPx = y0 + ti, abaPx = y0 + td;
+
+    return {
+      left: redondear2(100 * izqPx / ancho),
+      top: redondear2(100 * arrPx / alto),
+      width: redondear2(100 * (derPx - izqPx) / ancho),
+      height: redondear2(100 * (abaPx - arrPx) / alto),
+    };
+  }
+
+  /** Los cuatro puntos marcados → el `caja` que pide la plantilla. */
+  function cuadriculaDeCajas(cajas) {
+    function agrupar(valores) {
+      var orden = Array.from(new Set(valores.map(function (v) { return Math.round(v * 10) / 10; })))
+        .sort(function (a, b) { return a - b; });
+      var grupos = [];
+      orden.forEach(function (v) {
+        if (!grupos.length || v - grupos[grupos.length - 1] > 2) { grupos.push(v); }
+      });
+      return grupos;
+    }
+    var izqs = agrupar(cajas.map(function (c) { return c.left; }));
+    var columnaIzq = Math.min.apply(null, izqs);
+    var columnaDer = izqs.length > 1 ? Math.max.apply(null, izqs) : columnaIzq;
+
+    var tops = agrupar(cajas.map(function (c) { return c.top; }));
+    var primer = Math.min.apply(null, tops);
+    var ultimo = tops.length > 1 ? Math.max.apply(null, tops) : primer;
+
+    var anchoProm = redondear2(cajas.reduce(function (s, c) { return s + c.width; }, 0) / cajas.length);
+    var altoProm = redondear2(cajas.reduce(function (s, c) { return s + c.height; }, 0) / cajas.length);
+
+    return { primer: primer, ultimo: ultimo, alto: altoProm, ancho: anchoProm, columna: [columnaIzq, columnaDer] };
+  }
+
+  /** El color exacto, en hex, de un punto de la foto. */
+  function colorHexEnPunto(xFrac, yFrac) {
+    var px = Math.max(0, Math.min(medidorAncho - 1, Math.round(xFrac * medidorAncho)));
+    var py = Math.max(0, Math.min(medidorAlto - 1, Math.round(yFrac * medidorAlto)));
+    var i = (py * medidorAncho + px) * 4;
+    function hex2(v) { return ('0' + v.toString(16)).slice(-2); }
+    return '#' + hex2(medidorPixeles[i]) + hex2(medidorPixeles[i + 1]) + hex2(medidorPixeles[i + 2]);
+  }
+
+  function pasoActual() { return PASOS_MEDIDOR[medidorPaso]; }
+
+  function iniciarMedidor() {
+    if (!medidorImagen) { return; }
+    medidorPaso = 0;
+    medidorPuntos = [];
+    medidorResultado = {};
+    medidorArrastrando = null;
+    $('medidorPlantilla').hidden = false;
+    $('btnIniciarMedidor').hidden = true;
+    var lienzo = $('medidorLienzo');
+    lienzo.width = medidorAncho;
+    lienzo.height = medidorAlto;
+    medidorCtx = lienzo.getContext('2d');
+    aplicarZoomMedidor();
+    pintarPasoMedidor();
+    pintarLienzoMedidor();
+  }
+
+  function aplicarZoomMedidor() {
+    var z = Number($('medidorZoom').value) || 1.6;
+    var lienzo = $('medidorLienzo');
+    lienzo.style.width = Math.round(medidorAncho * z) + 'px';
+    lienzo.style.height = Math.round(medidorAlto * z) + 'px';
+  }
+
+  function pintarPasoMedidor() {
+    var paso = pasoActual();
+    if (!paso) { return; }
+    $('medidorTitulo').textContent =
+      'Paso ' + (medidorPaso + 1) + ' de ' + PASOS_MEDIDOR.length + ': ' + paso.titulo;
+    $('medidorAyuda').textContent = paso.ayuda +
+      (paso.tipo === 'puntos4' ? ' (' + medidorPuntos.length + ' de 4 marcados)' : '');
+    $('btnMedidorSaltar').hidden = !paso.opcional;
+    $('medidorExtra').hidden = paso.tipo !== 'rectanguloFechas';
+    $('medidorColorVisto').hidden = paso.tipo !== 'color' || !medidorResultado[paso.clave + '__color'];
+    mensaje('', '', 'mensajeMedidor');
+  }
+
+  /** Redibuja la foto más las marcas de los pasos ya confirmados. */
+  function pintarLienzoMedidor() {
+    if (!medidorCtx) { return; }
+    medidorCtx.drawImage(medidorImagen, 0, 0, medidorAncho, medidorAlto);
+    medidorCtx.lineWidth = Math.max(1, medidorAncho * 0.003);
+    // Puntos del paso 'puntos4' ya confirmados.
+    medidorCtx.strokeStyle = '#2563eb';
+    medidorCtx.fillStyle = '#2563eb';
+    medidorPuntos.forEach(function (pt) {
+      var px = pt.x * medidorAncho, py = pt.y * medidorAlto;
+      medidorCtx.beginPath();
+      medidorCtx.arc(px, py, Math.max(3, medidorAncho * 0.01), 0, Math.PI * 2);
+      medidorCtx.fill();
+    });
+    // Rectángulos ya confirmados en pasos anteriores.
+    ['qr', 'precio', 'pie', 'fechas'].forEach(function (clave) {
+      var r = medidorResultado[clave];
+      if (!r) { return; }
+      var left = r.left, width = r.width !== undefined ? r.width : (100 - r.left - r.right);
+      medidorCtx.strokeStyle = '#16a34a';
+      medidorCtx.strokeRect(
+        left / 100 * medidorAncho, r.top / 100 * medidorAlto,
+        width / 100 * medidorAncho, r.height / 100 * medidorAlto
+      );
+    });
+    // El rectángulo que se está arrastrando ahora mismo.
+    if (medidorArrastrando) {
+      var a = medidorArrastrando;
+      var x = Math.min(a.x0, a.x1) * medidorAncho, y = Math.min(a.y0, a.y1) * medidorAlto;
+      var w = Math.abs(a.x1 - a.x0) * medidorAncho, h = Math.abs(a.y1 - a.y0) * medidorAlto;
+      medidorCtx.strokeStyle = '#be123c';
+      medidorCtx.strokeRect(x, y, w, h);
+    }
+  }
+
+  /** Coordenadas del evento del mouse/tacto → fracción (0-1) de la foto real. */
+  function fraccionDesdeEvento(ev) {
+    var lienzo = $('medidorLienzo');
+    var caja = lienzo.getBoundingClientRect();
+    var x = (ev.clientX - caja.left) / caja.width;
+    var y = (ev.clientY - caja.top) / caja.height;
+    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+  }
+
+  function avanzarPaso() {
+    medidorPaso++;
+    medidorPuntos = [];
+    medidorArrastrando = null;
+    if (medidorPaso >= PASOS_MEDIDOR.length) {
+      terminarMedidor();
+      return;
+    }
+    pintarPasoMedidor();
+    pintarLienzoMedidor();
+  }
+
+  function terminarMedidor() {
+    var r = medidorResultado;
+    var medidas = {
+      fondo: r.fondo, tinta: r.tinta, acento: r.acento, borde: r.borde,
+      caja: r.caja, qr: r.qr, precio: r.precio, pie: r.pie,
+    };
+    if (r.fechas) { medidas.fechas = r.fechas; }
+    plantillaJsonCargado = medidas;
+    $('medidorPlantilla').hidden = true;
+    intentarArmarPlantilla();
+  }
+
+  $('medidorLienzo').addEventListener('click', function (ev) {
+    var paso = pasoActual();
+    if (!paso || paso.tipo !== 'puntos4') { return; }
+    var frac = fraccionDesdeEvento(ev);
+    var caja = recuadroCercano(frac.x, frac.y);
+    medidorPuntos.push({ x: frac.x, y: frac.y, caja: caja });
+    pintarPasoMedidor();
+    pintarLienzoMedidor();
+    if (medidorPuntos.length >= 4) {
+      medidorResultado.caja = cuadriculaDeCajas(medidorPuntos.map(function (p) { return p.caja; }));
+      avanzarPaso();
+    }
+  });
+
+  $('medidorLienzo').addEventListener('click', function (ev) {
+    var paso = pasoActual();
+    if (!paso || paso.tipo !== 'color') { return; }
+    var frac = fraccionDesdeEvento(ev);
+    var hex = colorHexEnPunto(frac.x, frac.y);
+    medidorResultado[paso.clave] = hex;
+    medidorResultado[paso.clave + '__color'] = true;
+    $('medidorMuestraColor').style.background = hex;
+    $('medidorHexColor').textContent = hex;
+    pintarPasoMedidor();
+    window.setTimeout(avanzarPaso, 450); // deja ver el color tomado antes de seguir
+  });
+
+  var medidorPunteroId = null;
+
+  $('medidorLienzo').addEventListener('pointerdown', function (ev) {
+    var paso = pasoActual();
+    if (!paso || (paso.tipo !== 'rectangulo' && paso.tipo !== 'rectanguloPie' && paso.tipo !== 'rectanguloFechas')) { return; }
+    medidorPunteroId = ev.pointerId;
+    var frac = fraccionDesdeEvento(ev);
+    medidorArrastrando = { x0: frac.x, y0: frac.y, x1: frac.x, y1: frac.y };
+    pintarLienzoMedidor();
+  });
+
+  $('medidorLienzo').addEventListener('pointermove', function (ev) {
+    if (!medidorArrastrando || ev.pointerId !== medidorPunteroId) { return; }
+    var frac = fraccionDesdeEvento(ev);
+    medidorArrastrando.x1 = frac.x;
+    medidorArrastrando.y1 = frac.y;
+    pintarLienzoMedidor();
+  });
+
+  $('medidorLienzo').addEventListener('pointerup', function (ev) {
+    if (!medidorArrastrando || ev.pointerId !== medidorPunteroId) { return; }
+    var paso = pasoActual();
+    var a = medidorArrastrando;
+    var left = Math.min(a.x0, a.x1) * 100, top = Math.min(a.y0, a.y1) * 100;
+    var width = Math.abs(a.x1 - a.x0) * 100, height = Math.abs(a.y1 - a.y0) * 100;
+    medidorArrastrando = null;
+    medidorPunteroId = null;
+    if (width < 1 || height < 1) {
+      mensaje('Ese rectángulo salió demasiado chico. Arrastra de nuevo, de una esquina a la otra.', 'error', 'mensajeMedidor');
+      pintarLienzoMedidor();
+      return;
+    }
+    if (paso.tipo === 'rectangulo') {
+      medidorResultado[paso.clave] = {
+        left: redondear2(left), top: redondear2(top), width: redondear2(width), height: redondear2(height),
+      };
+    } else if (paso.tipo === 'rectanguloPie') {
+      medidorResultado[paso.clave] = {
+        left: redondear2(left), top: redondear2(top), height: redondear2(height),
+        right: redondear2(100 - left - width),
+      };
+    } else if (paso.tipo === 'rectanguloFechas') {
+      medidorResultado[paso.clave] = {
+        left: redondear2(left), top: redondear2(top), width: redondear2(width), height: redondear2(height),
+        vertical: $('medidorVertical').checked,
+        fuente: Number($('medidorFuente').value) || 1.5,
+      };
+    }
+    pintarLienzoMedidor();
+    avanzarPaso();
+  });
+
+  $('btnIniciarMedidor').addEventListener('click', iniciarMedidor);
+  $('medidorZoom').addEventListener('input', aplicarZoomMedidor);
+
+  $('btnMedidorSaltar').addEventListener('click', function () {
+    if (!pasoActual().opcional) { return; }
+    avanzarPaso();
+  });
+
+  $('btnMedidorDeshacer').addEventListener('click', function () {
+    var paso = pasoActual();
+    if (paso.tipo === 'puntos4' && medidorPuntos.length) {
+      medidorPuntos.pop();
+      pintarPasoMedidor();
+      pintarLienzoMedidor();
+      return;
+    }
+    if (medidorPaso > 0) {
+      medidorPaso--;
+      delete medidorResultado[PASOS_MEDIDOR[medidorPaso].clave];
+      medidorPuntos = [];
+      medidorArrastrando = null;
+      pintarPasoMedidor();
+      pintarLienzoMedidor();
+    }
+  });
+
+  $('btnMedidorCancelar').addEventListener('click', function () {
+    $('medidorPlantilla').hidden = true;
+    $('btnIniciarMedidor').hidden = !medidorImagen;
   });
 
   $('dsPlantillaJson').addEventListener('change', function () {
@@ -1410,6 +1799,9 @@
     plantillaJsonCargado = null;
     $('dsPlantillaFoto').value = '';
     $('dsPlantillaJson').value = '';
+    medidorImagen = null;
+    $('btnIniciarMedidor').hidden = true;
+    $('medidorPlantilla').hidden = true;
     pintarEstadoPlantilla();
     refrescarVista();
   });
@@ -1435,6 +1827,9 @@
     plantillaJsonCargado = null;
     $('dsPlantillaFoto').value = '';
     $('dsPlantillaJson').value = '';
+    medidorImagen = null;
+    $('btnIniciarMedidor').hidden = true;
+    $('medidorPlantilla').hidden = true;
     pintarEstadoPlantilla();
   }
 

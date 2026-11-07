@@ -807,6 +807,50 @@ vez pasada:
 GIFs en vez de ocho, y entraron dos comprobaciones nuevas de que esos
 dos archivos existen).
 
+## Medidor de plantilla, dentro del panel (7 de noviembre de 2026)
+
+El dueño pidió que medir una plantilla nueva no obligara a tocar el
+repositorio ni a correr `herramientas/medir_plantilla.py` —el cliente no
+sabe hacerlo, y antes era un paso que dependía de pedirle ayuda a quien
+toca el código—. El script no se quitó (sigue sirviendo como ruta
+avanzada, para quien lo prefiera o reutilice un JSON ya medido), pero
+dejó de ser el único camino: en «Diseño» → «Plantilla», en cuanto se sube
+la foto aparece «Medir esta foto aquí mismo», que abre un asistente
+dentro de la misma página.
+
+El asistente reimplementa en JavaScript, sobre un `<canvas>`, el mismo
+algoritmo del script: para los cuatro recuadros de número, un clic
+APROXIMADO cerca del borde basta —el navegador escanea alrededor del
+punto buscando el primer salto de contraste y encuentra el rectángulo
+exacto solo, igual que `recuadro_cercano()` en Python—. El QR, el precio,
+el pie y la franja opcional de fechas no tienen un borde que detectar
+—son zonas donde el panel debe COLOCAR algo, no un dibujo con marco—, así
+que esos se marcan arrastrando un rectángulo a ojo. Los cuatro colores
+(fondo, letra chica, números, marco) se toman con un cuentagotas: un clic
+lee el píxel exacto de la foto, igual que `color_hex()`. Al terminar el
+último paso, arma el mismo JSON que antes había que subir a mano y lo
+entrega directo a `intentarArmarPlantilla()` — el cliente nunca ve ni
+toca un archivo.
+
+Probado de principio a fin contra la foto real de «Suertudito»
+(896×1200 px), comparando contra sus medidas ya conocidas de cuando
+existía el catálogo fijo: los cuatro recuadros cayeron casi exactos sobre
+el marco impreso de verdad en la vista previa, sin tocar las coordenadas
+a mano después.
+
+Un bug de layout aparte, encontrado al probarlo: la columna de contenido
+del panel es un `1fr` de CSS Grid (ver «El panel se recorre a una barra
+lateral»), y un `1fr` no se encoge por debajo del ancho de su contenido
+más ancho a menos que se le diga —el lienzo del medidor, con la foto a su
+tamaño real, empujaba la página ENTERA a un ancho mayor que la pantalla,
+con una barra de scroll horizontal en todo el panel en vez de solo dentro
+del lienzo—. Se arregló con `min-width: 0` en `.contenido` (el truco de
+siempre para ese caso de Grid/Flexbox) más `max-width: 100%` en el
+envoltorio del lienzo, que si tiene su propio `overflow: auto` para
+desplazarse y hacer zoom sin arrastrar al resto de la página con él.
+
+`?v=40` / `rifa-v40`. Todo sigue en verde.
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
@@ -1044,8 +1088,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v39` |
-| Etiquetas del panel | `?v=39` |
+| Service worker | `rifa-v40` |
+| Etiquetas del panel | `?v=40` |
 
 ### El «undefined» de las hojas: qué fue
 

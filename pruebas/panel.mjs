@@ -1127,7 +1127,7 @@ await ctxD.close();
   ok('menciona «Reactivar», el botón real para recuperar una archivada',
      texto.includes('Reactivar'));
   ok('explica cómo cargar una plantilla, con los nombres reales de los botones',
-     texto.includes('medir_plantilla.py') && texto.includes('Guardar el diseño') &&
+     texto.includes('Medir esta foto aquí mismo') && texto.includes('Guardar el diseño') &&
      texto.includes('Plantilla cargada'));
   ok('y dice que guardarla es lo que la manda a llamar para la hoja impresa',
      texto.includes('«la manda a llamar»'));
