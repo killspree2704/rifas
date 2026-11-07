@@ -714,18 +714,44 @@ clásico. También se documentó la diferencia entre «Quitar la plantilla»
 203 comprobaciones en verde (antes 202: una prueba se actualizó al texto
 nuevo de la plantilla, y se agregó otra para la frase «la manda a llamar»).
 
-**Sobre los GIFs que se pidieron:** se evaluó grabar capturas reales del
-panel en acción, pero esta sesión corre en segundo plano sin una ventana de
-Chrome conectada —no se pudo—, y grabar contra producción habría significado
-escribir la clave real del panel en una pantalla en grabación. En su lugar,
-cada paso lleva un icono animado en CSS puro (un toque, un tecleo, una
-flecha subiendo, un candado, un reloj dando vueltas: ver `.icono-paso` en
-`assets/panel.css`) que no es un GIF grabado del panel —así que nunca se
-desactualiza si cambia el diseño de un botón— pero da la misma pista visual
-de qué clase de acción es cada paso. Si más adelante se quieren GIFs reales
-del panel de verdad, hay que grabarlos en una sesión con Chrome conectado,
-contra el servidor de prueba (`node pruebas/servidor-de-prueba.mjs`, clave
-`secreta`), nunca contra producción.
+## GIFs reales para cada punto de la guía, con zoom (7 de noviembre de 2026)
+
+Primer intento: esa misma sesión corría en segundo plano sin Chrome
+conectado, así que los GIFs de arriba se quedaron en iconos animados de
+CSS. El dueño abrió Chrome y pidió retomarlo —uno por cada punto de la
+guía, no dejar ninguno sin ilustrar— y además que se vieran más grandes:
+a 1536×674 de pantalla completa, los botones y el texto salían
+diminutos.
+
+**El zoom se resolvió con CSS, no cambiando el tamaño de la ventana.**
+`resize_window` no funcionó en este entorno —la ventana de Chrome se
+quedaba en su tamaño de siempre pese a pedirle otro—, así que en vez de
+eso se aplicó `document.documentElement.style.zoom = '1.7'` a la página
+antes de grabar: es el mismo truco que el zoom nativo del navegador
+(Ctrl +), reacomoda el layout entero a un tamaño mayor en vez de solo
+estirar una imagen. Con eso, cada botón y cada campo se ve mucho más
+grande en el GIF sin tocar ni un pixel del diseño real del panel.
+
+**Las ocho grabaciones, una por cada punto importante de la guía:**
+
+- `ayuda-entrar.gif` — entrar con la clave y llegar a Sorteo.
+- `ayuda-crear-rifa.gif` — llenar «Nueva rifa» y generar el lote.
+- `ayuda-revelar-ganador.gif` — folio, cotejo, «Revelar» y «Cerrar rifa».
+- `ayuda-cargar-plantilla.gif` — subir la foto y el JSON, «Guardar el diseño».
+- `ayuda-archivar-rifa.gif` — tocar «Archivar» y ver que sale de la lista.
+- `ayuda-reactivar-rifa.gif` — abrir «Archivadas» y tocar «Reactivar».
+- `ayuda-verificar-boleto.gif` — comprobar un boleto y ver «Boleto original».
+- `ayuda-cambiar-clave.gif` — la clave actual, la nueva dos veces, y confirmar.
+
+Siguen grabadas contra el servidor de prueba, nunca contra producción,
+por la misma razón de siempre: no exponer la clave real en una
+grabación. `pruebas/panel.mjs` ahora comprueba que las ocho existan de
+verdad (`fetch` a cada `src` dentro de `#paneAyuda`, esperando 200): un
+nombre de archivo mal escrito se queda mudo en pantalla si nadie lo
+mira, así que la prueba lo nota en vez de la gente.
+
+212 comprobaciones en verde (antes 203: 9 nuevas, una por cada GIF más
+la que cuenta que sean exactamente ocho).
 
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
@@ -964,8 +990,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v37` |
-| Etiquetas del panel | `?v=37` |
+| Service worker | `rifa-v38` |
+| Etiquetas del panel | `?v=38` |
 
 ### El «undefined» de las hojas: qué fue
 
