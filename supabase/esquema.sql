@@ -48,9 +48,19 @@
 -- administra el proyecto.
 --
 -- Garantías:
---   * El público solo puede LEER `rifas`. No hay escritura pública en ninguna
---     tabla, y ni `boletos` ni `folios` tienen políticas: no salen ni los
---     códigos ni los números. Comprobado consultando como `anon`.
+--   * El público solo puede LEER `rifas`, y solo las columnas `id, estado,
+--     folio_ganador, fecha_sorteo` (permiso de Postgres por columna,
+--     migración `angostar_columnas_publicas_rifas`, 7 de noviembre de 2026):
+--     es justo lo que piden la pantalla del participante y el diagnóstico de
+--     red, nada más. El resto —`diseno` sobre todo, que desde la biblioteca
+--     de plantillas puede traer una foto de varios cientos de KB— antes
+--     quedaba expuesto a cualquiera con la llave pública vía `select=diseno`
+--     o `select=*`, sin necesitar ningún boleto. `rifa_de_boleto()` (abajo)
+--     es `SECURITY DEFINER` y no depende de este permiso: sigue entregando
+--     nombre, serie y lo demás, pero solo a quien ya probó boleto + código.
+--     No hay escritura pública en ninguna tabla, y ni `boletos` ni `folios`
+--     tienen políticas: no salen ni los códigos ni los números. Comprobado
+--     consultando como `anon`.
 --   * `rifa_de_boleto(boleto, codigo)` devuelve la rifa de un boleto, con sus
 --     folios, y solo si los dos coinciden. Nunca devuelve el código, así que
 --     no sirve para adivinarlo: hay que traerlo ya escrito. Es lo que deja que

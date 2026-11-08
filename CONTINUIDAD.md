@@ -977,6 +977,51 @@ nuevas con la misma validación que el servidor real.
 
 `?v=42` / `rifa-v42`.
 
+## Auditoría de la pantalla del participante: un hallazgo real, cerrado (7 de noviembre de 2026)
+
+A pedido del dueño, pasada de seguridad, rendimiento y bugs sobre
+`index.html`/`assets/app.js` (lo que ve quien escanea el QR) y
+`diagnostico.html`. Repasado y SIN hallazgos: ningún `innerHTML` /
+`document.write` / `eval` en todo ese lado —todo lo dinámico se pinta con
+`textContent`, así que no hay por dónde inyectar HTML aunque el nombre de
+una rifa viniera manipulado—; `rifa_de_boleto()` usa parámetros tipados,
+no texto armado a mano, así que no hay inyección de SQL posible; las
+consultas que sí corren (`boletos.id` por llave primaria,
+`folios.boleto_id` con su propio índice) están bien indexadas; y el
+sondeo/canal en vivo ya traían un diseño cuidado para cientos de teléfonos
+a la vez (ritmo variable, reintento con desfase aleatorio, tope duro en
+los minutos del sorteo) — no hay nada que mejorar ahí.
+
+**Sí se encontró un hueco real, de los que importan**: `rifas` tenía RLS
+con una política de solo lectura sin restringir FILAS (cualquiera puede
+leer cualquier rifa, pasada o presente —diseño ya aceptado de antes—),
+pero el permiso de Postgres por COLUMNA que Supabase otorga por omisión
+cubría la tabla entera. La pantalla del participante solo necesita
+`id, estado, folio_ganador, fecha_sorteo`, pero nada se lo impedía a
+alguien pidiendo `select=diseno` o `select=*` con la llave pública
+—sin ningún boleto de por medio—. Antes de la biblioteca de plantillas
+esto ya era de más (nombre, precio, quién transmite), pero desde que
+`diseno.plantilla.foto` puede pesar varios cientos de KB hasta poco más
+de 1 MB, y las rifas nunca se borran, esto se volvía una vía abierta para
+bajar, sin autorización, cada vez más datos con el tiempo.
+
+**Corregido** (migración `angostar_columnas_publicas_rifas`, aplicada
+directo en producción): `revoke all on table public.rifas from anon,
+authenticated;` seguido de `grant select (id, estado, folio_ganador,
+fecha_sorteo) on public.rifas to anon, authenticated;`. Comprobado con la
+llave pública real: pedir las columnas de siempre sigue dando `200`;
+pedir `diseno` o `select=*` ahora da `401 permission denied`.
+`rifa_de_boleto()` —la que de verdad entrega nombre, serie, folios y
+transmisión, pero solo a quien ya probó boleto + código— es
+`SECURITY DEFINER` y no depende de este permiso: se comprobó que sigue
+contestando exactamente igual. El panel tampoco se entera: nunca habla
+con Supabase directo, todo pasa por la función de borde con llave de
+servicio, que ignora por completo estos permisos de `anon`/`authenticated`.
+De paso se quitaron también los permisos de escritura directa (INSERT/
+UPDATE/DELETE) que Supabase deja por omisión en una tabla nueva: ya
+estaban bloqueados por RLS —no hay ninguna política que los permita—,
+pero no hacía falta dejarlos ahí sueltos tampoco.
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
