@@ -1025,6 +1025,130 @@ await ctxD.close();
      !(await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').backgroundImage))
        .startsWith('url("data:image/'));
 
+  // --- El medidor dentro del panel: la foto se mide a clics y arrastres
+  // DENTRO de esta misma página, sin pasar por herramientas/medir_plantilla.py
+  // ni por un archivo de medidas. Reimplementa en JavaScript, sobre un
+  // <canvas>, el mismo algoritmo del script —clic aproximado → borde exacto
+  // por salto de contraste—, así que aquí se comprueba que ese algoritmo de
+  // verdad encuentra los recuadros reales de la foto, no solo que el botón
+  // exista.
+  await pg.setInputFiles('#dsPlantillaFoto', rutaFoto);
+  await pg.waitForFunction(() => !document.getElementById('btnIniciarMedidor').hidden,
+    null, { timeout: 10000 });
+  ok('tras subir la foto aparece «Medir esta foto aquí mismo»', true);
+
+  await pg.click('#btnIniciarMedidor');
+  await pg.waitForSelector('#medidorPlantilla:not([hidden])');
+  ok('el medidor arranca en el paso 1, los cuatro recuadros de número',
+     (await pg.textContent('#medidorTitulo')).includes('Paso 1 de 9'),
+     await pg.textContent('#medidorTitulo'));
+
+  // Clic, deshacer, y que el contador de puntos lo refleje —antes de confiar
+  // en el resto del asistente, que el primer paso lleve la cuenta bien.
+  const clickFrac = (xFrac, yFrac) => pg.evaluate(([xf, yf]) => {
+    const c = document.getElementById('medidorLienzo');
+    const r = c.getBoundingClientRect();
+    c.dispatchEvent(new MouseEvent('click', {
+      bubbles: true, cancelable: true, clientX: r.left + xf * r.width, clientY: r.top + yf * r.height,
+    }));
+  }, [xFrac, yFrac]);
+  const dragFrac = (x0, y0, x1, y1, id) => pg.evaluate(([x0f, y0f, x1f, y1f, pid]) => {
+    const c = document.getElementById('medidorLienzo');
+    const r = c.getBoundingClientRect();
+    const pt = (xf, yf) => ({ clientX: r.left + xf * r.width, clientY: r.top + yf * r.height, pointerId: pid, bubbles: true });
+    c.dispatchEvent(new PointerEvent('pointerdown', pt(x0f, y0f)));
+    c.dispatchEvent(new PointerEvent('pointermove', pt(x1f, y1f)));
+    c.dispatchEvent(new PointerEvent('pointerup', pt(x1f, y1f)));
+  }, [x0, y0, x1, y1, id]);
+
+  await clickFrac(0.1996, 0.428);
+  ok('el primer clic queda contado', (await pg.textContent('#medidorAyuda')).includes('(1 de 4'),
+     await pg.textContent('#medidorAyuda'));
+  await pg.click('#btnMedidorDeshacer');
+  ok('«Deshacer» le quita el último punto marcado', (await pg.textContent('#medidorAyuda')).includes('(0 de 4'),
+     await pg.textContent('#medidorAyuda'));
+
+  await pg.click('#btnMedidorCancelar');
+  ok('«Cancelar el medidor» lo esconde y no deja ninguna plantilla a medias',
+     await pg.isHidden('#medidorPlantilla'));
+  ok('y vuelve a ofrecer empezar de nuevo', !(await pg.isHidden('#btnIniciarMedidor')));
+
+  // Ahora sí, de corrido: las medidas reales de «Suertudito» —de cuando
+  // existía el catálogo fijo— sirven de verdad conocida para los cuatro
+  // puntos aproximados: si el algoritmo de verdad encuentra el borde solo,
+  // lo que mida tiene que caer MUY cerca de esos números, no a ojo.
+  await pg.click('#btnIniciarMedidor');
+  await pg.waitForSelector('#medidorPlantilla:not([hidden])');
+  await clickFrac(0.1996, 0.428);
+  await clickFrac(0.8134, 0.428);
+  await clickFrac(0.1996, 0.8113);
+  await clickFrac(0.8134, 0.8113);
+  await pg.waitForFunction(() => document.getElementById('medidorTitulo').textContent.includes('Paso 2 de 9'),
+    null, { timeout: 5000 });
+  ok('los cuatro clics aproximados arman solos el paso al QR', true);
+
+  await dragFrac(0.34, 0.50, 0.65, 0.73, 11);   // QR
+  await dragFrac(0.335, 0.75, 0.62, 0.84, 12);  // precio
+  await dragFrac(0.13, 0.936, 0.94, 0.96, 13);  // pie
+  await pg.waitForFunction(() => document.getElementById('medidorTitulo').textContent.includes('Paso 5 de 9'),
+    null, { timeout: 5000 });
+  ok('arrastrar un rectángulo basta para QR, precio y pie', true);
+
+  // Este boleto SÍ trae una muestra de fecha que tapar —se prueba el botón
+  // de saltar en la foto de «Bono», que no la trae—: aquí se mide de
+  // corrido para no dejar ese camino sin probar tampoco.
+  await pg.locator('#medidorVertical').check();
+  await pg.fill('#medidorFuente', '1.5');
+  await dragFrac(0.045, 0.465, 0.165, 0.77, 14);
+  await pg.waitForFunction(() => document.getElementById('medidorTitulo').textContent.includes('Paso 6 de 9'),
+    null, { timeout: 5000 });
+
+  // Los cuatro colores, con cuentagotas: cada clic avanza solo tras un
+  // instante —para que se alcance a ver qué color se tomó— así que hay que
+  // esperar el paso siguiente en vez de seguir de inmediato.
+  await clickFrac(0.5, 0.02);
+  await pg.waitForFunction(() => document.getElementById('medidorTitulo').textContent.includes('Paso 7 de 9'),
+    null, { timeout: 3000 });
+  await clickFrac(0.02, 0.1);
+  await pg.waitForFunction(() => document.getElementById('medidorTitulo').textContent.includes('Paso 8 de 9'),
+    null, { timeout: 3000 });
+  await clickFrac(0.3, 0.9);
+  await pg.waitForFunction(() => document.getElementById('medidorTitulo').textContent.includes('Paso 9 de 9'),
+    null, { timeout: 3000 });
+  await clickFrac(0.02, 0.4);
+
+  await pg.waitForFunction(() =>
+    document.getElementById('mensajeDiseno').textContent.includes('Plantilla cargada'),
+    null, { timeout: 5000 });
+  ok('al completar los nueve pasos, el medidor se cierra solo y arma la plantilla',
+     await pg.isHidden('#medidorPlantilla'));
+  await pg.waitForSelector('#vistaBoleto .boleto .caja');
+
+  // La verdad conocida de «Suertudito»: caja{primer:39.25, ultimo:77.58,
+  // alto:7.1, ancho:26.3, columna:[6.81,68.19]}. Un clic aproximado no cae
+  // siempre en el mismo píxel exacto que midió a mano la primera vez —de ahí
+  // la tolerancia—, pero tiene que quedar MUY cerca, no «más o menos».
+  const esquinasMedidor = await pg.$eval('#vistaBoleto .boleto', (art) => {
+    const caja = art.getBoundingClientRect();
+    return [...art.querySelectorAll('.caja')].map((e) => {
+      const r = e.getBoundingClientRect();
+      return [(r.left - caja.left) / caja.width * 100, (r.top - caja.top) / caja.height * 100];
+    });
+  });
+  const ESPERADO = [[6.81, 39.25], [68.19, 39.25], [6.81, 77.58], [68.19, 77.58]];
+  const desvioMax = Math.max(...esquinasMedidor.map((e, i) =>
+    Math.max(Math.abs(e[0] - ESPERADO[i][0]), Math.abs(e[1] - ESPERADO[i][1]))));
+  ok('los recuadros que el medidor encontró solo caen a menos de 1.5% de las medidas reales',
+     desvioMax < 1.5, 'mayor desvío: ' + desvioMax.toFixed(2) + ' puntos porcentuales');
+
+  ok('el medidor también deja puesta la franja de fechas, de lado',
+     await pg.$eval('#vistaBoleto .fechas', (e) => getComputedStyle(e).writingMode.includes('vertical')));
+
+  // Limpia lo que dejó el medidor antes de seguir con «Volver al de siempre».
+  await pg.click('#btnQuitarPlantilla');
+  ok('y se puede volver a quitar sin problema la que armó el medidor',
+     (await pg.textContent('#plantillaEstado')).includes('diseño clásico'));
+
   // Volver al de siempre, con su confirmación —esto también limpia el aviso
   // y el precio del diseño en el servidor, no solo lo que quedó en memoria—.
   await pg.click('#btnDisenoDeSiempre');

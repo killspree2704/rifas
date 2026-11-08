@@ -851,6 +851,75 @@ desplazarse y hacer zoom sin arrastrar al resto de la página con él.
 
 `?v=40` / `rifa-v40`. Todo sigue en verde.
 
+## Pulida del medidor: lenguaje llano, validación, pruebas y un GIF al día (7 de noviembre de 2026)
+
+Repaso completo del medidor recién agregado, a pedido explícito del dueño
+—«el cliente no entiende de tecnología»—, más una pasada de seguridad y
+funcionamiento sobre el panel entero mientras el dueño estaba fuera.
+
+**Lenguaje llano.** El bloque «Avanzado: ya tengo un archivo de medidas
+(JSON)» —mencionaba `herramientas/medir_plantilla.py` y «el repositorio»—
+se volvió «¿Ya mediste este boleto antes? Reutiliza ese archivo», sin
+mencionar Python, JSON como tal ni el repositorio. Sigue siendo el mismo
+mecanismo por dentro (un `<input type="file">` que lee el mismo formato de
+siempre), solo que ya no asume que quien lo lee sabe qué es un archivo
+JSON.
+
+**Agujero real encontrado y cerrado: un archivo reutilizado roto rompía la
+vista previa EN SILENCIO.** `leerJsonMedidas()` solo comprobaba que las
+claves existieran, nunca que los valores sirvieran —un color inválido, una
+medida que no es número—. Subir un archivo así no tronaba nada (ninguna
+excepción, ningún aviso): la vista previa simplemente salía mal, sin que
+nadie supiera por qué, justo el tipo de «falla de comunicación» que un
+cliente sin conocimientos técnicos no sabría diagnosticar. Se agregó la
+misma validación que ya hacía el servidor (`limpiarPlantilla` en
+`supabase/funciones/sorteo/index.ts`: colores contra `/^#[0-9a-fA-F]{6}$/`,
+medidas numéricas entre 0 y 100) pero del lado del navegador, con un
+mensaje claro en español («El color de fondo de ese archivo no es válido.
+Vuelve a medir esta plantilla.») en vez de un silencio confuso. Probado a
+mano con un archivo roto a propósito: antes decía «Plantilla cargada» igual
+(mentira, salía rota); ahora rechaza con el motivo exacto.
+
+**Revisado, sin encontrar nada: ¿se puede inyectar HTML/JS por los campos
+de la plantilla?** Con el medidor nuevo invitando a «reutilizar un
+archivo», alguien podría mandarle al dueño un archivo de medidas
+manipulado. Se repasó la cadena completa: la vista previa en vivo pinta el
+CSS de la plantilla con `estilo.textContent = ...` sobre un `<style>` de
+verdad —`textContent` nunca reinterpreta su contenido como HTML, así que
+un valor con `</style>` dentro no puede «escaparse» del bloque de
+estilos—. La hoja impresa (`document.write`, que SÍ sería vulnerable a
+ese truco) solo se arma con `rifa.diseno` ya guardado en el servidor, y
+`limpiarPlantilla` ya rechaza cualquier color o medida fuera de forma
+ANTES de guardar nada. Conclusión: no hay inyección posible hoy, ni por la
+vista previa ni por la hoja impresa; el único gap real era el de
+comunicación de arriba (validación ausente del lado del cliente), ya
+cerrado.
+
+**GIF de Ayuda desactualizado, corregido.** `ayuda-cargar-plantilla.gif`
+todavía mostraba el flujo viejo (subir foto + JSON a mano) de antes del
+medidor. Se regrabó mostrando el flujo real: subir la foto, tocar «Medir
+esta foto aquí mismo», marcar un par de recuadros de verdad sobre el
+lienzo, y terminar en «Guardar el diseño» con la confirmación en pantalla.
+
+**Pruebas automáticas nuevas para el medidor en sí**, no solo para que el
+botón exista: en `pruebas/panel.mjs`, un bloque nuevo sube la foto real de
+Suertudito, abre el medidor, prueba «Deshacer» y «Cancelar», y después
+completa los nueve pasos de corrido —clics y arrastres simulados sobre el
+`<canvas>`, igual que un dedo o un mouse de verdad— incluida la franja de
+fechas. Compara los cuatro recuadros que el algoritmo encontró SOLO contra
+las medidas reales conocidas de Suertudito (de cuando existía el catálogo
+fijo): el mayor desvío salió de 0.12 puntos porcentuales. 226
+comprobaciones en verde (antes 214).
+
+**Repasado sin cambios, todo intacto:** el candado de fuerza bruta
+(`panel_candado`), la impresión con plantilla (las pruebas ya existentes
+comprueban PDF con y sin fondos forzados, posición exacta de los cuatro
+recuadros en la hoja, pie dentro del boleto), y el resto de los botones
+del panel —archivar/reactivar, verificar boleto, cambiar clave, crear
+rifa, revelar—, todos cubiertos por la misma suite, que sigue en verde.
+
+`?v=41` / `rifa-v41`.
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
@@ -1088,8 +1157,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v40` |
-| Etiquetas del panel | `?v=40` |
+| Service worker | `rifa-v41` |
+| Etiquetas del panel | `?v=41` |
 
 ### El «undefined» de las hojas: qué fue
 
