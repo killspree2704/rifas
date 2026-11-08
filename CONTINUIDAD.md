@@ -1022,6 +1022,38 @@ UPDATE/DELETE) que Supabase deja por omisión en una tabla nueva: ya
 estaban bloqueados por RLS —no hay ninguna política que los permita—,
 pero no hacía falta dejarlos ahí sueltos tampoco.
 
+## Los diez GIFs de Ayuda, con el puntero de verdad moviéndose (7 de noviembre de 2026)
+
+El dueño los volvió a ver y notó que el cursor seguía saltando de golpe de
+un clic al siguiente, sin recorrido visible —quería verlo avanzar hacia
+cada casilla y notarse el clic, con algo parecido a una onda de presión—.
+
+La herramienta de grabación (`gif_creator`) solo guarda un fotograma por
+cada acción de verdad (clic, tecleo, scroll…) y lo mantiene fijo cerca de
+un segundo: no hay manera de pedirle una animación continua entre dos
+puntos. El acercamiento real fue agregar `hover` de verdad —que SÍ cuenta
+como acción y SÍ se graba— en varios puntos intermedios entre donde
+estaba el puntero y donde iba el siguiente clic, así que el GIF reproduce
+al puntero «caminando» en varios pasos cortos hacia el botón en vez de
+teletransportarse. El círculo naranja con «Clicked» que ya traía la
+herramienta por omisión hace de aviso de presión.
+
+Los diez GIFs se volvieron a grabar así, de cabo a rabo, contra el
+servidor de prueba: entrar, el boleto público, crear una rifa, revelar al
+ganador (esta vez sí empezando por «Manejar esta»), archivar, reactivar,
+verificar un boleto, cambiar la clave, cargar una plantilla con el
+medidor, y volver al de siempre. El doble clic de confirmación de varios
+botones (crear rifa, revelar, volver al de siempre) volvió a fallar por
+la misma razón de siempre —el tiempo real entre dos llamadas de la
+herramienta supera la ventana de ocho segundos—: el primer clic se grabó
+de verdad, con su recorrido; el segundo, de confirmación, se disparó por
+JavaScript, invisible en el GIF pero instantáneo y confiable.
+
+Sin cambios de código: solo los diez archivos de `assets/ayuda/`. No hace
+falta subir versión —los GIFs no llevan `?v=`—, aunque alguien con una
+copia ya guardada en caché los vea actualizados hasta su próxima
+descarga, sin que eso rompa nada mientras tanto.
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
