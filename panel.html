@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=40" />
-  <link rel="stylesheet" href="assets/panel.css?v=40" />
+  <link rel="stylesheet" href="assets/estilos.css?v=41" />
+  <link rel="stylesheet" href="assets/panel.css?v=41" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -356,14 +356,13 @@
       </div>
 
       <details class="medidor-avanzado">
-        <summary>Avanzado: ya tengo un archivo de medidas (JSON)</summary>
+        <summary>¿Ya mediste este boleto antes? Reutiliza ese archivo</summary>
         <p class="nota">
-          Para quien prefiera medir por fuera con
-          <code>herramientas/medir_plantilla.py</code> del repositorio, o
-          reutilizar el archivo de una plantilla ya medida antes.
+          Si ya habías medido esta misma plantilla en otra ocasión y guardaste
+          ese archivo, súbelo aquí para no repetir los pasos de arriba.
         </p>
         <label class="campo">
-          <span>Medidas (JSON)</span>
+          <span>Archivo de medidas guardado</span>
           <input type="file" id="dsPlantillaJson" accept="application/json,.json" />
         </label>
       </details>
@@ -653,7 +652,7 @@
             </div>
           </li>
         </ol>
-        <img class="gif-ayuda" src="assets/ayuda/ayuda-cargar-plantilla.gif" loading="lazy" alt="Subir la foto y el JSON de medidas, ver la vista previa y tocar Guardar el diseño" />
+        <img class="gif-ayuda" src="assets/ayuda/ayuda-cargar-plantilla.gif" loading="lazy" alt="Subir la foto, tocar Medir esta foto aquí mismo, marcar los recuadros de número y tocar Guardar el diseño" />
         <img class="gif-ayuda" src="assets/ayuda/ayuda-volver-de-siempre.gif" loading="lazy" alt="Tocar Volver al de siempre y confirmar: el boleto regresa al diseño clásico" />
       </details>
 
@@ -725,8 +724,8 @@
     </div>
   </main>
 
-  <script src="assets/config.js?v=40"></script>
+  <script src="assets/config.js?v=41"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=40"></script>
+  <script src="assets/panel.js?v=41"></script>
 </body>
 </html>

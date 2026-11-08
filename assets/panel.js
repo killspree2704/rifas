@@ -1351,7 +1351,34 @@
     });
   }
 
-  /** Lee y comprueba el JSON de medidas: solo la FORMA, el servidor manda igual. */
+  /**
+   * Comprueba que un archivo de medidas traiga datos de verdad usables, no
+   * solo las claves correctas —las mismas reglas que aplica el servidor al
+   * guardar, repetidas aquí para avisar al instante, antes de que la vista
+   * previa salga rota en silencio (un color inválido o una medida que no es
+   * número no truena nada: la vista previa simplemente se ve mal y nadie
+   * sabe por qué).
+   */
+  var COLOR_VALIDO = /^#[0-9a-fA-F]{6}$/;
+  function medidaValida(valor) {
+    var n = Number(valor);
+    return Number.isFinite(n) && n >= 0 && n <= 100;
+  }
+  function cajaValida(c) {
+    return c && typeof c === 'object' &&
+      medidaValida(c.left) && medidaValida(c.width) && medidaValida(c.top) && medidaValida(c.height);
+  }
+  function pieValido(c) {
+    return c && typeof c === 'object' &&
+      medidaValida(c.left) && medidaValida(c.right) && medidaValida(c.top) && medidaValida(c.height);
+  }
+  function cuadriculaValida(c) {
+    return c && typeof c === 'object' && Array.isArray(c.columna) && c.columna.length === 2 &&
+      medidaValida(c.primer) && medidaValida(c.ultimo) && medidaValida(c.alto) && medidaValida(c.ancho) &&
+      medidaValida(c.columna[0]) && medidaValida(c.columna[1]);
+  }
+
+  /** Lee y comprueba el JSON de medidas: la forma Y que los datos sirvan de verdad. */
   function leerJsonMedidas(archivo) {
     return new Promise(function (resolver, rechazar) {
       var lector = new FileReader();
@@ -1359,11 +1386,29 @@
       lector.onload = function () {
         var datos;
         try { datos = JSON.parse(lector.result); }
-        catch (e) { return rechazar(new Error('Ese archivo no es un JSON válido.')); }
+        catch (e) { return rechazar(new Error('Ese archivo no se pudo abrir: no tiene el formato correcto.')); }
         var FALTA = ['caja', 'qr', 'precio', 'pie', 'fondo', 'tinta', 'acento', 'borde'];
         var falta = FALTA.filter(function (campo) { return !(campo in datos); });
         if (falta.length) {
-          return rechazar(new Error('Al archivo de medidas le falta: ' + falta.join(', ') + '.'));
+          return rechazar(new Error('A ese archivo le falta información: ' + falta.join(', ') + '.'));
+        }
+        var COLORES = { fondo: 'de fondo', tinta: 'de la letra chica', acento: 'de los números', borde: 'del marco' };
+        for (var clave in COLORES) {
+          if (!COLOR_VALIDO.test(String(datos[clave] || ''))) {
+            return rechazar(new Error('El color ' + COLORES[clave] + ' de ese archivo no es válido. Vuelve a medir esta plantilla.'));
+          }
+        }
+        if (!cuadriculaValida(datos.caja)) {
+          return rechazar(new Error('Los recuadros de número de ese archivo no son válidos. Vuelve a medir esta plantilla.'));
+        }
+        if (!cajaValida(datos.qr) || !cajaValida(datos.precio)) {
+          return rechazar(new Error('El QR o el precio de ese archivo no son válidos. Vuelve a medir esta plantilla.'));
+        }
+        if (!pieValido(datos.pie)) {
+          return rechazar(new Error('El pie de ese archivo no es válido. Vuelve a medir esta plantilla.'));
+        }
+        if (datos.fechas && !cajaValida(datos.fechas)) {
+          return rechazar(new Error('La franja de fechas de ese archivo no es válida. Vuelve a medir esta plantilla.'));
         }
         resolver(datos);
       };
