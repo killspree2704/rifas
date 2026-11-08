@@ -1144,6 +1144,54 @@ await ctxD.close();
   ok('el medidor también deja puesta la franja de fechas, de lado',
      await pg.$eval('#vistaBoleto .fechas', (e) => getComputedStyle(e).writingMode.includes('vertical')));
 
+  // --- Biblioteca de plantillas guardadas: la que acaba de armar el medidor
+  // se guarda con nombre, aparece en la lista, se puede volver a usar, se
+  // puede renombrar y se puede borrar —sin tocar la que sigue puesta en la
+  // rifa, que es una cosa aparte—.
+  ok('sin nada guardado, la biblioteca lo dice', (await pg.textContent('#bibliotecaEstado'))
+     .includes('Todavía no has guardado ninguna plantilla'), await pg.textContent('#bibliotecaEstado'));
+
+  await pg.fill('#nombrePlantillaGuardar', 'Suertudito de prueba');
+  await pg.click('#btnGuardarEnBiblioteca');
+  await pg.waitForFunction(() => document.getElementById('mensajeBiblioteca').textContent.includes('Guardada'),
+    null, { timeout: 10000 });
+  await pg.waitForSelector('.plantilla-guardada');
+  ok('se guarda en la biblioteca y aparece en la lista',
+     (await pg.locator('.plantilla-guardada .nombre-plantilla').textContent()) === 'Suertudito de prueba',
+     await pg.locator('.plantilla-guardada .nombre-plantilla').textContent());
+  ok('con la foto real como miniatura, no un cuadro vacío',
+     (await pg.$eval('.plantilla-guardada img', (e) => e.src)).startsWith('data:image/'));
+
+  // Quitar la que está puesta y traerla de vuelta desde la biblioteca: tiene
+  // que quedar exactamente como antes de quitarla.
+  await pg.click('#btnQuitarPlantilla');
+  ok('se puede quitar la plantilla activa sin que eso borre la guardada',
+     (await pg.textContent('#plantillaEstado')).includes('diseño clásico'));
+  await pg.locator('.plantilla-guardada').getByText('Usar esta').click();
+  await pg.waitForSelector('#vistaBoleto .boleto .caja');
+  ok('«Usar esta» la vuelve a poner, con su foto real otra vez',
+     (await pg.$eval('#vistaBoleto .boleto', (e) => getComputedStyle(e, '::before').backgroundImage))
+       .startsWith('url("data:image/'));
+
+  // Renombrar: no hace falta volver a medir para corregir un título.
+  await pg.locator('.plantilla-guardada').getByText('Renombrar').click();
+  await pg.fill('.plantilla-guardada input[type="text"]', 'Suertudito');
+  await pg.locator('.plantilla-guardada').getByText('Guardar nombre').click();
+  await pg.waitForFunction(() =>
+    document.querySelector('.plantilla-guardada .nombre-plantilla')?.textContent === 'Suertudito',
+    null, { timeout: 10000 });
+  ok('renombrarla no pide volver a medir nada', true);
+
+  // Borrar: doble confirmación, como el resto de acciones irreversibles del
+  // panel —el primer toque arma, el segundo confirma—.
+  await pg.locator('.plantilla-guardada').getByText('Borrar').click();
+  ok('borrar pide confirmar, no se va directo',
+     await pg.locator('.plantilla-guardada').getByText('¿Seguro?').isVisible());
+  await pg.locator('.plantilla-guardada').getByText('¿Seguro?').click();
+  await pg.waitForFunction(() => document.getElementById('bibliotecaEstado').textContent
+    .includes('Todavía no has guardado ninguna plantilla'), null, { timeout: 10000 });
+  ok('y al confirmar se borra de verdad de la biblioteca', true);
+
   // Limpia lo que dejó el medidor antes de seguir con «Volver al de siempre».
   await pg.click('#btnQuitarPlantilla');
   ok('y se puede volver a quitar sin problema la que armó el medidor',

@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=41" />
-  <link rel="stylesheet" href="assets/panel.css?v=41" />
+  <link rel="stylesheet" href="assets/estilos.css?v=42" />
+  <link rel="stylesheet" href="assets/panel.css?v=42" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -304,12 +304,19 @@
       <h3 class="subtitulo-menor">Plantilla</h3>
       <p class="nota">
         Sin plantilla, el boleto sale con el diseño clásico de siempre. Para
-        usar la foto de un boleto físico real, sube aquí la foto y luego
-        márcala directamente en esta página — sin instalar nada ni tocar el
-        repositorio. El panel coloca encima los números, el QR, la caducidad,
-        el precio y el código en el lugar exacto que se haya marcado —nada se
-        adivina ni se ajusta a ojo dentro del panel—.
+        usar la foto de un boleto físico real, elige una ya guardada o sube
+        una foto nueva y márcala directamente en esta página — sin instalar
+        nada ni tocar el repositorio. El panel coloca encima los números, el
+        QR, la caducidad, el precio y el código en el lugar exacto que se
+        haya marcado —nada se adivina ni se ajusta a ojo dentro del panel—.
       </p>
+
+      <div id="bibliotecaPlantillas" class="biblioteca-plantillas">
+        <p class="nota" id="bibliotecaEstado">Buscando tus plantillas guardadas…</p>
+        <div id="listaPlantillas" class="lista-plantillas"></div>
+      </div>
+
+      <h4 class="subtitulo-menor chico">O mide una foto nueva</h4>
       <div class="fila-archivo">
         <label class="campo">
           <span>Foto del boleto</span>
@@ -370,6 +377,15 @@
       <p class="nota" id="plantillaEstado"></p>
       <p class="aviso-contraste" id="avisoContraste" hidden></p>
       <button class="boton fantasma chico" id="btnQuitarPlantilla" hidden>Quitar la plantilla</button>
+
+      <div id="guardarEnBiblioteca" class="guardar-plantilla" hidden>
+        <label class="campo chico">
+          <span>Nombre para guardarla y reutilizarla después</span>
+          <input type="text" id="nombrePlantillaGuardar" maxlength="60" placeholder="Ej. Suertudito, edición de diciembre…" />
+        </label>
+        <button class="boton fantasma chico" id="btnGuardarEnBiblioteca">Guardar en mi biblioteca</button>
+        <p class="mensaje" id="mensajeBiblioteca" role="status" aria-live="polite"></p>
+      </div>
 
       <h3 class="subtitulo-menor">Letra chica y tamaño</h3>
       <label class="campo">
@@ -599,9 +615,19 @@
         </p>
         <ol class="guia-pasos">
           <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>¿Ya tienes una plantilla guardada? Elígela ahí mismo.</strong>
+              <p class="nota">En «Diseño» → «Plantilla» aparece primero tu
+                biblioteca de plantillas, con su foto en miniatura. Toca «Usar
+                esta» y queda puesta al instante, sin medir nada de nuevo. Si
+                no tienes ninguna todavía, sigue a los pasos de abajo.</p>
+            </div>
+          </li>
+          <li>
             <span class="icono-paso icono-foto" aria-hidden="true"></span>
             <div>
-              <strong>En «Diseño» → «Plantilla», sube la foto del boleto.</strong>
+              <strong>Para una foto nueva, súbela donde dice «O mide una foto nueva».</strong>
               <p class="nota">En cuanto subas la foto aparece el botón «Medir esta foto aquí mismo» — no hace falta instalar nada ni tocar
                 el repositorio.</p>
             </div>
@@ -620,6 +646,16 @@
                 plantilla queda lista — el estado cambia a «Plantilla cargada»
                 y la vista previa, más abajo, dibuja el boleto real con sus
                 números y su QR encima de la foto.</p>
+            </div>
+          </li>
+          <li>
+            <span class="icono-paso icono-tocar" aria-hidden="true"></span>
+            <div>
+              <strong>Guárdala con un nombre para no medirla otra vez.</strong>
+              <p class="nota">Debajo de «Quitar la plantilla» aparece un campo
+                para ponerle nombre y el botón «Guardar en mi biblioteca».
+                Desde ahí se puede renombrar o borrar cuando haga falta, sin
+                afectar a ninguna rifa que ya la tenga puesta.</p>
             </div>
           </li>
           <li>
@@ -724,8 +760,8 @@
     </div>
   </main>
 
-  <script src="assets/config.js?v=41"></script>
+  <script src="assets/config.js?v=42"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=41"></script>
+  <script src="assets/panel.js?v=42"></script>
 </body>
 </html>

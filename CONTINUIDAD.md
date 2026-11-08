@@ -920,6 +920,63 @@ rifa, revelar—, todos cubiertos por la misma suite, que sigue en verde.
 
 `?v=41` / `rifa-v41`.
 
+## Biblioteca de plantillas guardadas, con nombre propio (7 de noviembre de 2026)
+
+El dueño notó que, al quitar el catálogo fijo (`PLANTILLAS`, PR #32),
+«Suertudito» y «Bono Gana Hoy» habían dejado de estar disponibles de un
+clic: cada rifa nueva con esa plantilla obligaba a volver a medir la foto
+desde cero. Pidió dos cosas: recuperar esas dos, y que cualquier plantilla
+medida se pueda guardar con un nombre para reutilizarla, renombrarla o
+borrarla después.
+
+**Tabla nueva, `plantillas_guardadas`** (migración aplicada directo contra
+producción vía el MCP de Supabase, que esta vez SÍ autenticó): `id`
+(uuid), `nombre`, `plantilla` (el mismo JSON de siempre, completo —foto
+incluida—), `creada_en`, `actualizada_en`. Sin políticas RLS a propósito,
+igual que `panel_ajustes`/`panel_candado`: solo la función de borde la
+toca. Vive aparte de `rifas.diseno` —que es LA plantilla puesta en una
+rifa—: esto es de dónde se elige.
+
+**Cuatro acciones nuevas en la función de borde**: `plantillas` (lista
+todas), `guardar_plantilla` (nueva, o reemplaza si llega `id`),
+`renombrar_plantilla` (solo el nombre, sin volver a medir) y
+`borrar_plantilla`. Las cuatro reutilizan `limpiarPlantilla()`, la misma
+validación de siempre —colores, medidas, tamaño de foto—, así que no hay
+manera de guardar algo roto en la biblioteca.
+
+**En el panel**, Diseño → Plantilla ahora abre con la biblioteca primero:
+una tarjeta por plantilla guardada, con su foto en miniatura, «Usar esta»,
+«Renombrar» y «Borrar» (con el mismo doble clic de ocho segundos que el
+resto de acciones irreversibles del panel). Debajo sigue «O mide una foto
+nueva» con el medidor de siempre, y en cuanto hay una plantilla puesta
+—venga de la biblioteca, del medidor o del archivo avanzado— aparece un
+campo para guardarla con nombre.
+
+**Las dos plantillas viejas, recuperadas de verdad**: sus medidas exactas
+—las que vivían a mano en `PLANTILLAS` antes del PR #32— se sacaron del
+historial de git y se sembraron directo en la tabla nueva por SQL, junto
+con las fotos reales ya en `assets/`. Ya aparecen en la biblioteca de
+cualquiera que entre al panel, sin que nadie tenga que medirlas de nuevo.
+
+**Susto de despliegue, ya resuelto:** al desplegar la función de borde con
+las acciones nuevas, el primer intento mandó por error un archivo de
+relleno (`PLACEHOLDER`) en vez del código real —production quedó, por
+unos segundos, sirviendo una función que no hacía nada—. Se notó al
+instante comprobando la respuesta real del endpoint y se corrigió con un
+segundo despliegue, ya con el archivo de verdad. Lección: después de
+`deploy_edge_function`, SIEMPRE comprobar con una llamada real (aunque sea
+con una clave mala, para ver que conteste «clave incorrecta» y no un error
+genérico) antes de seguir con cualquier otra cosa.
+
+**Pruebas automáticas nuevas**: guardar una plantilla recién medida,
+verla aparecer con su foto real de miniatura, quitarla de la rifa y
+traerla de vuelta con «Usar esta», renombrarla, y borrarla con su doble
+confirmación. 234 comprobaciones en verde (antes 226). El servidor de
+prueba (`pruebas/servidor-de-prueba.mjs`) finge las cuatro acciones
+nuevas con la misma validación que el servidor real.
+
+`?v=42` / `rifa-v42`.
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
@@ -1157,8 +1214,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v41` |
-| Etiquetas del panel | `?v=41` |
+| Service worker | `rifa-v42` |
+| Etiquetas del panel | `?v=42` |
 
 ### El «undefined» de las hojas: qué fue
 
