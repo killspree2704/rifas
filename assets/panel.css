@@ -659,6 +659,65 @@ textarea, select {
 }
 .medidor-avanzado[open] summary { margin-bottom: 8px; }
 
+/* --- Biblioteca de plantillas guardadas: elegir una ya medida en vez de
+   repetir el trabajo, con nombre propio, renombrar o borrar. --- */
+.subtitulo-menor.chico { font-size: 0.85rem; margin-top: 18px; }
+.biblioteca-plantillas { margin: 10px 0 4px; }
+.lista-plantillas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.plantilla-guardada {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 128px;
+  padding: 8px;
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 10px;
+}
+.plantilla-guardada img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--fondo);
+}
+.plantilla-guardada .nombre-plantilla {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+.plantilla-guardada input[type="text"] {
+  width: 100%;
+  padding: 6px 7px;
+  font: inherit;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--linea);
+  background: var(--fondo);
+  color: var(--tinta);
+}
+.plantilla-guardada .boton,
+.plantilla-guardada button {
+  width: 100%;
+  margin-top: 0;
+  font-size: 0.76rem;
+  padding: 6px 8px;
+}
+.guardar-plantilla {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--vidrio-tenue);
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 10px;
+}
+.guardar-plantilla .boton { width: auto; margin-top: 8px; }
+
 /* El boleto se dibuja a su tamaño real de impresión, en milímetros, y luego
    se encoge para que quepa en la pantalla. Así lo que se ve guarda las
    proporciones del papel en lugar de inventarse otras. */

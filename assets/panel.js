@@ -1266,6 +1266,7 @@
 
   /** Abrir la pestaña: se parte de lo que la rifa tenga guardado. */
   function abrirDiseno() {
+    cargarPlantillasGuardadas();
     // Por si se llegó aquí por un camino que no trajo el historial: se pide y
     // se vuelve. Más vale una consulta de más que decirle a alguien que su
     // rifa no existe.
@@ -1857,10 +1858,174 @@
       ? 'Plantilla cargada: foto de ' + p.fotoAncho + '×' + p.fotoAlto + ' px.'
       : 'Todavía no hay ninguna plantilla cargada: el boleto sale con el diseño clásico de siempre.';
     $('btnQuitarPlantilla').hidden = !p;
+    $('guardarEnBiblioteca').hidden = !p;
     // La caducidad solo tiene dónde imprimirse cuando hay una foto de fondo:
     // el boleto clásico no trae ese hueco.
     $('campoCaducidad').hidden = !p;
   }
+
+  // -------------------------------------------------------------------------
+  // Biblioteca de plantillas guardadas: medir una foto cuesta lo mismo la
+  // primera vez que la quinta si no queda guardada en ningún lado más que en
+  // la rifa donde se usó. Esto es la lista de donde se elige una ya medida,
+  // con nombre propio, en vez de repetir el trabajo.
+  // -------------------------------------------------------------------------
+  var plantillasGuardadas = [];
+  var plantillaRenombrando = null;   // id de la que está en edición de nombre
+  var pendienteBorrarPlantilla = null; // { id, temporizador } del doble clic
+
+  function cargarPlantillasGuardadas() {
+    $('bibliotecaEstado').textContent = 'Buscando tus plantillas guardadas…';
+    return llamar('plantillas', {})
+      .then(function (datos) {
+        plantillasGuardadas = datos.plantillas || [];
+        pintarListaPlantillas();
+      })
+      .catch(function (e) {
+        $('bibliotecaEstado').textContent = 'No se pudo traer la lista: ' + e.message;
+        $('listaPlantillas').textContent = '';
+      });
+  }
+
+  function usarPlantillaGuardada(item) {
+    disenoEnEdicion.plantilla = Object.assign({}, item.plantilla);
+    // Esta plantilla ya viene completa de la biblioteca: no queda ningún
+    // archivo a medio cargar ni ningún medidor a medias esperando el otro.
+    plantillaFotoCargada = null;
+    plantillaJsonCargado = null;
+    medidorImagen = null;
+    $('btnIniciarMedidor').hidden = true;
+    $('medidorPlantilla').hidden = true;
+    $('dsPlantillaFoto').value = '';
+    $('dsPlantillaJson').value = '';
+    mensaje('Plantilla «' + item.nombre + '» puesta. Revisa la vista previa antes de guardar.', 'ok', 'mensajeDiseno');
+    pintarEstadoPlantilla();
+    refrescarVista();
+  }
+
+  function pintarListaPlantillas() {
+    var caja = $('listaPlantillas');
+    caja.textContent = '';
+    if (!plantillasGuardadas.length) {
+      $('bibliotecaEstado').textContent =
+        'Todavía no has guardado ninguna plantilla. Mide una foto nueva, abajo, y guárdala para la próxima vez.';
+      return;
+    }
+    $('bibliotecaEstado').textContent = 'Toca «Usar esta» para ponerla en la rifa que estás diseñando.';
+
+    plantillasGuardadas.forEach(function (item) {
+      var tarjeta = document.createElement('div');
+      tarjeta.className = 'plantilla-guardada';
+
+      var img = document.createElement('img');
+      img.src = item.plantilla.foto;
+      img.alt = item.nombre;
+      img.loading = 'lazy';
+      tarjeta.appendChild(img);
+
+      if (plantillaRenombrando === item.id) {
+        var campo = document.createElement('input');
+        campo.type = 'text';
+        campo.maxLength = 60;
+        campo.value = item.nombre;
+        tarjeta.appendChild(campo);
+
+        var btnGuardarNombre = document.createElement('button');
+        btnGuardarNombre.type = 'button';
+        btnGuardarNombre.className = 'boton fantasma chico';
+        btnGuardarNombre.textContent = 'Guardar nombre';
+        btnGuardarNombre.addEventListener('click', function () {
+          var nuevo = campo.value.trim();
+          if (!nuevo) { return; }
+          llamar('renombrar_plantilla', { id: item.id, nombre: nuevo })
+            .then(function () { plantillaRenombrando = null; return cargarPlantillasGuardadas(); })
+            .catch(function (e) {
+              $('bibliotecaEstado').textContent = 'No se pudo renombrar: ' + e.message;
+            });
+        });
+        tarjeta.appendChild(btnGuardarNombre);
+
+        var btnCancelarNombre = document.createElement('button');
+        btnCancelarNombre.type = 'button';
+        btnCancelarNombre.className = 'boton fantasma chico';
+        btnCancelarNombre.textContent = 'Cancelar';
+        btnCancelarNombre.addEventListener('click', function () {
+          plantillaRenombrando = null;
+          pintarListaPlantillas();
+        });
+        tarjeta.appendChild(btnCancelarNombre);
+      } else {
+        var nombre = document.createElement('div');
+        nombre.className = 'nombre-plantilla';
+        nombre.textContent = item.nombre;
+        tarjeta.appendChild(nombre);
+
+        var btnUsar = document.createElement('button');
+        btnUsar.type = 'button';
+        btnUsar.className = 'boton primario chico';
+        btnUsar.textContent = 'Usar esta';
+        btnUsar.addEventListener('click', function () { usarPlantillaGuardada(item); });
+        tarjeta.appendChild(btnUsar);
+
+        var btnRenombrar = document.createElement('button');
+        btnRenombrar.type = 'button';
+        btnRenombrar.className = 'boton fantasma chico';
+        btnRenombrar.textContent = 'Renombrar';
+        btnRenombrar.addEventListener('click', function () {
+          plantillaRenombrando = item.id;
+          pintarListaPlantillas();
+        });
+        tarjeta.appendChild(btnRenombrar);
+
+        var confirmando = !!pendienteBorrarPlantilla && pendienteBorrarPlantilla.id === item.id;
+        var btnBorrar = document.createElement('button');
+        btnBorrar.type = 'button';
+        btnBorrar.className = 'boton fantasma chico';
+        btnBorrar.textContent = confirmando ? '¿Seguro? Toca de nuevo' : 'Borrar';
+        btnBorrar.addEventListener('click', function () {
+          if (pendienteBorrarPlantilla && pendienteBorrarPlantilla.id === item.id) {
+            clearTimeout(pendienteBorrarPlantilla.temporizador);
+            pendienteBorrarPlantilla = null;
+            llamar('borrar_plantilla', { id: item.id })
+              .then(cargarPlantillasGuardadas)
+              .catch(function (e) { $('bibliotecaEstado').textContent = 'No se pudo borrar: ' + e.message; });
+            return;
+          }
+          if (pendienteBorrarPlantilla) { clearTimeout(pendienteBorrarPlantilla.temporizador); }
+          pendienteBorrarPlantilla = {
+            id: item.id,
+            // Mismo plazo que el resto de confirmaciones del panel —ocho
+            // segundos—: si nadie confirma, vuelve a decir «Borrar» solo.
+            temporizador: setTimeout(function () {
+              pendienteBorrarPlantilla = null;
+              pintarListaPlantillas();
+            }, 8000),
+          };
+          pintarListaPlantillas();
+        });
+        tarjeta.appendChild(btnBorrar);
+      }
+
+      caja.appendChild(tarjeta);
+    });
+  }
+
+  $('btnGuardarEnBiblioteca').addEventListener('click', function () {
+    var nombre = $('nombrePlantillaGuardar').value.trim();
+    if (!nombre) {
+      mensaje('Ponle un nombre antes de guardarla.', 'error', 'mensajeBiblioteca');
+      return;
+    }
+    if (!disenoEnEdicion.plantilla) { return; }
+    mensaje('Guardando…', '', 'mensajeBiblioteca');
+    llamar('guardar_plantilla', { nombre: nombre, plantilla: disenoEnEdicion.plantilla })
+      .then(function () {
+        $('nombrePlantillaGuardar').value = '';
+        mensaje('Guardada en tu biblioteca.', 'ok', 'mensajeBiblioteca');
+        return cargarPlantillasGuardadas();
+      })
+      .catch(function (e) { mensaje(e.message, 'error', 'mensajeBiblioteca'); });
+  });
 
   function escribirControles(d) {
     $('dsAviso').value = d.aviso;

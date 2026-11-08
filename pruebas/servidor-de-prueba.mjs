@@ -87,6 +87,35 @@ const boletos = {
 };
 let contadorNuevas = 0;
 
+// Biblioteca de plantillas guardadas, vacía al arrancar: cada prueba que la
+// necesite guarda la suya, igual que pasaría con una base nueva.
+const plantillasGuardadas = [];
+let contadorPlantillas = 0;
+
+/** La misma comprobación que hace el servidor de verdad en `limpiarPlantilla`. */
+function limpiarPlantillaFingida(entrada) {
+  if (!entrada || typeof entrada !== 'object') throw new Error('falta la plantilla');
+  if (!/^data:image\/(png|jpeg|webp);base64,/.test(String(entrada.foto || ''))) {
+    throw new Error('la foto de la plantilla no es una imagen válida');
+  }
+  for (const [campo, cual] of [['fondo', 'fondo'], ['tinta', 'letra'],
+                               ['acento', 'números'], ['borde', 'marco']]) {
+    if (!/^#[0-9a-fA-F]{6}$/.test(String(entrada[campo]))) {
+      throw new Error(`el color de ${cual} en la plantilla no es válido`);
+    }
+  }
+  if (!entrada.caja || !entrada.qr || !entrada.precio || !entrada.pie) {
+    throw new Error('a la plantilla le faltan medidas');
+  }
+  const limpia = {
+    foto: entrada.foto, fotoAncho: Number(entrada.fotoAncho), fotoAlto: Number(entrada.fotoAlto),
+    fondo: entrada.fondo, tinta: entrada.tinta, acento: entrada.acento, borde: entrada.borde,
+    caja: entrada.caja, qr: entrada.qr, precio: entrada.precio, pie: entrada.pie,
+  };
+  if (entrada.fechas) { limpia.fechas = entrada.fechas; }
+  return limpia;
+}
+
 function rifaDe(id) { return rifas.find((r) => r.id === id); }
 
 /** Todos los folios de una rifa, como los devuelve el servidor real. */
@@ -180,6 +209,48 @@ function sorteo(cuerpo) {
     if (!r) return [404, { error: 'rifa no encontrada' }];
     r.diseno = d;
     return [200, { rifa: { id: r.id, diseno: r.diseno } }];
+  }
+  if (a === 'plantillas') {
+    return [200, { plantillas: [...plantillasGuardadas].sort((x, y) =>
+      y.actualizada_en.localeCompare(x.actualizada_en)) }];
+  }
+  if (a === 'guardar_plantilla') {
+    const nombre = String(cuerpo.nombre || '').trim().slice(0, 60);
+    if (!nombre) return [400, { error: 'ponle un nombre a la plantilla' }];
+    let limpia;
+    try { limpia = limpiarPlantillaFingida(cuerpo.plantilla); }
+    catch (e) { return [400, { error: e.message }]; }
+    const ahora = new Date().toISOString();
+    if (cuerpo.id) {
+      const existente = plantillasGuardadas.find((p) => p.id === cuerpo.id);
+      if (!existente) return [404, { error: 'esa plantilla ya no existe' }];
+      existente.nombre = nombre;
+      existente.plantilla = limpia;
+      existente.actualizada_en = ahora;
+      return [200, { plantilla: existente }];
+    }
+    const fila = {
+      id: 'plantilla-' + (++contadorPlantillas), nombre, plantilla: limpia,
+      creada_en: ahora, actualizada_en: ahora,
+    };
+    plantillasGuardadas.push(fila);
+    return [200, { plantilla: fila }];
+  }
+  if (a === 'renombrar_plantilla') {
+    const nombre = String(cuerpo.nombre || '').trim().slice(0, 60);
+    if (!cuerpo.id) return [400, { error: 'falta cuál plantilla' }];
+    if (!nombre) return [400, { error: 'ponle un nombre a la plantilla' }];
+    const existente = plantillasGuardadas.find((p) => p.id === cuerpo.id);
+    if (!existente) return [404, { error: 'esa plantilla ya no existe' }];
+    existente.nombre = nombre;
+    existente.actualizada_en = new Date().toISOString();
+    return [200, { plantilla: existente }];
+  }
+  if (a === 'borrar_plantilla') {
+    if (!cuerpo.id) return [400, { error: 'falta cuál plantilla' }];
+    const i = plantillasGuardadas.findIndex((p) => p.id === cuerpo.id);
+    if (i >= 0) plantillasGuardadas.splice(i, 1);
+    return [200, { ok: true }];
   }
   if (a === 'boletos') {
     const r = rifaDe(cuerpo.rifa);

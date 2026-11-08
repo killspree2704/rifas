@@ -551,6 +551,88 @@ Deno.serve(async (req) => {
     });
   }
 
+  /**
+   * Biblioteca de plantillas guardadas, con nombre propio.
+   *
+   * Medir una foto de boleto —los nueve pasos del medidor, o el archivo que
+   * salga de ahí— cuesta lo mismo la primera vez que la quinta, si no queda
+   * guardada en ningún lado más que en la rifa donde se usó. Esto es
+   * justo lo que deja elegir una ya medida en vez de repetir el trabajo:
+   * vive aparte de `rifas.diseno` —que es LA plantilla puesta en una rifa—,
+   * es la lista de donde se elige.
+   */
+  if (accion === "plantillas") {
+    const { data, error } = await db
+      .from("plantillas_guardadas")
+      .select("id, nombre, plantilla, creada_en, actualizada_en")
+      .order("actualizada_en", { ascending: false });
+    if (error) return responder({ error: error.message }, 400);
+    return responder({ plantillas: data ?? [] });
+  }
+
+  /** Guarda una plantilla nueva, o reemplaza una existente si llega `id`. */
+  if (accion === "guardar_plantilla") {
+    const nombre = String(cuerpo.nombre ?? "").trim().slice(0, 60);
+    if (!nombre) return responder({ error: "ponle un nombre a la plantilla" }, 400);
+    let limpia: ReturnType<typeof limpiarPlantilla>;
+    try {
+      limpia = limpiarPlantilla(cuerpo.plantilla);
+    } catch (e) {
+      return responder({ error: (e as Error).message }, 400);
+    }
+    if (!limpia) return responder({ error: "falta la plantilla" }, 400);
+
+    const id = cuerpo.id ? String(cuerpo.id) : null;
+    if (id) {
+      const { data, error } = await db
+        .from("plantillas_guardadas")
+        .update({ nombre, plantilla: limpia, actualizada_en: new Date().toISOString() })
+        .eq("id", id)
+        .select("id, nombre, plantilla, creada_en, actualizada_en")
+        .maybeSingle();
+      if (error) return responder({ error: error.message }, 400);
+      if (!data) return responder({ error: "esa plantilla ya no existe" }, 404);
+      return responder({ plantilla: data });
+    }
+    const { data, error } = await db
+      .from("plantillas_guardadas")
+      .insert({ nombre, plantilla: limpia })
+      .select("id, nombre, plantilla, creada_en, actualizada_en")
+      .single();
+    if (error) return responder({ error: error.message }, 400);
+    return responder({ plantilla: data });
+  }
+
+  /** Solo el nombre: no hace falta volver a medir para corregir un título. */
+  if (accion === "renombrar_plantilla") {
+    const id = String(cuerpo.id ?? "");
+    const nombre = String(cuerpo.nombre ?? "").trim().slice(0, 60);
+    if (!id) return responder({ error: "falta cuál plantilla" }, 400);
+    if (!nombre) return responder({ error: "ponle un nombre a la plantilla" }, 400);
+    const { data, error } = await db
+      .from("plantillas_guardadas")
+      .update({ nombre, actualizada_en: new Date().toISOString() })
+      .eq("id", id)
+      .select("id, nombre, plantilla, creada_en, actualizada_en")
+      .maybeSingle();
+    if (error) return responder({ error: error.message }, 400);
+    if (!data) return responder({ error: "esa plantilla ya no existe" }, 404);
+    return responder({ plantilla: data });
+  }
+
+  /**
+   * Borra una plantilla de la biblioteca. No toca ninguna rifa: una rifa que
+   * ya la tenía puesta se queda exactamente igual, esto solo la saca de la
+   * lista de donde se elige para una rifa nueva.
+   */
+  if (accion === "borrar_plantilla") {
+    const id = String(cuerpo.id ?? "");
+    if (!id) return responder({ error: "falta cuál plantilla" }, 400);
+    const { error } = await db.from("plantillas_guardadas").delete().eq("id", id);
+    if (error) return responder({ error: error.message }, 400);
+    return responder({ ok: true });
+  }
+
   /** Los boletos de una rifa, para reimprimir la hoja cuando haga falta. */
   if (accion === "boletos") {
     const rifaPedida = String(cuerpo.rifa ?? "");

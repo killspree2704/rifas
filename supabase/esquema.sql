@@ -32,6 +32,12 @@
 --               porque la clave es una sola), incrementada de forma atómica
 --               por `registrar_fallo_clave()`. Diez fallos seguidos —vengan
 --               de una conexión o de muchas a la vez— la congelan 15 minutos
+--   plantillas_guardadas  biblioteca de plantillas de boleto YA MEDIDAS, con
+--               nombre propio, para reutilizar sin repetir el medidor. Vive
+--               aparte de `rifas.diseno` —que es LA plantilla puesta en una
+--               rifa—: esto es de dónde se elige. Sin políticas RLS, igual
+--               que panel_ajustes/panel_candado: solo la función de borde
+--               la toca
 --
 -- `rifas.emision` es la fecha de emisión del lote impreso si es distinta de
 -- `creada_en`; nula usa esa de siempre. `rifas.archivada` saca una rifa del
