@@ -1054,6 +1054,27 @@ falta subir versión —los GIFs no llevan `?v=`—, aunque alguien con una
 copia ya guardada en caché los vea actualizados hasta su próxima
 descarga, sin que eso rompa nada mientras tanto.
 
+## Los diez GIFs de Ayuda, un poco más rápidos (9 de noviembre de 2026)
+
+Después de verlos con el puntero ya recorriendo el camino al clic, el
+pedido fue que se vieran «ligeramente más acelerados». La herramienta de
+grabación no tiene ningún control de velocidad o de cuánto dura cada
+fotograma —ya se investigó al arreglar la fluidez del puntero—, así que
+en vez de volver a grabar los diez contra Chrome, se tomaron los GIFs ya
+hechos y se les aceleró el tiempo DE VERDAD con `ffmpeg`
+(`setpts=PTS/1.25` más `palettegen`/`paletteuse` para no perder calidad
+ni inflar el peso): 1.25× más rápido, sin perder ni un solo fotograma de
+los que ya traían —se comprobó con `ffmpeg` que ninguno se recortó—.
+
+`assets/ayuda/ayuda-boleto-publico.gif` casi duplicó su peso (1.4 MB →
+2.7 MB): tiene un fondo con degradado, y el nuevo paleteado de `ffmpeg`
+—más fiel para evitar bandas de color— pesa más que el que traía la
+herramienta original. Sigue siendo un peso razonable para un GIF de
+ayuda que se carga una sola vez; no se le encontró arreglo sin perder
+nitidez en el degradado.
+
+Sin cambios de código, solo los diez archivos de `assets/ayuda/`.
+
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
 
 Dos pedidos en el mismo mensaje. **Uno, de forma**: el texto de ayuda bajo
