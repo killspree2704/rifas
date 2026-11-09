@@ -542,6 +542,22 @@ input[type="number"], input[type="datetime-local"] {
   color: var(--tinta-tenue);
 }
 
+/* La parte larga de una ayuda, plegada por omisión: la línea corta de
+   arriba ya dice lo esencial: esto es para quien quiere el porqué completo,
+   no un muro de texto que todos tienen que saltarse. */
+.ayuda-detalle {
+  margin-top: 4px;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--tinta-tenue);
+}
+.ayuda-detalle summary {
+  cursor: pointer;
+  color: var(--oro);
+  display: inline-block;
+}
+.ayuda-detalle p { margin: 6px 0 0; }
+
 /* --- Casilla de verificación ------------------------------------------- */
 /*
  * Se usa para «Ver la clave». El área que responde al toque es la etiqueta

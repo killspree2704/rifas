@@ -1054,6 +1054,48 @@ falta subir versión —los GIFs no llevan `?v=`—, aunque alguien con una
 copia ya guardada en caché los vea actualizados hasta su próxima
 descarga, sin que eso rompa nada mientras tanto.
 
+## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
+
+Dos pedidos en el mismo mensaje. **Uno, de forma**: el texto de ayuda bajo
+«Tope del sorteo (opcional)», en «Nueva rifa», era un párrafo larguísimo
+—necesario, pero que todos tenían que saltarse para llegar al siguiente
+campo—. Se partió en dos: una línea corta, siempre visible, con lo
+esencial; y el resto —cómo elegirlo según las bolitas de verdad— detrás
+de un `<details>` nativo, «Cómo elegirlo según tus bolitas», plegado por
+omisión. Clase nueva `.ayuda-detalle` en `assets/panel.css`, misma letra
+chica que `.campo .ayuda` de siempre.
+
+**Dos, de fondo**: el dueño recordaba que «la última vez» los folios solo
+le salieron empezando en 0, y pidió revisar que el generador también
+pueda sacar folios que empiecen en 1. Se corrió el algoritmo de verdad
+—`foliosDeRangoChico()`, copiado tal cual de la función de borde— miles
+de veces fuera del panel para comprobarlo de raíz, no a ojo:
+
+- **Con tope 1999** (el caso exacto que ya vive documentado en
+  `pruebas/panel.mjs`): en 20,000 folios simulados, 9,947 empezaron en 0 y
+  10,053 en 1 —prácticamente mitad y mitad, sin sesgo—.
+- **Con tope 999**: el primer dígito SIEMPRE salió 0, en todas las
+  corridas. Esto no es un error: con 999 la canasta de la izquierda solo
+  trae la bolita del 0 —es justo lo que ese tope representa—, así que
+  TODOS los folios tienen que empezar ahí. Si «la última vez» fue este el
+  tope usado, el panel se comportó exactamente como se le pidió.
+- **Sin tope** (el modo de siempre, números grandes y únicos): el primer
+  dígito salió parejo entre 1 y 9 en miles de folios, nunca 0 —tal como
+  debe ser, porque ese modo no rellena con ceros a la izquierda—.
+
+No había ningún bug que corregir. Lo que sí existe —y ya pasó la prueba
+de siempre en `pruebas/panel.mjs`— es el aviso en vivo que el panel
+muestra ANTES de generar nada: si el tope puesto deja casi vacía la
+última bolita (como poner 1000 en vez de 1999, que desperdicia 999 de
+cada 1000 posibles usos de la bolita del 1), `cuentaNueva` en
+`assets/panel.js` lo dice con todas sus letras y sugiere el tope correcto
+—ver el comentario «El caso real que lo motivó» ahí mismo—. Ese aviso es
+la protección real contra el síntoma que el dueño recordaba; quedó
+intacto, sin tocar.
+
+`?v=43` / `rifa-v43`. 234 comprobaciones en verde, sin cambios en esa
+cuenta: no se tocó ninguna lógica, solo el texto.
+
 ## Se quita la transmisión por YouTube (27 de octubre de 2026, tercera pasada)
 
 Pedido explícito del dueño: quitar el enlace y el video de YouTube por
@@ -1291,8 +1333,8 @@ existe a propósito para que un clic de más en el panel nunca destruya nada.
 
 | | |
 | --- | --- |
-| Service worker | `rifa-v42` |
-| Etiquetas del panel | `?v=42` |
+| Service worker | `rifa-v43` |
+| Etiquetas del panel | `?v=43` |
 
 ### El «undefined» de las hojas: qué fue
 
