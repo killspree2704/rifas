@@ -1075,6 +1075,56 @@ nitidez en el degradado.
 
 Sin cambios de código, solo los diez archivos de `assets/ayuda/`.
 
+## Siete GIFs de Ayuda, con zoom para que no sobre tanto fondo vacío (9 de noviembre de 2026)
+
+El dueño notó que en varios GIFs —sobre todo «revelar ganador» e
+«imprimir hoja de boletos»— la pantalla completa salía tan chica que
+costaba distinguir cada paso: a los lados del panel sobra fondo vacío que
+no aporta nada al GIF y solo hace más chico lo que sí importa.
+
+La causa es `.tablero { max-width: 1180px; margin: 0 auto; }` en
+`assets/panel.css`: un tope deliberado, bueno para leer en una pantalla
+de verdad, pero que en el lienzo fijo de 1536px de la grabación deja
+cerca de 180px vacíos a cada lado —casi una cuarta parte del ancho,
+tirada—. Subirle el zoom a la página entera (`document.documentElement.
+style.zoom`) no sirve: encoge el margen junto con todo lo demás y de
+paso obliga a más scroll vertical, sin ganar nada real de ancho.
+
+El arreglo fue inyectar, solo durante la grabación y solo en el
+navegador, una regla que ensancha el tablero:
+
+```js
+var s = document.createElement('style');
+s.textContent = '.tablero { max-width: 1480px !important; }';
+document.head.appendChild(s);
+```
+
+Esto **no toca `assets/panel.css` ni ningún otro archivo del repo**: es
+una hoja de estilos de usar y tirar, que solo vive en la pestaña de
+Chrome mientras dura la grabación. El panel que ve cualquiera en
+producción sigue con su tope de 1180px de siempre.
+
+Se volvieron a grabar siete de los diez GIFs con este ancho —los que
+muestran el panel completo, no solo el boleto de cerca—: revelar
+ganador, crear una rifa, archivar, reactivar, verificar un boleto,
+cambiar la clave y volver al diseño de siempre. Los otros tres
+(`ayuda-entrar.gif`, `ayuda-boleto-publico.gif`,
+`ayuda-cargar-plantilla.gif`) no entran en este lote: el boleto público
+no tiene tablero, y el medidor de `ayuda-cargar-plantilla.gif` ya trae
+su propio zoom independiente dentro del lienzo de medir.
+
+Para «volver al de siempre» hizo falta una plantilla activa de verdad
+—si no, el botón no tiene nada que revertir—: se reaprovechó la foto y
+las medidas de «Suertudito» que ya vive en `pruebas/panel.mjs` (sección
+del medidor), subidas a mano por el formulario de Diseño, igual que hace
+esa prueba. El doble clic de confirmación de «Volver al de siempre»
+resultó más terco que de costumbre —el clic real tardaba en registrarse
+contra este botón en particular—, así que las dos etapas del confirmar
+se dispararon juntas por JavaScript, en una sola llamada síncrona, antes
+de tomar la foto final del GIF.
+
+Sin cambios de código: solo siete archivos de `assets/ayuda/`.
+
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
 
 Dos pedidos en el mismo mensaje. **Uno, de forma**: el texto de ayuda bajo
