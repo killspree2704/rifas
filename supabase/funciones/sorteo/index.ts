@@ -211,21 +211,24 @@ async function generarUnicos(cantidad: number, digitos: number, tabla: string, c
  * dígito —una canasta por posición, cada una con sus propias bolitas—, no
  * una tómbola con un papelito por boleto vendido. El número más alto que
  * puede salir es `tope` (por ejemplo 999, o 1999 si la primera canasta ya
- * trae una bolita más), y el sorteo real reparte CUALQUIER número de 1 a
- * `tope` con la misma probabilidad, lo hayan vendido o no todavía: por eso
- * aquí no hace falta —ni tendría sentido— comprobar contra lo ya usado en
- * otras rifas. El mismo 0347 puede salir en esta rifa y en la siguiente;
- * lo que los distingue a la hora de verificar es el código firmado de cada
- * boleto, no el número.
+ * trae una bolita más), y el sorteo real reparte CUALQUIER número de 0 a
+ * `tope` con la misma probabilidad, lo hayan vendido o no todavía —el 0000
+ * SÍ es un resultado posible de la saca, las cuatro bolitas cayendo en 0 a
+ * la vez, así que tiene que poder salir impreso en un boleto igual que
+ * cualquier otro—: por eso aquí no hace falta —ni tendría sentido—
+ * comprobar contra lo ya usado en otras rifas. El mismo 0347 puede salir en
+ * esta rifa y en la siguiente; lo que los distingue a la hora de verificar
+ * es el código firmado de cada boleto, no el número.
  *
  * Se eligen `cantidad` números SIN REPETIRSE dentro de esta misma rifa —eso
  * sí importa: dos boletos de la misma rifa no pueden compartir número—, con
- * un barajado de Fisher-Yates sobre el espacio completo de 1 a `tope`. Nada
- * de consultar la base: como el tope es chico (unos cuantos miles cuando
- * mucho) y la rifa es nueva, no hay con qué chocar todavía.
+ * un barajado de Fisher-Yates sobre el espacio completo de 0 a `tope`
+ * (`tope + 1` números posibles, no `tope`). Nada de consultar la base: como
+ * el tope es chico (unos cuantos miles cuando mucho) y la rifa es nueva, no
+ * hay con qué chocar todavía.
  */
 function foliosDeRangoChico(cantidad: number, tope: number, digitos: number): string[] {
-  const espacio = Array.from({ length: tope }, (_, i) => i + 1);
+  const espacio = Array.from({ length: tope + 1 }, (_, i) => i);
   for (let i = espacio.length - 1; i > 0; i--) {
     const j = azarHasta(i + 1);
     [espacio[i], espacio[j]] = [espacio[j], espacio[i]];
@@ -769,11 +772,12 @@ Deno.serve(async (req) => {
 
     // Un folio por oportunidad: si son 200 boletos de 4, son 800 números, y
     // los 800 tienen que caber holgados en el espacio de dígitos elegido (o,
-    // con tope, caber dentro del tope).
+    // con tope, caber dentro del tope). Con tope, el espacio va de 0 a tope
+    // —tope + 1 números posibles, no tope—: el 0000 también juega.
     const totalFolios = cantidad * porBoleto;
-    if (tope !== null && totalFolios > tope) {
+    if (tope !== null && totalFolios > tope + 1) {
       return responder({
-        error: `${totalFolios} folios no caben en un tope de ${tope}; sube el tope o baja la cantidad`,
+        error: `${totalFolios} folios no caben en un tope de ${tope} (caben ${tope + 1}); sube el tope o baja la cantidad`,
       }, 400);
     }
 

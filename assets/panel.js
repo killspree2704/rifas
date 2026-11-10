@@ -576,9 +576,12 @@
     var elegido = topeEscrito();
     var usaTope = elegido !== null;
     // Sin tope: el 30% de siempre, para que el número siga siendo raro de
-    // adivinar. Con tope: el límite de verdad del sorteo de canastas.
+    // adivinar. Con tope: el límite de verdad del sorteo de canastas —y el
+    // espacio real va de 0 a tope, tope + 1 números, porque el 0000 también
+    // es un resultado posible de la saca—.
     var tope = usaTope ? elegido : Math.floor((Math.pow(10, digitos) - Math.pow(10, digitos - 1)) * 0.3);
-    var topeBoletos = Math.floor(tope / porBoleto);
+    var capacidad = usaTope ? tope + 1 : tope;
+    var topeBoletos = Math.floor(capacidad / porBoleto);
     var caja = $('cuentaNueva');
 
     if (usaTope && elegido > Math.pow(10, digitos) - 1) {
@@ -598,10 +601,10 @@
       return;
     }
     var totalFolios = cantidad * porBoleto;
-    if (totalFolios > tope) {
+    if (totalFolios > capacidad) {
       caja.textContent = cantidad.toLocaleString('es-MX') + ' boletos de ' + porBoleto +
         ' números son ' + totalFolios.toLocaleString('es-MX') + ' folios, y no caben en el tope de ' +
-        tope.toLocaleString('es-MX') + '. ' +
+        tope.toLocaleString('es-MX') + (usaTope ? ' (caben ' + capacidad.toLocaleString('es-MX') + ')' : '') + '. ' +
         (usaTope ? 'Sube el tope o baja la cantidad.' : 'Sube los dígitos del folio o baja los números por boleto.');
       caja.className = 'mensaje error';
       return;
@@ -611,7 +614,7 @@
       ' boletos con ' + porBoleto + ' números cada uno: ' +
       totalFolios.toLocaleString('es-MX') + ' folios' +
       (usaTope
-        ? (', de 1 a ' + tope.toLocaleString('es-MX') + ' — SÍ se repetirán en la siguiente rifa')
+        ? (', de 0 a ' + tope.toLocaleString('es-MX') + ' — SÍ se repetirán en la siguiente rifa')
         : (' de ' + digitos + ' dígitos, únicos para toda la vida del proyecto'));
     if (precio > 0) {
       texto += ', que a $' + precio + ' suman $' +
@@ -619,10 +622,10 @@
     }
 
     // Un tope que apenas cruza al siguiente escalón (p. ej. 1000 en vez de
-    // 1999) deja casi vacía la canasta de más a la izquierda: con 999 de los
-    // 1000 folios empezando en 0 y solo uno en 1, esa bolita del 1 casi
-    // nunca cae en un boleto de verdad al sacarla en vivo. Se avisa ANTES de
-    // generar nada, no después de imprimir —que fue justo cómo se encontró
+    // 1999) deja casi vacía la canasta de más a la izquierda: con 1000 de
+    // los 1001 folios empezando en 0 y solo uno en 1 (el 1000 exacto), esa
+    // bolita del 1 casi nunca cae en un boleto de verdad al sacarla en vivo.
+    // Se avisa ANTES de generar nada, no después de imprimir —que fue justo cómo se encontró
     // este caso la primera vez—. El aviso ofrece las DOS salidas, no solo
     // subir: si la canasta de verdad ya trae esa bolita extra, 1999 la
     // aprovecha; si no la tienes armada, el tope correcto es 999, no 1000 a
@@ -652,18 +655,18 @@
     // mismo problema —una bolita que casi nunca encuentra pareja al sacarla
     // en vivo— puede pasar con CUALQUIER combinación de bolitas, no solo esa,
     // en cuanto se imprimen muchos menos folios de los que caben en el tope:
-    // si el tope es 1999 y solo se venden 40, el 98% de las sacadas posibles
-    // no va a coincidir con ningún boleto vendido. El sorteo real SÍ reparte
-    // cualquier número de 1 al tope (ver el comentario en
-    // `supabase/funciones/sorteo/index.ts`), así que esto no impide generar
-    // la rifa —hay rifas que de verdad venden solo una fracción de sus
-    // canastas—, pero quien la crea tiene que saberlo ANTES de imprimir, no
-    // enterarse en vivo el día del sorteo.
+    // si el tope es 1999 (2,000 números posibles, el 0000 incluido) y solo se
+    // venden 40, el 98% de las sacadas posibles no va a coincidir con ningún
+    // boleto vendido. El sorteo real SÍ reparte cualquier número de 0 al tope
+    // (ver el comentario en `supabase/funciones/sorteo/index.ts`), así que
+    // esto no impide generar la rifa —hay rifas que de verdad venden solo una
+    // fracción de sus canastas—, pero quien la crea tiene que saberlo ANTES
+    // de imprimir, no enterarse en vivo el día del sorteo.
     if (usaTope) {
-      var cobertura = totalFolios / tope;
+      var cobertura = totalFolios / capacidad;
       if (cobertura < 0.5) {
         avisoCanasta += ' Ojo: estos boletos cubren ' + totalFolios.toLocaleString('es-MX') +
-          ' de los ' + tope.toLocaleString('es-MX') + ' números posibles en las canastas (' +
+          ' de los ' + capacidad.toLocaleString('es-MX') + ' números posibles en las canastas (' +
           Math.round(cobertura * 100) + '%). Si al sacar las bolitas en vivo cae un número que ' +
           'nadie compró, esa saca no tiene ganador: hay que repetir la saca hasta que caiga uno ' +
           'que sí esté vendido.';

@@ -294,8 +294,10 @@ function sorteo(cuerpo) {
     const digitos = cuerpo.digitos || 4;
     const tope = Number.isInteger(cuerpo.tope) && cuerpo.tope > 0 ? cuerpo.tope : null;
     const totalFolios = cuerpo.cantidad * porBoleto;
-    if (tope && totalFolios > tope) {
-      return [400, { error: `${totalFolios} folios no caben en un tope de ${tope}` }];
+    // El espacio de folios va de 0 a tope, no de 1 a tope: el 0000 también
+    // es un resultado posible de la saca —tope + 1 números, no tope—.
+    if (tope && totalFolios > tope + 1) {
+      return [400, { error: `${totalFolios} folios no caben en un tope de ${tope} (caben ${tope + 1})` }];
     }
     const id = 'nueva-' + (++contadorNuevas);
     const nueva = { id, nombre: cuerpo.nombre, serie: cuerpo.serie, estado: 'espera', activa: false,
@@ -306,12 +308,12 @@ function sorteo(cuerpo) {
     rifas.unshift(nueva);
 
     // Con tope: sorteo de rango chico, números que SÍ se repiten entre
-    // rifas —barajado de 1 a `tope`, igual que hace el servidor real—.
+    // rifas —barajado de 0 a `tope`, igual que hace el servidor real—.
     // Sin tope: la numeración de siempre del servidor de prueba, única
     // dentro de esta corrida.
     let numeros = null;
     if (tope) {
-      numeros = Array.from({ length: tope }, (_, i) => i + 1);
+      numeros = Array.from({ length: tope + 1 }, (_, i) => i);
       for (let i = numeros.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [numeros[i], numeros[j]] = [numeros[j], numeros[i]];
