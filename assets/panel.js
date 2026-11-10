@@ -1233,8 +1233,20 @@
     });
 
     return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8" />' +
+      // El boleto trae sus propios colores fijos —ninguno pensado para
+      // modo oscuro—, pero varios celulares Android «fuerzan oscuro»
+      // sobre cualquier página que no diga lo contrario: invierten los
+      // colores a su manera, y a un SVG complejo como el QR a veces ni
+      // lo intentan —lo pintan como un cuadro gris liso—. Esto se
+      // confirmó con una hoja real: las cajas de número salieron con
+      // fondo oscuro y letra clara, invertidas, y el QR en gris sin
+      // patrón. El `meta` y el `color-scheme` de abajo le dicen al
+      // celular que esta página YA es clara a propósito, para que no
+      // la toque.
+      '<meta name="color-scheme" content="light only" />' +
       '<title>Boletos ' + escapar(rifa.serie) + ' — ' + boletos.length + '</title><style>' +
       '@page { size: letter; margin: 10mm; }' +
+      ':root { color-scheme: light only; }' +
       'body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0;' +
       ' background: #fff; color: #111; }' +
       '.encabezado { padding: 8mm 6mm 0; }' +
