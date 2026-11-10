@@ -1223,6 +1223,36 @@ sección de arriba). Pruebas actualizadas: el caso de tope exacto en
 Los mensajes de cobertura y "no caben" en los demás casos también se
 actualizaron a los números nuevos (2,000 en vez de 1,999, etc.).
 
+## El QR salía en blanco al imprimir desde el celular del cliente (10 de noviembre de 2026)
+
+El dueño generó una hoja de 250 boletos desde su propio celular y salió
+bien. Su cliente generó la misma hoja desde EL SUYO y los QR de los 250
+boletos salieron como un cuadro gris, roto, sin ningún código —confirmado
+con una foto de la hoja impresa—. El HTML que arma el panel es estático
+—el QR ya viene dibujado como SVG dentro del archivo, no depende de que
+corra JavaScript después—, así que no es un problema de «no cargó a
+tiempo»: algo del motor de «Imprimir a PDF» de ESE teléfono en particular
+no está dibujando el SVG.
+
+`qrSvg()` en `assets/panel.js` construye el QR con un `<svg>` que solo
+trae `viewBox`, sin `width` ni `height` propios —el tamaño en pantalla
+queda enteramente a cargo del CSS (`.qr svg { width: 100%; ... }`)—. Es
+válido y funciona en la enorme mayoría de navegadores, pero varios
+motores de impresión de Android/iOS —sobre todo WebView más viejos— no
+le calculan tamaño a un SVG así y lo pintan roto, justo el síntoma de la
+foto. No se pudo reproducir en el teléfono del dueño —ahí sí funcionaba—,
+así que el diagnóstico queda sin confirmar al 100% contra el teléfono
+exacto del cliente, pero es un hueco de compatibilidad real y conocido,
+con arreglo seguro y sin downside: dar al `<svg>` su propio `width` y
+`height`, además del `viewBox`. El CSS lo sigue reescalando igual que
+antes en todos los navegadores donde ya funcionaba —`width`/`height` de
+CSS gana sobre los atributos propios del SVG—; lo único que cambia es que
+el SVG ya no depende de que ESE motor en particular sepa calcularle
+tamaño solo.
+
+Mismo arreglo en `herramientas/hoja-boletos.mjs`, la herramienta de línea
+de comandos que arma hojas fuera del panel —mismo patrón, mismo hueco—.
+
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
 
 Dos pedidos en el mismo mensaje. **Uno, de forma**: el texto de ayuda bajo

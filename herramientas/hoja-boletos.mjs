@@ -48,7 +48,10 @@ function qrSvg(texto) {
       }
     }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${lado} ${lado}" shape-rendering="crispEdges" role="img" aria-label="QR del boleto"><rect width="${lado}" height="${lado}" fill="#fff"/><g fill="#000">${rects.join('')}</g></svg>`;
+  // width/height explícitos, no solo viewBox: ver el comentario de la misma
+  // función en assets/panel.js — sin ellos, algunos motores de «Imprimir a
+  // PDF» de celular no calculan el tamaño del SVG y lo pintan roto.
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${lado}" height="${lado}" viewBox="0 0 ${lado} ${lado}" shape-rendering="crispEdges" role="img" aria-label="QR del boleto"><rect width="${lado}" height="${lado}" fill="#fff"/><g fill="#000">${rects.join('')}</g></svg>`;
 }
 
 const separador = base.includes('?') ? '&' : '?';

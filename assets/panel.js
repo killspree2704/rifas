@@ -816,7 +816,19 @@
       });
   }
 
-  /** El QR, dibujado aquí mismo: la hoja se imprime aunque no haya red. */
+  /**
+   * El QR, dibujado aquí mismo: la hoja se imprime aunque no haya red.
+   *
+   * `width`/`height` van EXPLÍCITOS, no solo el `viewBox`: un SVG que
+   * depende nada más del CSS (`.qr svg { width: 100%; ... }`) para su
+   * tamaño se ve bien en un navegador de escritorio, pero el motor de
+   * «Imprimir a PDF» de varios celulares no le calcula tamaño y lo pinta
+   * como un cuadro gris roto, sin ningún QR —justo lo que reportó el
+   * dueño con una hoja generada desde el teléfono del cliente—. Con
+   * tamaño propio, el SVG ya no depende de que el CSS se aplique a
+   * tiempo en ESE motor de impresión en particular; el `width: 100%`
+   * del CSS lo sigue reescalando normal en todos los demás.
+   */
   function qrSvg(texto) {
     var qr = qrcode(0, 'M');
     qr.addData(texto);
@@ -837,7 +849,8 @@
         }
       }
     }
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + lado + ' ' + lado +
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + lado + '" height="' + lado +
+      '" viewBox="0 0 ' + lado + ' ' + lado +
       '" shape-rendering="crispEdges"><rect width="' + lado + '" height="' + lado +
       '" fill="#fff"/><g fill="#000">' + rects.join('') + '</g></svg>';
   }
