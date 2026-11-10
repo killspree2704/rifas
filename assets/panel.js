@@ -1241,28 +1241,32 @@
       'h1 { font-size: 13pt; margin: 0 0 2mm; }' +
       '.pie-hoja { font-size: 9pt; color: #666; margin: 0 0 6mm; }' +
       'button { font: inherit; padding: 3mm 6mm; margin-bottom: 6mm; }' +
-      // `auto-fit` en vez de un `repeat(columnas, 1fr)` a secas: con
-      // `repeat` a secas, un lote chico —dos boletos pedidos como «3 por
-      // renglón»— salía del tamaño de un tercio de hoja con dos tercios en
-      // blanco al lado. `auto-fit` colapsa las columnas que de verdad están
-      // vacías —no las ocupa nadie en NINGÚN renglón— y el `1fr` reparte ese
-      // espacio entre los boletos que sí hay, así que crecen solos para
-      // llenar la hoja en vez de quedarse angostos. El `minmax()` es el
-      // ancho de una columna llena —cupo de `columnas`—, así que con un
-      // lote grande sigue sin pasar de los que se pidieron por renglón.
-      // `justify-content: center` centra el ÚLTIMO renglón cuando le
-      // faltan boletos para completar la fila, en vez de dejarlo pegado a
-      // la izquierda con un hueco a la derecha.
+      // `display: flex` con `flex-wrap`, NO `display: grid`: Safari/WebKit
+      // —el motor detrás de «Imprimir a PDF» en Mac e iOS— tiene un bug
+      // viejo y conocido donde, al paginar un grid para imprimir, corta un
+      // renglón completo a la mitad entre una página y la siguiente, aun
+      // con `break-inside: avoid` puesto en cada boleto —se confirmó con
+      // una hoja real generada desde una Mac: el renglón quedaba partido
+      // justo en la frontera de página—. Safari pagina un flex mucho
+      // mejor. Cada boleto lleva su ancho fijo —`calc(100% / columnas)`,
+      // abajo— en vez de que lo reparta el contenedor, así que con un
+      // lote chico (menos boletos que `columnas`) se quedan en su tamaño
+      // normal de un renglón completo, no crecen a llenar la hoja como
+      // antes con `grid-template-columns: repeat(auto-fit, ...)` —un
+      // cambio de comportamiento menor, aceptado a cambio de que no se
+      // corten los boletos—. `justify-content: center` centra el ÚLTIMO
+      // renglón cuando le faltan boletos para completar la fila.
       //
-      // Sin espacio entre boletos (`gap: 0`) a propósito: para que el
-      // corte en la imprenta sea de un solo tirón —cortes rectos de lado a
-      // lado de la hoja, no uno por uno con tijeras—, los boletos tienen
-      // que quedar pegados, formando una rejilla continua. Un espacio
-      // entre ellos deja una «pestaña» blanca de sobra en cada corte, que
-      // hay que volver a recortar aparte.
-      '.rejilla { display: grid;' +
-      ' grid-template-columns: repeat(auto-fit, minmax(calc(100% / ' + d.columnas + '), 1fr));' +
-      ' justify-content: center; gap: 0; padding: 0 6mm 8mm; }' +
+      // Sin espacio entre boletos (`gap`, aquí no existe en flex: ver
+      // `.rejilla > .boleto` abajo) a propósito: para que el corte en la
+      // imprenta sea de un solo tirón —cortes rectos de lado a lado de la
+      // hoja, no uno por uno con tijeras—, los boletos tienen que quedar
+      // pegados, formando una rejilla continua. Un espacio entre ellos
+      // deja una «pestaña» blanca de sobra en cada corte, que hay que
+      // volver a recortar aparte.
+      '.rejilla { display: flex; flex-wrap: wrap;' +
+      ' justify-content: center; padding: 0 6mm 8mm; }' +
+      '.rejilla > .boleto { width: calc(100% / ' + d.columnas + '); box-sizing: border-box; }' +
       // Sin esto, Chrome y la mayoría de navegadores NO imprimen ni
       // `background-image` ni `background-color` por omisión —la casilla
       // «Gráficos de fondo» del diálogo de impresión nace destildada—. Eso
