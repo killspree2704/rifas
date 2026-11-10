@@ -1123,6 +1123,42 @@ contra este botón en particular—, así que las dos etapas del confirmar
 se dispararon juntas por JavaScript, en una sola llamada síncrona, antes
 de tomar la foto final del GIF.
 
+## Aviso cuando el tope deja la mayoría de las canastas sin boleto (9 de noviembre de 2026)
+
+El dueño cayó en cuenta de un hueco real en el aviso que ya existía (ver
+«El medidor del tope, en lenguaje llano…», arriba): ese aviso solo revisa
+si la canasta de MÁS A LA IZQUIERDA queda casi vacía por un tope mal
+escalonado (como 1000 en vez de 1999). No dice nada del caso general —y
+más común— de imprimir muchos menos folios de los que caben en el tope
+completo: con tope 1999 pero solo, por ejemplo, 40 folios vendidos, el
+98% de las combinaciones que pueden salir al sacar una bolita de cada
+canasta no le toca a ningún boleto. El aviso viejo no lo detecta porque
+ahí las dos bolitas de la izquierda SÍ están bien repartidas —el problema
+no es el reparto, es que casi no hay boletos—.
+
+Esto no es un bug del generador de folios: `foliosDeRangoChico()` en
+`supabase/funciones/sorteo/index.ts` reparte uniforme sobre el espacio de
+1 al tope, tal como debe, y el comentario de esa función ya dejaba por
+escrito que el sorteo real "reparte CUALQUIER número de 1 a tope... lo
+hayan vendido o no todavía". El hueco era que nadie se lo decía a quien
+crea la rifa ANTES de imprimir.
+
+**El arreglo:** en `resumenNueva()` (`assets/panel.js`), un segundo aviso
+—independiente del de la canasta de la izquierda— que calcula la
+cobertura real (`totalFolios / tope`) y, si cubre menos de la mitad,
+dice exactamente cuántos folios de cuántos posibles quedaron cubiertos y
+qué hacer si la saca en vivo cae en un número sin boleto: repetir la
+saca hasta que caiga uno vendido. No bloquea la creación —hay rifas que
+de verdad venden solo una fracción de sus canastas, a propósito—, solo
+informa con el porcentaje exacto. Se amplió también la ayuda bajo «Tope
+del sorteo» → «Cómo elegirlo según tus bolitas», en `panel.html`, con el
+mismo mensaje para quien lee antes de llegar a ese punto del formulario.
+
+Dos comprobaciones nuevas en `pruebas/panel.mjs`: con el caso ya
+documentado (250×4 = 1000 folios de 1999, 50.03%) el aviso nuevo NO
+salta —justo pasa la mitad—; bajando a 10 boletos (40 folios de 1999,
+2%) sí salta, con el 40 y el 1,999 en el mensaje.
+
 Sin cambios de código: solo siete archivos de `assets/ayuda/`.
 
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
