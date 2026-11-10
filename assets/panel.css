@@ -284,8 +284,10 @@ input:focus-visible { outline: 2px solid var(--oro); outline-offset: 1px; }
 .pestanas::-webkit-scrollbar { display: none; }
 /* La marca solo tiene sentido como encabezado de la barra lateral: en la
    fila horizontal de celular no hay dónde ponerla sin que se la lleve el
-   deslizado junto con las pestañas. */
+   deslizado junto con las pestañas. Igual el número de versión: nace junto
+   a la marca, mismo motivo para esconderlo en la fila angosta. */
 .pestanas .marca { display: none; }
+.pestanas .version-panel { display: none; }
 .pestana {
   display: flex;
   align-items: center;
@@ -352,8 +354,16 @@ input:focus-visible { outline: 2px solid var(--oro); outline-offset: 1px; }
   .contenido { min-width: 0; }
   .pestanas .marca {
     display: block;
-    margin: 4px 8px 10px;
+    margin: 4px 8px 0;
+  }
+  .pestanas .version-panel {
+    display: block;
+    margin: 0 8px 10px;
     padding-bottom: 10px;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: var(--tinta-tenue);
+    opacity: 0.6;
     border-bottom: 1px solid var(--linea);
   }
   .pestana {

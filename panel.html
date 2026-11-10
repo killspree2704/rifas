@@ -14,8 +14,8 @@
     copia vieja nunca vio, el navegador no tiene de dónde sacarla y va a la
     red, aunque siga activo el trabajador de servicio anterior.
   -->
-  <link rel="stylesheet" href="assets/estilos.css?v=43" />
-  <link rel="stylesheet" href="assets/panel.css?v=43" />
+  <link rel="stylesheet" href="assets/estilos.css?v=44" />
+  <link rel="stylesheet" href="assets/panel.css?v=44" />
   <!-- Mismo truco que en el boleto: aplica el tema guardado antes del
        primer pintado, para que no parpadee del tema de siempre al elegido. -->
   <script>
@@ -67,6 +67,13 @@
       <!-- Pestañas -->
       <nav class="pestanas" id="pestanas" hidden>
         <p class="eyebrow marca">Panel de sorteo</p>
+        <!-- Para diagnosticar en segundos si alguien está viendo una copia
+             vieja guardada en su navegador —el mismo problema que ya pasó
+             dos veces con el ?v= de arriba—: compara este número a simple
+             vista contra el que diga quien esté ayudando por teléfono, sin
+             tener que abrir las herramientas de desarrollador. Súbelo junto
+             con el ?v= y el CACHE de sw.js, no por separado. -->
+        <p class="version-panel" title="Versión del panel, para comparar si alguien ve una copia vieja">v44</p>
         <button class="pestana activa" data-panel="paneSorteo">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9a8 8 0 0 1 16 0" /><path d="M7 12a5 5 0 0 1 10 0" /><circle cx="12" cy="12" r="1.6" /><path d="M12 13.5V20" /><path d="M9 20h6" /></svg>
           <span>Sorteo</span>
@@ -779,8 +786,8 @@
     </div>
   </main>
 
-  <script src="assets/config.js?v=43"></script>
+  <script src="assets/config.js?v=44"></script>
   <script src="vendor/qrcode.js"></script>
-  <script src="assets/panel.js?v=43"></script>
+  <script src="assets/panel.js?v=44"></script>
 </body>
 </html>

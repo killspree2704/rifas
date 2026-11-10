@@ -1375,6 +1375,45 @@ cambio, el siguiente paso sería cambiar `.rejilla` de `display: grid` a
 un grid—, un cambio más grande que no se hizo todavía por no tener cómo
 probarlo en el momento.
 
+## La causa real de todo: nunca se subió el `?v=`, el cliente veía código viejo (10 de noviembre de 2026)
+
+Tres arreglos reales se mandaron para el QR/colores invertidos en
+Android (tamaño del SVG, `color-scheme: light only`) y ninguno cambió
+NI UN PIXEL del síntoma —"se sigue viendo igual", exactamente igual,
+cada vez—. Un cambio sin ningún efecto, ni parcial, es la señal
+clásica de que el cambio nunca llegó al navegador que se estaba
+probando, no de que el diagnóstico esté mal.
+
+Y así era: `panel.html` ya documentaba, en un comentario desde hace
+meses, EXACTAMENTE este mismo problema —"La página del panel siempre
+se pide a la red, pero sus archivos se servían de la copia guardada:
+así quedaba el HTML nuevo corriendo JavaScript viejo"— con su propio
+arreglo ya puesto: `assets/panel.js?v=43`, un número que hay que subir
+cada vez que el archivo cambia, junto con `CACHE` en `sw.js`, para que
+el navegador no tenga de dónde sacar una copia vieja. Los tres PRs de
+hoy (#49, #50, #51, #52) cambiaron `assets/panel.js` una y otra vez
+—QR, rejilla pegada, flex, color-scheme— y **ninguno subió el `?v=`**.
+El código nuevo SÍ llegó al servidor, pero cualquier navegador que ya
+tuviera una copia de `panel.js?v=43` en caché —exactamente lo que
+describe el comentario, pensado para una red mala, como la del celular
+del cliente en movimiento— se quedó corriendo esa copia, sin ninguna
+señal de que había algo más nuevo que pedir.
+
+**Arreglo:** `?v=43` → `?v=44` en los cuatro archivos que lo usan
+dentro de `panel.html` (`estilos.css`, `panel.css`, `config.js`,
+`panel.js`), y `CACHE = 'rifa-v43'` → `'rifa-v44'` en `sw.js`, subidos
+juntos como siempre debieron subir con cada uno de los cambios de hoy.
+
+**Para que esto no vuelva a pasar desapercibido:** se agregó un número
+de versión visible en la barra lateral del panel, justo debajo de
+«Panel de sorteo» —`v44`, junto a la marca, mismo lugar, mismo
+criterio de cuándo se esconde en la fila angosta de celular—. La
+próxima vez que alguien reporte "sigue igual" después de un arreglo
+real, comparar ese número a simple vista —sin abrir herramientas de
+desarrollador— dice al instante si el navegador de esa persona de
+verdad tiene el código nuevo o si, otra vez, se les olvidó subir el
+`?v=`.
+
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
 
 Dos pedidos en el mismo mensaje. **Uno, de forma**: el texto de ayuda bajo
