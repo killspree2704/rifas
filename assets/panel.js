@@ -1155,7 +1155,10 @@
     if (d.plantilla) { return estiloPlantilla(d.plantilla, p); }
     return (
       p + '.boleto { background-color: ' + CLASICO.fondo + '; color: ' + CLASICO.tinta + ';' +
-      ' border: 1px solid ' + CLASICO.borde + '; border-radius: 2mm; padding: 3mm 4mm;' +
+      // Sin esquinas redondeadas a propósito: pegados sin espacio (ver
+      // `.rejilla` arriba), una esquina redonda dejaría un triángulo
+      // blanco justo donde se tocan cuatro boletos.
+      ' border: 1px solid ' + CLASICO.borde + '; padding: 3mm 4mm;' +
       ' break-inside: avoid; page-break-inside: avoid; }' +
       p + '.marca { font-size: 13pt; font-weight: 700; text-transform: uppercase;' +
       ' letter-spacing: 0.04em; text-align: center; margin: 0 0 1mm; }' +
@@ -1245,15 +1248,21 @@
       // vacías —no las ocupa nadie en NINGÚN renglón— y el `1fr` reparte ese
       // espacio entre los boletos que sí hay, así que crecen solos para
       // llenar la hoja en vez de quedarse angostos. El `minmax()` es el
-      // ancho de una columna llena —cupo de `columnas`, con sus huecos—,
-      // así que con un lote grande sigue sin pasar de los que se pidieron
-      // por renglón. `justify-content: center` centra el ÚLTIMO renglón
-      // cuando le faltan boletos para completar la fila, en vez de dejarlo
-      // pegado a la izquierda con un hueco a la derecha.
+      // ancho de una columna llena —cupo de `columnas`—, así que con un
+      // lote grande sigue sin pasar de los que se pidieron por renglón.
+      // `justify-content: center` centra el ÚLTIMO renglón cuando le
+      // faltan boletos para completar la fila, en vez de dejarlo pegado a
+      // la izquierda con un hueco a la derecha.
+      //
+      // Sin espacio entre boletos (`gap: 0`) a propósito: para que el
+      // corte en la imprenta sea de un solo tirón —cortes rectos de lado a
+      // lado de la hoja, no uno por uno con tijeras—, los boletos tienen
+      // que quedar pegados, formando una rejilla continua. Un espacio
+      // entre ellos deja una «pestaña» blanca de sobra en cada corte, que
+      // hay que volver a recortar aparte.
       '.rejilla { display: grid;' +
-      ' grid-template-columns: repeat(auto-fit, minmax(calc((100% - ' +
-      ((d.columnas - 1) * 5) + 'mm) / ' + d.columnas + '), 1fr));' +
-      ' justify-content: center; gap: 5mm; padding: 0 6mm 8mm; }' +
+      ' grid-template-columns: repeat(auto-fit, minmax(calc(100% / ' + d.columnas + '), 1fr));' +
+      ' justify-content: center; gap: 0; padding: 0 6mm 8mm; }' +
       // Sin esto, Chrome y la mayoría de navegadores NO imprimen ni
       // `background-image` ni `background-color` por omisión —la casilla
       // «Gráficos de fondo» del diálogo de impresión nace destildada—. Eso
