@@ -1316,6 +1316,42 @@ tamaño solo.
 Mismo arreglo en `herramientas/hoja-boletos.mjs`, la herramienta de línea
 de comandos que arma hojas fuera del panel —mismo patrón, mismo hueco—.
 
+**Continuación, mismo día: la causa real apareció con una foto.** El
+`width`/`height` del SVG de arriba no era suficiente —el cliente volvió
+a generar la hoja en su Android, fresca, después de ese arreglo, y el
+QR seguía en gris—. El dueño mandó una captura de la hoja completa: el
+QR seguía roto, pero ADEMÁS las cajas de número —que deben verse
+claras, con letra verde oscuro, como en la plantilla «Suertudito»—
+salían con el fondo OSCURO y la letra CLARA, invertidas. Las dos cosas
+juntas son la firma de una sola causa, no dos bugs separados: varios
+Android «fuerzan oscuro» sobre cualquier página que no diga
+explícitamente que es clara —reinterpretan los colores a su manera,
+y a un SVG complejo como el QR —cientos de `<rect>` chiquitos— a veces
+ni lo intentan, lo pintan como un cuadro gris liso en vez de invertirlo
+mal—.
+
+El boleto siempre trajo sus colores fijos a propósito —nunca pensado
+para modo oscuro, es un diseño de impresión—, pero nunca le dijo eso al
+navegador. Arreglo: `<meta name="color-scheme" content="light only" />`
+en el `<head>` y `:root { color-scheme: light only; }` en el CSS de
+`hojaHtml()` (`assets/panel.js`) —justo donde ya se agregaba el
+`width`/`height` del QR—. Esto le dice al navegador que la página YA es
+clara a propósito, para que el modo oscuro forzado no la toque. El
+resto del sitio (`assets/estilos.css`, `assets/app.js`) ya maneja
+`prefers-color-scheme` para SU PROPIO tema oscuro de verdad —la hoja de
+boletos es distinta: un diseño de impresión fijo que nunca debe
+reinterpretarse, con o sin modo oscuro—.
+
+Verificado: el `meta` y el `:root` quedaron presentes tanto en el
+código fuente servido como en el HTML real que arma `hojaHtml()` para
+una rifa de verdad —capturado interceptando `window.open` desde la
+consola, ya que las ventanas que abre `document.write` no se pueden
+inspeccionar con la extensión—. Es un cambio aditivo que no toca
+ningún color ni layout existente, así que no puede romper nada en un
+navegador que no estuviera ya forzando oscuro; lo que NO se pudo
+confirmar es si de verdad resuelve el síntoma en el Android exacto del
+cliente —no hay forma de simular el "forzar oscuro" real de Android
+fuera de ese teléfono—.
 **El mismo día, un segundo reporte del mismo cliente**: en su Mac, el PDF
 «corta los boletos» —la mitad de un boleto sale en una página, la otra
 mitad en la siguiente—. La hoja ya traía `break-inside: avoid` en
