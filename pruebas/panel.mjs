@@ -1362,6 +1362,14 @@ await ctxD.close();
   const anchaAntes = await pb.$eval('#pestanas', (e) => getComputedStyle(e).flexDirection);
   ok('a 1280px de ancho, la navegación ya es la barra lateral (columna)', anchaAntes === 'column', anchaAntes);
   ok('y ahí la marca del panel se ve', await pb.isVisible('#pestanas .marca'));
+  // Para comparar a simple vista si alguien está viendo una copia vieja
+  // guardada en su navegador —el mismo síntoma que ya pasó dos veces con
+  // el ?v= de panel.html—, sin tener que abrir las herramientas de
+  // desarrollador. Tiene que coincidir con el ?v= de panel.html y el
+  // CACHE de sw.js: los tres suben juntos.
+  ok('y junto a ella, un número de versión para comparar si alguien ve una copia vieja',
+     (await pb.textContent('#pestanas .version-panel')).trim() === 'v44',
+     await pb.textContent('#pestanas .version-panel'));
 
   await pb.setViewportSize({ width: 600, height: 800 });
   // El cambio es puro CSS —ninguna media query dispara JavaScript—, pero una
@@ -1372,6 +1380,8 @@ await ctxD.close();
      angostaDespues === 'row', angostaDespues);
   ok('y ahí la marca se esconde —no cabe en una fila que se desliza—',
      !(await pb.isVisible('#pestanas .marca')));
+  ok('y ahí también se esconde el número de versión',
+     !(await pb.isVisible('#pestanas .version-panel')));
 
   // Las cinco pestañas siguen ahí y siguen cambiando de panel, aunque ya no
   // quepan en el ancho sin deslizar: el cambio de layout no les rompió el
