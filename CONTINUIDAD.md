@@ -1123,6 +1123,8 @@ contra este botón en particular—, así que las dos etapas del confirmar
 se dispararon juntas por JavaScript, en una sola llamada síncrona, antes
 de tomar la foto final del GIF.
 
+Sin cambios de código: solo siete archivos de `assets/ayuda/`.
+
 ## Aviso cuando el tope deja la mayoría de las canastas sin boleto (9 de noviembre de 2026)
 
 El dueño cayó en cuenta de un hueco real en el aviso que ya existía (ver
@@ -1159,7 +1161,14 @@ documentado (250×4 = 1000 folios de 1999, 50.03%) el aviso nuevo NO
 salta —justo pasa la mitad—; bajando a 10 boletos (40 folios de 1999,
 2%) sí salta, con el 40 y el 1,999 en el mensaje.
 
-Sin cambios de código: solo siete archivos de `assets/ayuda/`.
+**Corrección del mismo día:** el dueño notó que el aviso viejo de «canasta
+casi vacía» (el de tope 1000 en vez de 1999) solo ofrecía UNA salida —subir
+a 1999—, dando por hecho que la canasta de verdad trae la bolita extra. Si
+no la tiene, 1000 no es un punto intermedio razonable: es el peor de los
+dos mundos, una bolita que casi nunca sirve. El mensaje ahora ofrece las
+dos salidas explícitas: subir a 1999 si la bolita sí está armada, o bajar a
+999 si no — con el número exacto de cada una, no solo "ajusta el tope".
+Comprobación actualizada en `pruebas/panel.mjs` para pedir ambas frases.
 
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
 

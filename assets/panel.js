@@ -623,7 +623,11 @@
     // 1000 folios empezando en 0 y solo uno en 1, esa bolita del 1 casi
     // nunca cae en un boleto de verdad al sacarla en vivo. Se avisa ANTES de
     // generar nada, no después de imprimir —que fue justo cómo se encontró
-    // este caso la primera vez—.
+    // este caso la primera vez—. El aviso ofrece las DOS salidas, no solo
+    // subir: si la canasta de verdad ya trae esa bolita extra, 1999 la
+    // aprovecha; si no la tienes armada, el tope correcto es 999, no 1000 a
+    // medias —1000 no es un punto intermedio válido, es el peor de los dos
+    // mundos—.
     var avisoCanasta = '';
     if (usaTope && digitos >= 2) {
       var escalon = Math.pow(10, digitos - 1);
@@ -635,9 +639,11 @@
           avisoCanasta = ' Ojo: con este tope, la canasta de más a la izquierda está casi vacía ' +
             '—solo ' + enUltimoEscalon.toLocaleString('es-MX') + ' de cada ' + escalon.toLocaleString('es-MX') +
             ' folios posibles usan su última bolita (la del ' + escalonTope + ')—. ' +
-            'Si esa canasta de verdad tiene esa bolita armada, sube el tope hasta ' +
+            'Si esa canasta de verdad tiene armada esa bolita, sube el tope hasta ' +
             ((escalonTope + 1) * escalon - 1).toLocaleString('es-MX') +
-            ' para aprovecharla de verdad.';
+            ' para aprovecharla de verdad; si no la tienes, bájalo a ' +
+            (escalonTope * escalon - 1).toLocaleString('es-MX') +
+            ' y usa solo hasta la bolita ' + (escalonTope - 1) + '.';
         }
       }
     }
