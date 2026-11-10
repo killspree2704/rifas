@@ -357,9 +357,10 @@ ganador, dígito por dígito.
 
 **Cómo se usa:** al crear la rifa, campo **«Tope del sorteo»**. Puesto un
 número (por ejemplo 999, o 1999 si la primera canasta ya trae una bolita
-más), los folios salen de 1 a ese tope, con tantos ceros a la izquierda
-como hagan falta. **Vacío, sigue el modo de siempre**: números grandes y al
-azar, únicos para toda la vida del proyecto —el de antes de este cambio.
+más), los folios salen de 0 a ese tope —el 0000 también juega, es un
+resultado posible de la saca—, con tantos ceros a la izquierda como hagan
+falta. **Vacío, sigue el modo de siempre**: números grandes y al azar,
+únicos para toda la vida del proyecto —el de antes de este cambio.
 
 **Lo que cambia de fondo:** con tope puesto, el folio **ya no es único
 entre rifas, a propósito** —el mismo 0347 puede salir en esta rifa y en la
@@ -374,9 +375,12 @@ dentro de una: que dos boletos de rifas distintas compartan folio Y código
 firmado es, en la práctica, imposible.
 
 **Cuántos boletos caben:** el tope ES el límite real —no hay margen extra
-como en el modo grande—. Con tope 999 y 4 números por boleto, caben 999÷4 ≈
-249 boletos. Si se agrega una bolita más a la primera canasta (tope 1999),
-caben hasta 499. El panel avisa si lo que se pide no cabe en el tope, antes
+como en el modo grande—. El espacio de folios va de 0 a tope, no de 1 a
+tope: el 0000 también es un resultado posible de la saca (las cuatro
+bolitas cayendo en 0 a la vez), así que con tope 999 hay 1000 números
+posibles, no 999. Con 4 números por boleto, caben 1000÷4 = 250 boletos. Si
+se agrega una bolita más a la primera canasta (tope 1999, 2000 números),
+caben hasta 500. El panel avisa si lo que se pide no cabe en el tope, antes
 de generar nada.
 
 **El campo «Tope» no se limpia solo entre una rifa y la siguiente**: representa
@@ -1169,6 +1173,55 @@ dos mundos, una bolita que casi nunca sirve. El mensaje ahora ofrece las
 dos salidas explícitas: subir a 1999 si la bolita sí está armada, o bajar a
 999 si no — con el número exacto de cada una, no solo "ajusta el tope".
 Comprobación actualizada en `pruebas/panel.mjs` para pedir ambas frases.
+
+## El 0000 también juega: el generador arrancaba en 1, no en 0 (10 de noviembre de 2026)
+
+Mientras se revisaba el aviso de cobertura de arriba, el dueño señaló algo
+más de fondo: `foliosDeRangoChico()` armaba el espacio de números como
+`[1, 2, ..., tope]` —nunca incluía el 0—. Pero en una saca de canastas de
+verdad, las cuatro bolitas cayendo en 0 a la vez («0000») es un resultado
+tan posible como cualquier otro. Con el generador viejo, ese resultado
+jamás podía salir impreso en ningún boleto: una saca "muerta" garantizada,
+sin importar cuánto se cubriera el tope, aparte del problema de cobertura
+ya conocido.
+
+Se confirmó con datos reales: la rifa de prueba «Bono Gana HOY» (tope
+1000, creada antes de este arreglo) tenía exactamente 999 folios
+empezando en 0 (`0001`-`0999`) y 1 en `1000` —mil folios en total, ni uno
+en `0000`—. Consulta directa a Supabase, no una suposición.
+
+**El arreglo real:** el espacio de un sorteo con tope va de **0 a tope**,
+no de 1 a tope —`tope + 1` números posibles, no `tope`—. Cambió en tres
+lugares que tenían que quedar sincronizados:
+
+- `foliosDeRangoChico()` en `supabase/funciones/sorteo/index.ts`: el
+  barajado de Fisher-Yates ahora arranca en `Array.from({length: tope+1},
+  (_,i) => i)`, incluyendo el 0.
+- La validación de capacidad del mismo archivo (y su espejo en
+  `pruebas/servidor-de-prueba.mjs`, que tenía exactamente el mismo
+  arreglo pendiente): `totalFolios > tope` pasó a `totalFolios > tope + 1`.
+- `resumenNueva()` en `assets/panel.js`: nueva variable `capacidad = tope
+  + 1` (con tope puesto) que reemplaza a `tope` en el cálculo de cuántos
+  boletos caben, en la comprobación de "no caben" y en el aviso de
+  cobertura —antes decía "1,999 números posibles" para un tope de 1999,
+  ahora dice correctamente "2,000 números posibles"—.
+
+**Lo que NO cambió:** los valores de tope que se sugieren (999, 1999,
+2999…) siguen siendo los mismos —representan qué bolitas existen, no
+cuántos números hay—. Tampoco cambió el aviso de «canasta casi vacía»: su
+matemática ya trataba cada escalón completo como de 1000 números —estaba,
+sin saberlo, ya preparada para esto—, así que ese aviso no necesitó
+tocarse.
+
+Se rehízo la rifa de prueba «Bono Gana HOY» con el generador corregido:
+497 folios ahora empiezan en 0 y 503 en 1 (antes del arreglo del tope,
+999 y 1; el reparto parejo entre 0 y 1 ya se había corregido en la
+sección de arriba). Pruebas actualizadas: el caso de tope exacto en
+`pruebas/panel.mjs` (`crearConTope`) usaba tope 8 para 8 folios exactos
+—con el 0 incluido eso ya no obliga a usar los ocho completos, porque
+0 a 8 son nueve números—, así que bajó a tope 7 (0 a 7, ocho números).
+Los mensajes de cobertura y "no caben" en los demás casos también se
+actualizaron a los números nuevos (2,000 en vez de 1,999, etc.).
 
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
 

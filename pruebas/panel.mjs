@@ -306,8 +306,9 @@ ok('y con el tope que SÍ aprovecha esa bolita, el aviso desaparece',
 // sacadas posibles sin ningún boleto que les corresponda —sin que el aviso
 // de arriba lo note, porque ahí las dos bolitas de la izquierda SÍ están
 // bien repartidas: el problema es que casi no hay boletos, no el reparto—.
-// Con 250×4 = 1000 folios de 1999 posibles (50.03%) el aviso de cobertura
-// todavía no salta: justo pasa la mitad.
+// El espacio real con tope 1999 es de 0 a 1999: 2,000 números, no 1999 —el
+// 0000 también juega—. Con 250×4 = 1000 folios de esos 2,000 (exacto 50%)
+// el aviso de cobertura todavía no salta: justo pasa la mitad.
 ok('con más de la mitad de las canastas cubiertas, no avisa por cobertura',
    !(await pagina.textContent('#cuentaNueva')).includes('esa saca no tiene ganador'),
    await pagina.textContent('#cuentaNueva'));
@@ -315,7 +316,7 @@ ok('con más de la mitad de las canastas cubiertas, no avisa por cobertura',
 await pagina.fill('#nvCantidad', '10');
 ok('con pocos boletos sobre un tope grande, avisa cuánto quedó sin cubrir y qué hacer en vivo',
    (await pagina.textContent('#cuentaNueva')).includes('40') &&
-   (await pagina.textContent('#cuentaNueva')).includes('1,999') &&
+   (await pagina.textContent('#cuentaNueva')).includes('2,000') &&
    (await pagina.textContent('#cuentaNueva')).includes('esa saca no tiene ganador'),
    await pagina.textContent('#cuentaNueva'));
 await pagina.fill('#nvCantidad', '250');
@@ -391,15 +392,16 @@ console.log('\n== Sorteo de rango chico (tope) ==');
 
   /**
    * Tope = EXACTAMENTE los folios que hacen falta (2 boletos × 4 números =
-   * 8, tope 8): así la rifa queda obligada a usar los ocho números del 1 al
-   * 8 completos, sin dejarlo a la suerte de una corrida de pruebas a otra.
+   * 8, tope 7): el espacio real va de 0 a tope —0 a 7, ocho números—, así
+   * que la rifa queda obligada a usar los ocho completos, sin dejarlo a la
+   * suerte de una corrida de pruebas a otra.
    */
   async function crearConTope(nombre) {
     await pt.click('#cajaNueva > summary');
     await pt.fill('#nvNombre', nombre);
     await pt.fill('#nvSerie', 'T');
     await pt.fill('#nvFecha', '2026-12-24T20:00');
-    await pt.fill('#nvTope', '8');
+    await pt.fill('#nvTope', '7');
     await pt.fill('#nvCantidad', '2');
     await pt.fill('#nvFoliosPorBoleto', '4');
     await pt.click('#btnCrear');
@@ -421,7 +423,7 @@ console.log('\n== Sorteo de rango chico (tope) ==');
 
   const uno = await crearConTope('Rifa Tope Uno');
   const numerosUno = uno.flatMap((b) => b.numeros);
-  ok('el tope de 8 produce folios de 4 dígitos, con cero a la izquierda',
+  ok('el tope de 7 produce folios de 4 dígitos, con cero a la izquierda',
      numerosUno.every((n) => /^\d{4}$/.test(n)), numerosUno.join(' '));
 
   const dos = await crearConTope('Rifa Tope Dos');
