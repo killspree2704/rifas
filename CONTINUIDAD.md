@@ -1254,6 +1254,38 @@ mandó con la confianza del repaso de código (quitar un `gap` y un
 verde, no con una captura de la hoja ya impresa. Pendiente confirmar
 visualmente con la siguiente hoja que se genere.
 
+**Continuación, mismo día:** el `page-break-inside: avoid` agregado
+arriba (sección «Dos arreglos de compatibilidad para Apple») NO bastó.
+Una hoja real generada desde la Mac del cliente —DESPUÉS de ese
+arreglo— seguía con un renglón completo partido a la mitad entre la
+página 1 y la 2, confirmado leyendo el texto del PDF: los cuatro
+números y las tres «Caducidad» de un renglón quedaban al fondo de una
+página, y el renglón de precio+código de ESOS MISMOS tres boletos
+aparecía hasta arriba de la siguiente. El bug de Safari/WebKit con
+`display: grid` al paginar para imprimir es más terco de lo que
+`page-break-inside: avoid` solo puede arreglar.
+
+Arreglo de fondo: `.rejilla` pasó de `display: grid` a `display: flex;
+flex-wrap: wrap`. Safari pagina un flex mucho mejor que un grid. Cada
+`.boleto` ahora lleva su propio ancho fijo (`.rejilla > .boleto { width:
+calc(100% / columnas); box-sizing: border-box; }`) en vez de que lo
+reparta el contenedor —con `grid-template-columns: repeat(auto-fit,
+...)` antes, un lote más chico que `columnas` crecía para llenar la
+hoja; con flex se queda en su tamaño normal de un renglón completo—. Es
+un cambio de comportamiento menor, aceptado a cambio de que ya no se
+corten los boletos.
+
+Esta vez sí se verificó visualmente: con la extensión de Chrome ya
+reconectada, se armó una página de prueba aparte (mismo CSS exacto,
+30 boletos de muestra, sin pasar por el panel —las ventanas que abre
+`document.write` no se pueden inspeccionar con la extensión—) servida
+por un HTTP local de un solo archivo. Se ve justo lo esperado: tres por
+renglón, pegados sin espacio, esquinas alineadas. Lo que NO se pudo
+confirmar es el comportamiento real de paginación en Safari —no hay
+una Mac a la mano—; es el arreglo estándar y documentado para este bug
+específico, no una reproducción confirmada paso a paso contra el
+dispositivo exacto del cliente.
+
 ## El QR salía en blanco al imprimir desde el celular del cliente (10 de noviembre de 2026)
 
 El dueño generó una hoja de 250 boletos desde su propio celular y salió
