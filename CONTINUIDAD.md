@@ -1253,6 +1253,29 @@ tamaño solo.
 Mismo arreglo en `herramientas/hoja-boletos.mjs`, la herramienta de línea
 de comandos que arma hojas fuera del panel —mismo patrón, mismo hueco—.
 
+**El mismo día, un segundo reporte del mismo cliente**: en su Mac, el PDF
+«corta los boletos» —la mitad de un boleto sale en una página, la otra
+mitad en la siguiente—. La hoja ya traía `break-inside: avoid` en
+`.boleto`, pero ese boleto vive dentro de un `.rejilla { display: grid;
+... }`: Safari/WebKit —el motor detrás de «Imprimir a PDF» en Mac y
+iOS— tiene un bug conocido y viejo donde `break-inside: avoid` se
+ignora en los elementos hijos de un `display: grid` al paginar para
+imprimir, aunque Chrome y Firefox sí lo respeten ahí mismo. El arreglo
+de siempre para esto es sumar también la propiedad «vieja»,
+`page-break-inside: avoid` —el nombre que tenía antes de que se
+unificara en `break-inside`—, que varios motores de Apple sí miran
+aunque ignoren la nueva. Agregada junto a `break-inside: avoid` en los
+dos estilos de boleto (clásico y con plantilla), sin tocar nada más.
+
+Como con el QR de arriba, no hay un Mac a la mano para reproducir el
+síntoma exacto y confirmar al 100% que esto lo resuelve del todo —es el
+arreglo estándar y de primera línea para este bug específico, documentado
+y de riesgo cero, pero si el cliente lo sigue viendo después de este
+cambio, el siguiente paso sería cambiar `.rejilla` de `display: grid` a
+`display: flex` con `flex-wrap: wrap` —Safari pagina mejor un flex que
+un grid—, un cambio más grande que no se hizo todavía por no tener cómo
+probarlo en el momento.
+
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
 
 Dos pedidos en el mismo mensaje. **Uno, de forma**: el texto de ayuda bajo

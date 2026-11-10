@@ -1007,9 +1007,16 @@
       //
       // El milímetro va primero: un navegador viejo que no entienda
       // `@container` se queda con él y el papel sale igual que siempre.
+      // `page-break-inside` además de `break-inside`: dentro de un
+      // `display: grid`, Safari/WebKit (el que arma el PDF al imprimir
+      // desde Mac o iOS) a veces ignora la propiedad nueva y parte un
+      // boleto a la mitad entre una página y la siguiente —justo lo que
+      // reportó el dueño—; la propiedad vieja es la que varios motores de
+      // impresión de Apple sí respetan en un grid.
       p + '.boleto { position: relative; box-sizing: border-box;' +
       ' container-type: inline-size; --u: 1mm; background-color: ' + plantilla.fondo + ';' +
-      ' color: ' + plantilla.tinta + '; overflow: hidden; break-inside: avoid; }' +
+      ' color: ' + plantilla.tinta + '; overflow: hidden;' +
+      ' break-inside: avoid; page-break-inside: avoid; }' +
       // El relleno de abajo es el de la FOTO de esta plantilla, no un valor
       // inventado: viene de `fotoAncho`/`fotoAlto`, medidos junto con todo lo
       // demás de aquí abajo. El truco del `padding-top` —en vez de
@@ -1149,7 +1156,7 @@
     return (
       p + '.boleto { background-color: ' + CLASICO.fondo + '; color: ' + CLASICO.tinta + ';' +
       ' border: 1px solid ' + CLASICO.borde + '; border-radius: 2mm; padding: 3mm 4mm;' +
-      ' break-inside: avoid; }' +
+      ' break-inside: avoid; page-break-inside: avoid; }' +
       p + '.marca { font-size: 13pt; font-weight: 700; text-transform: uppercase;' +
       ' letter-spacing: 0.04em; text-align: center; margin: 0 0 1mm; }' +
       p + '.aviso { font-size: 5.5pt; opacity: 0.75; text-align: center; margin: 0 0 2mm;' +
