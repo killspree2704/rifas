@@ -1223,6 +1223,37 @@ sección de arriba). Pruebas actualizadas: el caso de tope exacto en
 Los mensajes de cobertura y "no caben" en los demás casos también se
 actualizaron a los números nuevos (2,000 en vez de 1,999, etc.).
 
+## Boletos pegados en la hoja, para cortar de un solo tirón (10 de noviembre de 2026)
+
+Pedido explícito, tras varias vueltas aclarando qué significaba «pegado»:
+no un espacio chico, sino literalmente SIN espacio entre un boleto y el
+siguiente, para que en la imprenta un solo corte recto —de lado a lado
+de la hoja, el método de cortar en tiras en vez de uno por uno con
+tijeras— divida dos boletos de una vez, sin dejar una «pestaña» blanca
+de sobra que haya que volver a recortar aparte.
+
+`.rejilla` en `hojaHtml()` (`assets/panel.js`) traía `gap: 5mm` entre
+boletos; pasó a `gap: 0`. La fórmula de `minmax()` que calculaba el ancho
+de columna restando el espacio de los huecos (`(columnas - 1) * 5mm`) ya
+no necesita esa resta —no hay huecos que restar—, así que se simplificó a
+`calc(100% / columnas)`. El boleto clásico (`CLASICO`, sin plantilla)
+también perdió su `border-radius: 2mm`: con cero espacio entre boletos,
+una esquina redonda dejaba un triángulo blanco exactamente donde se
+tocan cuatro boletos —el boleto con foto de plantilla ya no tenía
+esquinas redondeadas en su contenedor, así que no necesitó el mismo
+cambio—.
+
+Confirmado con el dueño: 3 boletos por renglón, el máximo que ya
+admitía el selector «Boletos por renglón en la hoja» —no hizo falta
+subir ese tope, solo quitar el espacio—.
+
+No se pudo verificar en vivo contra un navegador real en este momento
+—la extensión de Chrome estaba desconectada—, así que este cambio se
+mandó con la confianza del repaso de código (quitar un `gap` y un
+`border-radius` es de bajo riesgo) y las 234+ pruebas automatizadas en
+verde, no con una captura de la hoja ya impresa. Pendiente confirmar
+visualmente con la siguiente hoja que se genere.
+
 ## El QR salía en blanco al imprimir desde el celular del cliente (10 de noviembre de 2026)
 
 El dueño generó una hoja de 250 boletos desde su propio celular y salió
