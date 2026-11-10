@@ -1223,6 +1223,59 @@ sección de arriba). Pruebas actualizadas: el caso de tope exacto en
 Los mensajes de cobertura y "no caben" en los demás casos también se
 actualizaron a los números nuevos (2,000 en vez de 1,999, etc.).
 
+## El QR salía en blanco al imprimir desde el celular del cliente (10 de noviembre de 2026)
+
+El dueño generó una hoja de 250 boletos desde su propio celular y salió
+bien. Su cliente generó la misma hoja desde EL SUYO y los QR de los 250
+boletos salieron como un cuadro gris, roto, sin ningún código —confirmado
+con una foto de la hoja impresa—. El HTML que arma el panel es estático
+—el QR ya viene dibujado como SVG dentro del archivo, no depende de que
+corra JavaScript después—, así que no es un problema de «no cargó a
+tiempo»: algo del motor de «Imprimir a PDF» de ESE teléfono en particular
+no está dibujando el SVG.
+
+`qrSvg()` en `assets/panel.js` construye el QR con un `<svg>` que solo
+trae `viewBox`, sin `width` ni `height` propios —el tamaño en pantalla
+queda enteramente a cargo del CSS (`.qr svg { width: 100%; ... }`)—. Es
+válido y funciona en la enorme mayoría de navegadores, pero varios
+motores de impresión de Android/iOS —sobre todo WebView más viejos— no
+le calculan tamaño a un SVG así y lo pintan roto, justo el síntoma de la
+foto. No se pudo reproducir en el teléfono del dueño —ahí sí funcionaba—,
+así que el diagnóstico queda sin confirmar al 100% contra el teléfono
+exacto del cliente, pero es un hueco de compatibilidad real y conocido,
+con arreglo seguro y sin downside: dar al `<svg>` su propio `width` y
+`height`, además del `viewBox`. El CSS lo sigue reescalando igual que
+antes en todos los navegadores donde ya funcionaba —`width`/`height` de
+CSS gana sobre los atributos propios del SVG—; lo único que cambia es que
+el SVG ya no depende de que ESE motor en particular sepa calcularle
+tamaño solo.
+
+Mismo arreglo en `herramientas/hoja-boletos.mjs`, la herramienta de línea
+de comandos que arma hojas fuera del panel —mismo patrón, mismo hueco—.
+
+**El mismo día, un segundo reporte del mismo cliente**: en su Mac, el PDF
+«corta los boletos» —la mitad de un boleto sale en una página, la otra
+mitad en la siguiente—. La hoja ya traía `break-inside: avoid` en
+`.boleto`, pero ese boleto vive dentro de un `.rejilla { display: grid;
+... }`: Safari/WebKit —el motor detrás de «Imprimir a PDF» en Mac y
+iOS— tiene un bug conocido y viejo donde `break-inside: avoid` se
+ignora en los elementos hijos de un `display: grid` al paginar para
+imprimir, aunque Chrome y Firefox sí lo respeten ahí mismo. El arreglo
+de siempre para esto es sumar también la propiedad «vieja»,
+`page-break-inside: avoid` —el nombre que tenía antes de que se
+unificara en `break-inside`—, que varios motores de Apple sí miran
+aunque ignoren la nueva. Agregada junto a `break-inside: avoid` en los
+dos estilos de boleto (clásico y con plantilla), sin tocar nada más.
+
+Como con el QR de arriba, no hay un Mac a la mano para reproducir el
+síntoma exacto y confirmar al 100% que esto lo resuelve del todo —es el
+arreglo estándar y de primera línea para este bug específico, documentado
+y de riesgo cero, pero si el cliente lo sigue viendo después de este
+cambio, el siguiente paso sería cambiar `.rejilla` de `display: grid` a
+`display: flex` con `flex-wrap: wrap` —Safari pagina mejor un flex que
+un grid—, un cambio más grande que no se hizo todavía por no tener cómo
+probarlo en el momento.
+
 ## El medidor del tope, en lenguaje llano, y los folios que empiezan en 0: no era un bug (7 de noviembre de 2026)
 
 Dos pedidos en el mismo mensaje. **Uno, de forma**: el texto de ayuda bajo
