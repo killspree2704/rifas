@@ -291,9 +291,10 @@ await pagina.fill('#nvDigitos', '4');
 await pagina.fill('#nvCantidad', '250');
 await pagina.fill('#nvFoliosPorBoleto', '4');
 await pagina.fill('#nvTope', '1000');
-ok('avisa cuando el tope deja casi vacía la canasta de más a la izquierda',
+ok('avisa cuando el tope deja casi vacía la canasta de más a la izquierda, con las dos salidas',
    (await pagina.textContent('#cuentaNueva')).includes('casi vacía') &&
-   (await pagina.textContent('#cuentaNueva')).includes('1,999'),
+   (await pagina.textContent('#cuentaNueva')).includes('sube el tope hasta 1,999') &&
+   (await pagina.textContent('#cuentaNueva')).includes('bájalo a 999'),
    await pagina.textContent('#cuentaNueva'));
 await pagina.fill('#nvTope', '1999');
 ok('y con el tope que SÍ aprovecha esa bolita, el aviso desaparece',
