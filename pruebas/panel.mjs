@@ -299,6 +299,26 @@ await pagina.fill('#nvTope', '1999');
 ok('y con el tope que SÍ aprovecha esa bolita, el aviso desaparece',
    !(await pagina.textContent('#cuentaNueva')).includes('casi vacía'),
    await pagina.textContent('#cuentaNueva'));
+
+// El aviso de arriba solo cubre la canasta de la izquierda. Pero el mismo
+// tope 1999, con muchos menos folios impresos, deja la MAYORÍA de las
+// sacadas posibles sin ningún boleto que les corresponda —sin que el aviso
+// de arriba lo note, porque ahí las dos bolitas de la izquierda SÍ están
+// bien repartidas: el problema es que casi no hay boletos, no el reparto—.
+// Con 250×4 = 1000 folios de 1999 posibles (50.03%) el aviso de cobertura
+// todavía no salta: justo pasa la mitad.
+ok('con más de la mitad de las canastas cubiertas, no avisa por cobertura',
+   !(await pagina.textContent('#cuentaNueva')).includes('esa saca no tiene ganador'),
+   await pagina.textContent('#cuentaNueva'));
+
+await pagina.fill('#nvCantidad', '10');
+ok('con pocos boletos sobre un tope grande, avisa cuánto quedó sin cubrir y qué hacer en vivo',
+   (await pagina.textContent('#cuentaNueva')).includes('40') &&
+   (await pagina.textContent('#cuentaNueva')).includes('1,999') &&
+   (await pagina.textContent('#cuentaNueva')).includes('esa saca no tiene ganador'),
+   await pagina.textContent('#cuentaNueva'));
+await pagina.fill('#nvCantidad', '250');
+
 await pagina.fill('#nvTope', '');
 await pagina.fill('#nvFoliosPorBoleto', '4');
 await pagina.fill('#nvDigitos', '5');

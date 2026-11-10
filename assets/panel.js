@@ -642,6 +642,28 @@
       }
     }
 
+    // El aviso de arriba solo cubre la canasta de más a la izquierda. Pero el
+    // mismo problema —una bolita que casi nunca encuentra pareja al sacarla
+    // en vivo— puede pasar con CUALQUIER combinación de bolitas, no solo esa,
+    // en cuanto se imprimen muchos menos folios de los que caben en el tope:
+    // si el tope es 1999 y solo se venden 40, el 98% de las sacadas posibles
+    // no va a coincidir con ningún boleto vendido. El sorteo real SÍ reparte
+    // cualquier número de 1 al tope (ver el comentario en
+    // `supabase/funciones/sorteo/index.ts`), así que esto no impide generar
+    // la rifa —hay rifas que de verdad venden solo una fracción de sus
+    // canastas—, pero quien la crea tiene que saberlo ANTES de imprimir, no
+    // enterarse en vivo el día del sorteo.
+    if (usaTope) {
+      var cobertura = totalFolios / tope;
+      if (cobertura < 0.5) {
+        avisoCanasta += ' Ojo: estos boletos cubren ' + totalFolios.toLocaleString('es-MX') +
+          ' de los ' + tope.toLocaleString('es-MX') + ' números posibles en las canastas (' +
+          Math.round(cobertura * 100) + '%). Si al sacar las bolitas en vivo cae un número que ' +
+          'nadie compró, esa saca no tiene ganador: hay que repetir la saca hasta que caiga uno ' +
+          'que sí esté vendido.';
+      }
+    }
+
     caja.textContent = texto + '.' + avisoCanasta;
     caja.className = avisoCanasta ? 'mensaje error' : 'nota';
   }
