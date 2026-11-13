@@ -252,7 +252,17 @@
       var etiqueta = document.createElement('script');
       etiqueta.src = 'vendor/supabase-js-2.116.0.js';
       etiqueta.async = true;
-      etiqueta.onload = function () { resolver(); };
+      // `onload` NO basta. Si el navegador descarga el archivo pero no puede
+      // interpretarlo —uno viejo que no entiende la sintaxis de la librería—,
+      // `onload` se dispara igual y el error sale por otro lado. Sin esta
+      // comprobación dábamos la carga por buena y reventábamos más adelante,
+      // al llamar a `window.supabase.createClient`, con un error sin sentido
+      // para quien solo quería ver su boleto. Que se note aquí deja a la
+      // pantalla caer en su respaldo del reloj, que es lo correcto.
+      etiqueta.onload = function () {
+        if (window.supabase && window.supabase.createClient) { return resolver(); }
+        rechazar(new Error('la librería cargó pero este navegador no la pudo usar'));
+      };
       etiqueta.onerror = function () { rechazar(new Error('no se pudo cargar la librería')); };
       document.head.appendChild(etiqueta);
     });

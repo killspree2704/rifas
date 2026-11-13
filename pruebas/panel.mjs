@@ -1655,6 +1655,89 @@ await ctxD.close();
   await ctxP.close();
 }
 
+// ------------------------------------------ EL TRABAJADOR DE SERVICIO ------
+// Aparte y con el trabajador de servicio ENCENDIDO: todas las demás pruebas
+// lo apagan con `serviceWorkers: 'block'`, y por eso `sw.js` era el único
+// archivo del proyecto sin una sola prueba. Fue justo el que dejó a varias
+// personas con «Sin conexión» la noche de la primera rifa, teniendo señal.
+{
+  console.log('\n== El trabajador de servicio ==');
+  const ctxS = await navegador.newContext();   // SIN bloquearlo, a propósito
+  const ps = await ctxS.newPage();
+  const errS = [];
+  ps.on('pageerror', (e) => errS.push(String(e)));
+
+  await ps.goto(BASE + '/?b=9000001052&c=R5VR');
+  await ps.waitForFunction(() => navigator.serviceWorker &&
+    navigator.serviceWorker.controller !== undefined, null, { timeout: 15000 });
+  // Que se active y termine de guardar.
+  await ps.waitForFunction(async () => {
+    const n = await caches.keys();
+    if (!n.length) { return false; }
+    const c = await caches.open(n[0]);
+    return !!(await c.match('index.html'));
+  }, null, { timeout: 15000 });
+  ok('guarda la página del boleto para abrirla sin red', true);
+
+  // Una sola llave para la página. Antes guardaba './' Y 'index.html' —dos
+  // peticiones a lo mismo— y abajo solo leía una: si fallaba esa, el teléfono
+  // tenía la página guardada y aun así enseñaba «Sin conexión».
+  const llaves = await ps.evaluate(async () => {
+    const n = await caches.keys();
+    const c = await caches.open(n[0]);
+    return (await c.keys()).map((r) => new URL(r.url).pathname).sort();
+  });
+  ok('y guarda UNA sola llave para ella, no dos',
+     llaves.filter((k) => k === '/' || k.endsWith('/index.html')).length === 1,
+     llaves.join(' '));
+
+  // --- Lo que falló en la rifa: copia vacía + red lenta ---
+  // Se borra la copia para dejar al teléfono como quedaba cuando la
+  // instalación no alcanzó a guardarla, y se hace lenta la red: 9 segundos,
+  // por encima del tope de 8 que el trabajador se imponía a sí mismo.
+  await ps.evaluate(async () => {
+    for (const n of await caches.keys()) {
+      const c = await caches.open(n);
+      for (const r of await c.keys()) {
+        const p = new URL(r.url).pathname;
+        if (p === '/' || p.endsWith('/index.html')) { await c.delete(r); }
+      }
+    }
+  });
+  await ctxS.route('**/index.html', async (ruta) => {
+    await new Promise((r) => setTimeout(r, 9000));
+    await ruta.continue();
+  });
+  await ctxS.route(BASE + '/?*', async (ruta) => {
+    await new Promise((r) => setTimeout(r, 9000));
+    await ruta.continue();
+  });
+
+  await ps.goto(BASE + '/?b=9000001052&c=R5VR', { timeout: 40000 });
+  const texto = await ps.textContent('body');
+  ok('con la copia vacía y la red LENTA, espera en vez de rendirse a los 8 s',
+     !texto.includes('Sin conexión'),
+     texto.replace(/\s+/g, ' ').slice(0, 80));
+  await ctxS.unroute('**/index.html');
+  await ctxS.unroute(BASE + '/?*');
+
+  // --- Y cuando la red de verdad no está, sí avisa, y con el texto correcto ---
+  await ps.evaluate(async () => {
+    for (const n of await caches.keys()) { await caches.delete(n); }
+  });
+  await ctxS.route('**/panel.html', (ruta) => ruta.abort());
+  await ps.goto(BASE + '/panel.html').catch(() => {});
+  const textoPanel = await ps.textContent('body').catch(() => '');
+  ok('sin red de verdad, el PANEL dice que no cargó el panel, no «tu boleto»',
+     textoPanel.includes('Sin conexión') && textoPanel.includes('el panel') &&
+     !textoPanel.includes('tu boleto'),
+     textoPanel.replace(/\s+/g, ' ').slice(0, 90));
+  await ctxS.unroute('**/panel.html');
+
+  ok('sin errores de JavaScript con el trabajador encendido', errS.length === 0, errS.join(' | '));
+  await ctxS.close();
+}
+
 ok('sin errores de JavaScript en el panel', errores.length === 0, errores.join(' | '));
 ok('sin errores de JavaScript en el boleto', err2.length === 0, err2.join(' | '));
 
