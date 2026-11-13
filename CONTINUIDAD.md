@@ -331,6 +331,15 @@ pasados esos, solo queda descargar un respaldo.
 2. Entrar al panel y comprobar que la rifa correcta está en **En espera**.
    Los teléfonos cambian solos a «La rifa se está llevando a cabo» al llegar
    la hora del sorteo —no hace falta ningún paso aquí para eso—.
+
+   > **Lee la SERIE y la FECHA, no el nombre.** Cuando hay varias rifas
+   > seguidas se llaman igual —«BONO GANA HOY» tres noches seguidas— y lo
+   > único que las distingue es la serie (A, AA, AB…) y la fecha del sorteo.
+   > La noche del 12 de noviembre de 2026 se reveló por error la rifa del día
+   > SIGUIENTE porque era la que estaba activa; el resultado de mañana quedó
+   > público 39 minutos. El servidor **todavía no comprueba** que el sorteo de
+   > la rifa que revelas ya haya llegado: lo comprueba el que está frente al
+   > panel. Antes de tocar Revelar, confirma en voz alta la serie y la fecha.
 3. Sacar una bolita de cada canasta —de izquierda a derecha, un dígito por
    canasta— y teclear el número que forman. **El ganador lo deciden las
    canastas, no la app**: «Revelar» solo registra lo que ya salió, y el
