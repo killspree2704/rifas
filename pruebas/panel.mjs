@@ -1721,6 +1721,45 @@ await ctxD.close();
   await ctxS.unroute('**/index.html');
   await ctxS.unroute(BASE + '/?*');
 
+  // --- Un estado HTTP malo PASAJERO no es «no hay nada que ofrecer» ---
+  // `fetch` resuelve con un 502 igual que con un 200, así que ningún
+  // `.catch()` lo atrapa: sin reintento, esa página de error cruda del
+  // servidor es lo que ve quien acaba de escanear el QR. Ya pasó una vez en
+  // producción y ya se había corregido; esta prueba existe para que no
+  // vuelva a perderse al tocar este archivo.
+  await ps.evaluate(async () => {
+    for (const n of await caches.keys()) { await caches.delete(n); }
+  });
+  let vecesBoleto = 0;
+  await ctxS.route(BASE + '/?*', async (ruta) => {
+    vecesBoleto++;
+    if (vecesBoleto === 1) {
+      return ruta.fulfill({ status: 502, contentType: 'text/html', body: 'Bad Gateway' });
+    }
+    await ruta.continue();
+  });
+  await ps.goto(BASE + '/?b=9000001052&c=R5VR', { timeout: 30000 });
+  const trasBache = await ps.textContent('body');
+  ok('un 502 de un instante se reintenta: sale el boleto, no el error crudo',
+     !trasBache.includes('Bad Gateway') && !trasBache.includes('Sin conexión') &&
+     vecesBoleto >= 2,
+     vecesBoleto + ' intentos — ' + trasBache.replace(/\s+/g, ' ').slice(0, 60));
+  await ctxS.unroute(BASE + '/?*');
+
+  // Y si el servidor sigue mal, se enseña la pantalla de cortesía, nunca su
+  // página de error.
+  await ps.evaluate(async () => {
+    for (const n of await caches.keys()) { await caches.delete(n); }
+  });
+  await ctxS.route(BASE + '/?*', (ruta) =>
+    ruta.fulfill({ status: 502, contentType: 'text/html', body: 'Bad Gateway' }));
+  await ps.goto(BASE + '/?b=9000001052&c=R5VR', { timeout: 30000 });
+  const siempreMal = await ps.textContent('body');
+  ok('y si el servidor sigue mal, sale la pantalla de cortesía, no «Bad Gateway»',
+     siempreMal.includes('Sin conexión') && !siempreMal.includes('Bad Gateway'),
+     siempreMal.replace(/\s+/g, ' ').slice(0, 70));
+  await ctxS.unroute(BASE + '/?*');
+
   // --- Y cuando la red de verdad no está, sí avisa, y con el texto correcto ---
   await ps.evaluate(async () => {
     for (const n of await caches.keys()) { await caches.delete(n); }
