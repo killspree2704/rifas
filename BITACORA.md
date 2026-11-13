@@ -113,6 +113,7 @@ Vale más que la lista de aciertos: es lo que evita repetir el camino.
 
 | Intento | Qué pasó |
 | --- | --- |
+| **Confiar en que el operador tenga activa la rifa correcta al revelar** | La noche del 12 de noviembre de 2026 se reveló la rifa del día SIGUIENTE —«BONO GANA HOY» serie AB, sorteo del 13 a las 21:30— en lugar de la de esa noche, la serie AA. Error de dedo: las dos se llaman igual y solo cambian la serie y la fecha. El resultado de mañana quedó público 39 minutos, hasta que se corrigió. La causa no fue el operador: el servidor acepta `revelar` sobre CUALQUIER rifa que esté activa, sin mirar si su sorteo ya llegó y sin exigir que haya pasado por `en_vivo`. Un papel que todavía no se sortea no debería poder revelarse |
 | **GitHub Pages** | La red móvil del cliente **no alcanzaba los servidores de GitHub**. La página no cargaba con datos, en ninguna compañía. Se comprobó con `diagnostico.html`, que se construyó justo para eso. Se migró a Cloudflare: 103 ms sobre una conexión de 0.25 Mbps |
 | **Hipótesis de IPv6** | Yo sostuve que GitHub Pages siendo solo IPv4 lo explicaba. La prueba del cliente salió al revés y **la hipótesis era incorrecta**. No se migró sobre una premisa falsa; se migró cuando hubo evidencia |
 | **Google Fonts** | La hoja de estilos bloqueaba el primer pintado: en 3G saturado el boleto **no aparecía ni en 12 segundos**. Sin ella, 2.4 s. Difiriendo además `supabase-js`, 1.4 s |
