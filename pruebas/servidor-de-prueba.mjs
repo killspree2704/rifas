@@ -47,6 +47,17 @@ rifas.push({
   revelado_en: null, creada_en: new Date().toISOString(), emision: null, precio_boleto: null, folios_por_boleto: 2,
   transmision_url: null, transmite_desde: null,
 });
+// Una rifa con fecha FIJA, para la prueba del «Hoy»/«Mañana» del panel. El
+// 13-nov-2026 a las 21:30 en hora de México son las 03:30 UTC del 14: si el
+// panel cuenta días con la fecha en UTC, o restando milisegundos, se le va a
+// otro día. Fija y no relativa a propósito: esa prueba congela el reloj.
+rifas.push({
+  id: 'esta-noche', nombre: 'BONO DE ESTA NOCHE', serie: 'EN', estado: 'espera',
+  activa: false, folio_ganador: null, fecha_sorteo: '2026-11-14T03:30:00Z',
+  revelado_en: null, creada_en: '2026-11-11T00:00:00Z', emision: null,
+  precio_boleto: 20, folios_por_boleto: 2, archivada: false,
+  transmision_url: null, transmite_desde: null,
+});
 rifas.push({
   id: 'suspendida', nombre: 'Rifa suspendida', serie: 'S', estado: 'cerrado',
   activa: false, folio_ganador: null, fecha_sorteo: '2025-06-01T18:00:00-06:00',
@@ -80,6 +91,7 @@ const boletos = {
     { id: '9000001060', codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
   ],
   'vieja-2025-01': [{ id: '9000009001', codigo: 'ZZZZ', folios: ['90001', '90002'] }],
+  'esta-noche': [{ id: '9000008001', codigo: 'NOCH', folios: ['80001', '80002'] }],
   generosa: [{
     id: '9000007001', codigo: 'NUE9',
     folios: ['70001', '70002', '70003', '70004', '70005', '70006', '70007', '70008', '70009'],
