@@ -7,36 +7,79 @@
  * permiso a la red**. Lo único que necesita conexión es consultar el estado
  * de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v44';
+const CACHE = 'rifa-v45';
 
 // Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
 // propósito: son 215 KB, y pedirlos en una red mala haría fallar la
 // instalación. Esa librería se guarda sola cuando se descarga.
+// `index.html` va aparte y NO en esta lista: es la única que decide si la
+// pantalla del boleto se puede abrir sin red, y se guarda con reintento.
+// Antes la lista traía además './', que es OTRA petición a la misma página:
+// se guardaban dos llaves y aquí abajo solo se leía una, así que un fallo en
+// la de 'index.html' dejaba la copia «guardada» e inservible.
+const PAGINA = 'index.html';
+
 const BASICOS = [
-  './',
-  'index.html',
   'assets/estilos.css',
   'assets/config.js',
   'assets/app.js',
 ];
 
-/** Página de cortesía para cuando no hay copia guardada ni red. */
-const SIN_RED = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+/**
+ * Página de cortesía para cuando no hay copia guardada ni red.
+ *
+ * Lleva el texto como parámetro porque la misma pantalla sale en el boleto y
+ * en el panel, y decirle «no pudimos cargar tu boleto» al organizador que
+ * está abriendo el panel lo manda a buscar el problema donde no está.
+ */
+function sinRed(explicacion) {
+  return new Response(PLANTILLA_SIN_RED.replace('{{EXPLICACION}}', explicacion), {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+}
+
+const SIN_RED_BOLETO = 'No pudimos cargar tu boleto. Revisa tu señal e inténtalo de nuevo.';
+const SIN_RED_PANEL = 'No pudimos cargar el panel. Revisa tu señal e inténtalo de nuevo.';
+
+const PLANTILLA_SIN_RED = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Sin conexión</title>
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
 padding:24px;background:#ece7dd;color:#1d1a17;font-family:system-ui,-apple-system,sans-serif;
 text-align:center;line-height:1.5}div{max-width:320px}h1{font-size:1.3rem;margin:0 0 8px}
 p{color:#6d675e;margin:0 0 20px}button{padding:12px 22px;font:inherit;font-weight:600;
 border:0;border-radius:9px;background:#9a6f0a;color:#fff}</style></head>
-<body><div><h1>Sin conexión</h1><p>No pudimos cargar tu boleto. Revisa tu señal e inténtalo de nuevo.</p>
+<body><div><h1>Sin conexión</h1><p>{{EXPLICACION}}</p>
 <button onclick="location.reload()">Reintentar</button></div></body></html>`;
+
+/**
+ * Guarda la página, con tres intentos espaciados.
+ *
+ * Esto es lo más importante del archivo. La instalación ocurre justo cuando
+ * la persona escanea el QR —en el evento, con la antena saturada—, que es el
+ * peor momento posible para una descarga. Si se rinde al primer intento, el
+ * teléfono se queda con un trabajador de servicio ACTIVO y SIN copia, que es
+ * peor que no tener ninguno: a partir de ahí toda apertura depende de la red
+ * y encima con el plazo que este archivo le impone.
+ */
+function guardarPagina(cache, intentos) {
+  return cache.add(PAGINA).catch((e) => {
+    if (intentos <= 1) { throw e; }
+    return new Promise((r) => setTimeout(r, 800))
+      .then(() => guardarPagina(cache, intentos - 1));
+  });
+}
 
 self.addEventListener('install', (evento) => {
   evento.waitUntil(
     caches.open(CACHE)
       // Uno por uno, no en bloque: si un archivo falla, los demás se guardan
       // igual. Con `addAll` un solo fallo dejaba al teléfono sin nada.
-      .then((cache) => Promise.allSettled(BASICOS.map((ruta) => cache.add(ruta))))
+      .then((cache) => Promise.allSettled(BASICOS.map((ruta) => cache.add(ruta)))
+        .then(() => guardarPagina(cache, 3))
+        // Que la página no se haya podido guardar NO impide instalar: la
+        // pantalla de abajo ya no depende de que esté. Pero se intenta de
+        // verdad antes de darse por vencido.
+        .catch(() => {}))
       .then(() => self.skipWaiting())
   );
 });
@@ -111,7 +154,7 @@ self.addEventListener('fetch', (evento) => {
     // una vez la vuelve a abrir al instante, sin depender de la red.
     if (esBoleto) {
       evento.respondWith(
-        caches.match('index.html').then((guardada) => {
+        caches.match(PAGINA).then((guardada) => {
           // Un 404/500/502 pasajero de la red —un despliegue a medio
           // propagar en el borde, un nodo frío— NO es un «no hay copia que
           // ofrecer»: `fetch` lo resuelve igual que a un 200, no lo rechaza.
@@ -120,17 +163,34 @@ self.addEventListener('fetch', (evento) => {
           // de «Sin conexión» de aquí abajo —que es justo para esto—. Una
           // recarga, momentos después, volvía a pedir la red y ya salía
           // bien: el síntoma exacto que reportó el dueño.
-          const desdeRed = conReintento(peticion, 8000)
-            .then((r) => (r && r.ok) ? guardar(new Request('index.html'), r) : null)
-            .catch(() => null);
           if (guardada) {
-            evento.waitUntil(desdeRed);     // refresco silencioso
+            // Hay copia: se enseña al instante y se refresca por detrás. Aquí
+            // sí cabe un plazo corto, porque rendirse no le cuesta nada a
+            // nadie: la persona ya está viendo su boleto.
+            evento.waitUntil(
+              conReintento(peticion, 8000)
+                .then((r) => (r && r.ok) ? guardar(new Request(PAGINA), r) : null)
+                .catch(() => null)
+            );
             return guardada;
           }
-          // Primera visita sin copia: no queda más que la red.
-          return desdeRed.then((r) => r || new Response(SIN_RED, {
-            headers: { 'Content-Type': 'text/html; charset=utf-8' },
-          }));
+
+          // SIN copia: aquí es donde se perdía la gente.
+          //
+          // Antes esto llevaba el mismo tope de 8 segundos, y en una antena
+          // saturada —que es el escenario para el que existe este archivo—
+          // ocho segundos no alcanzan para la primera carga. El trabajador de
+          // servicio cortaba la descarga y enseñaba «Sin conexión» a alguien
+          // que SÍ tenía red, solo que lenta: el navegador, por su cuenta,
+          // habría seguido esperando y habría abierto el boleto.
+          //
+          // La regla es que este archivo nunca deje al teléfono peor de como
+          // estaría sin él. Sin copia que ofrecer no hay nada que ganar
+          // cortando, así que no se corta: se espera lo que la red tarde y
+          // solo se enseña la pantalla de cortesía si de verdad falla.
+          return fetch(peticion)
+            .then((r) => (r && r.ok) ? guardar(new Request(PAGINA), r) : r)
+            .catch(() => sinRed(SIN_RED_BOLETO));
         })
       );
       return;
@@ -143,16 +203,20 @@ self.addEventListener('fetch', (evento) => {
     // mostrar el estado real, no uno viejo. Mismo cuidado que arriba: un
     // estado HTTP malo no es un 200 y no se enseña tal cual.
     const suPropiaCopia = new Request(url.origin + url.pathname);
+    // El plazo corto solo vale si hay copia vieja que ofrecer a cambio. Si no
+    // la hay, cortar la descarga no salva a nadie: deja al operador mirando
+    // un error cuando su red solo era lenta. Mismo criterio que arriba.
     evento.respondWith(
-      conReintento(peticion, 8000)
-        .then((r) => (r && r.ok)
-          ? guardar(suPropiaCopia, r)
-          : caches.match(suPropiaCopia).then((c) => c || new Response(SIN_RED, {
-              headers: { 'Content-Type': 'text/html; charset=utf-8' },
-            })))
-        .catch(() => caches.match(suPropiaCopia).then((r) => r || new Response(SIN_RED, {
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        })))
+      caches.match(suPropiaCopia).then((copia) => {
+        if (!copia) {
+          return fetch(peticion)
+            .then((r) => (r && r.ok) ? guardar(suPropiaCopia, r) : r)
+            .catch(() => sinRed(SIN_RED_PANEL));
+        }
+        return conReintento(peticion, 8000)
+          .then((r) => (r && r.ok) ? guardar(suPropiaCopia, r) : copia)
+          .catch(() => copia);
+      })
     );
     return;
   }
