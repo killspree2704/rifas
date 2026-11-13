@@ -215,7 +215,7 @@ console.log('\n== Rifas ==');
 await pagina.click('.pestana[data-panel="paneRifas"]');
 await pagina.waitForSelector('#listaRifas .rifa');
 const tarjetas = await pagina.$$('#listaRifas .rifa');
-ok('lista todo el historial', tarjetas.length === 5, tarjetas.length + ' tarjetas');
+ok('lista todo el historial', tarjetas.length === 6, tarjetas.length + ' tarjetas');
 ok('marca cuál se está manejando', await pagina.isVisible('#listaRifas .rifa.manejando'));
 const textoVieja = await pagina.locator('.rifa', { hasText: 'Rifa de estreno' }).textContent();
 ok('la rifa vieja conserva su ganador', textoVieja.includes('Ganador: Z-90001'), textoVieja.trim().replace(/\s+/g,' '));
@@ -358,8 +358,8 @@ ok('lo dice en voz alta',
    await pagina.textContent('#mensaje'));
 
 await pagina.click('.pestana[data-panel="paneRifas"]');
-await pagina.waitForSelector('#listaRifas .rifa:nth-child(6)');
-ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 6);
+await pagina.waitForSelector('#listaRifas .rifa:nth-child(7)');
+ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 7);
 ok('y queda marcada como la que se maneja',
    (await pagina.locator('.rifa.manejando').textContent()).includes('Rifa de prueba'),
    (await pagina.locator('.rifa.manejando').textContent()).replace(/\s+/g, ' ').slice(0, 60));
@@ -1535,6 +1535,56 @@ await ctxD.close();
   ok('sin errores de JavaScript del lado del operador durante la caída',
      errCat2.length === 0, errCat2.join(' | '));
   await ctxCat2.close();
+}
+
+// ------------------------------------------- «HOY» O «MAÑANA» EN EL PANEL --
+// El panel anunciaba «Mañana» el DÍA de la rifa. Contaba ratos de 24 horas
+// en vez de días de calendario, así que cualquier sorteo más tarde el mismo
+// día salía como del día siguiente. Con dos rifas seguidas que se llaman
+// igual, eso es justo como se revela la que no era.
+//
+// El reloj se congela para que la prueba no dependa de cuándo se corra.
+{
+  console.log('\n== El día del sorteo en el panel ==');
+  const ctxF = await navegador.newContext({ serviceWorkers: 'block' });
+  const pf = await ctxF.newPage();
+  const errF = [];
+  pf.on('pageerror', (e) => errF.push(String(e)));
+
+  // Mismo instante de la captura del dueño: 13-nov-2026, 14:48 en México
+  // (20:48 UTC). El sorteo de «BONO DE ESTA NOCHE» es ese mismo 13 a las
+  // 21:30 de México, o sea 03:30 UTC del 14: distinto DÍA en UTC, mismo día
+  // en la zona del evento. Ahí es donde se rompía.
+  await pf.clock.setFixedTime(new Date('2026-11-13T20:48:00Z'));
+  await pf.goto(BASE + '/panel.html');
+  await pf.fill('#clave', 'secreta');
+  await pf.click('#btnEntrar');
+  await pf.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pf.click('.pestana[data-panel="paneRifas"]');
+  await pf.waitForSelector('#listaRifas .rifa');
+  await pf.locator('.rifa', { hasText: 'BONO DE ESTA NOCHE' }).getByText('Manejar esta').click();
+  await pf.waitForFunction(() =>
+    document.getElementById('tituloRifa').textContent.includes('ESTA NOCHE'),
+    null, { timeout: 10000 });
+
+  const cuando = (await pf.textContent('#statFaltan')).trim();
+  ok('un sorteo de HOY más tarde dice «Hoy», no «Mañana»', cuando === 'Hoy', cuando);
+
+  // Y que no se haya arreglado rompiendo el resto: la víspera sigue diciendo
+  // «Mañana». 12-nov 14:48 de México contra el mismo sorteo del 13.
+  await pf.clock.setFixedTime(new Date('2026-11-12T20:48:00Z'));
+  await pf.reload();
+  await pf.fill('#clave', 'secreta');
+  await pf.click('#btnEntrar');
+  await pf.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pf.waitForFunction(() =>
+    document.getElementById('statFaltan').textContent.trim().length > 0,
+    null, { timeout: 10000 });
+  const vispera = (await pf.textContent('#statFaltan')).trim();
+  ok('y la víspera sí dice «Mañana»', vispera === 'Mañana', vispera);
+
+  ok('sin errores de JavaScript en el día del sorteo', errF.length === 0, errF.join(' | '));
+  await ctxF.close();
 }
 
 // ---------------------------------------------------------------- PERFIL ---
