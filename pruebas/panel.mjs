@@ -1456,9 +1456,23 @@ await ctxD.close();
   // el ?v= de panel.html—, sin tener que abrir las herramientas de
   // desarrollador. Tiene que coincidir con el ?v= de panel.html y el
   // CACHE de sw.js: los tres suben juntos.
-  ok('y junto a ella, un número de versión para comparar si alguien ve una copia vieja',
-     (await pb.textContent('#pestanas .version-panel')).trim() === 'v44',
-     await pb.textContent('#pestanas .version-panel'));
+  // No se compara contra un número escrito a mano aquí: eso solo mueve el
+  // olvido de sitio. Se leen los tres de donde viven y se exige que digan lo
+  // mismo, que es la regla de verdad. Ya pasó dos veces que uno subiera y
+  // otro no, y entonces el navegador de alguien sigue con la copia vieja sin
+  // que nada lo avise.
+  const raiz = fileURLToPath(new URL('..', import.meta.url));
+  const versionEnlaces = [...fs.readFileSync(raiz + 'panel.html', 'utf8')
+    .matchAll(/assets\/[\w.-]+\?v=(\d+)/g)].map((m) => m[1]);
+  const versionCache = (fs.readFileSync(raiz + 'sw.js', 'utf8')
+    .match(/CACHE = 'rifa-v(\d+)'/) || [])[1];
+  const versionRotulo = (await pb.textContent('#pestanas .version-panel')).trim();
+  const todas = versionEnlaces.concat([versionCache, versionRotulo.replace(/^v/, '')]);
+  ok('el rótulo de versión, el ?v= de cada archivo y el CACHE de sw.js dicen lo mismo',
+     versionEnlaces.length >= 3 && !!versionCache &&
+     todas.every((v) => v === todas[0]),
+     'enlaces: ' + versionEnlaces.join(',') + ' · sw.js: ' + versionCache +
+     ' · rótulo: ' + versionRotulo);
 
   await pb.setViewportSize({ width: 600, height: 800 });
   // El cambio es puro CSS —ninguna media query dispara JavaScript—, pero una
