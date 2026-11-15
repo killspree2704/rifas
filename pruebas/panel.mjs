@@ -215,7 +215,10 @@ console.log('\n== Rifas ==');
 await pagina.click('.pestana[data-panel="paneRifas"]');
 await pagina.waitForSelector('#listaRifas .rifa');
 const tarjetas = await pagina.$$('#listaRifas .rifa');
-ok('lista todo el historial', tarjetas.length === 6, tarjetas.length + ' tarjetas');
+// Son las rifas sin archivar del servidor de prueba. El número va a mano a
+// propósito: si alguien añade una al montaje y no lo actualiza, esta prueba
+// lo dice, que es justo lo que se quiere de una lista que debe salir entera.
+ok('lista todo el historial', tarjetas.length === 7, tarjetas.length + ' tarjetas');
 ok('marca cuál se está manejando', await pagina.isVisible('#listaRifas .rifa.manejando'));
 const textoVieja = await pagina.locator('.rifa', { hasText: 'Rifa de estreno' }).textContent();
 ok('la rifa vieja conserva su ganador', textoVieja.includes('Ganador: Z-90001'), textoVieja.trim().replace(/\s+/g,' '));
@@ -358,8 +361,8 @@ ok('lo dice en voz alta',
    await pagina.textContent('#mensaje'));
 
 await pagina.click('.pestana[data-panel="paneRifas"]');
-await pagina.waitForSelector('#listaRifas .rifa:nth-child(7)');
-ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 7);
+await pagina.waitForSelector('#listaRifas .rifa:nth-child(8)');
+ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 8);
 ok('y queda marcada como la que se maneja',
    (await pagina.locator('.rifa.manejando').textContent()).includes('Rifa de prueba'),
    (await pagina.locator('.rifa.manejando').textContent()).replace(/\s+/g, ' ').slice(0, 60));
@@ -1291,6 +1294,92 @@ await ctxD.close();
   await hojaN.close();
   ok('sin errores de JavaScript con el boleto apretado', errN.length === 0, errN.join(' | '));
   await ctxN.close();
+}
+
+// ----------------------------------------- EL PIE QUE NO CABE Y EL PAPEL ----
+// Dos quejas del mismo día, las dos del papel ya impreso:
+//
+//   1. «la fecha de caducidad sale cortada». En la plantilla del cliente el
+//      pie es un rectángulo que va del 23.9 % al 24.4 % del boleto: poco más
+//      de la mitad del ancho. Ahí no caben folio, caducidad y código al
+//      tamaño de siempre, y el recorte de CSS los dejaba en «Caduc…».
+//   2. «la impresora ya no me respetó los márgenes». Al revés: la hoja se
+//      pedía con 10 mm de margen por lado, así que sobraba papel blanco y
+//      los boletos salían más chicos de lo que el papel permite.
+//
+// Las dos se miden, no se miran: un pie que «parece» caber en la pantalla de
+// uno es justo lo que ya salió mal antes.
+{
+  console.log('\n== El pie apretado y la hoja completa ==');
+  const ctxP = await navegador.newContext({ serviceWorkers: 'block' });
+  const pp = await ctxP.newPage();
+  const errP = [];
+  pp.on('pageerror', (e) => errP.push(String(e)));
+  await pp.goto(BASE + '/panel.html');
+  await pp.fill('#clave', 'secreta');
+  await pp.click('#btnEntrar');
+  await pp.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pp.click('.pestana[data-panel="paneRifas"]');
+  await pp.waitForSelector('#listaRifas .rifa');
+
+  const [hojaP] = await Promise.all([
+    ctxP.waitForEvent('page'),
+    pp.locator('.rifa', { hasText: 'BONO GANA HOY' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaP.waitForLoadState('domcontentloaded');
+  await hojaP.waitForSelector('.boleto .pie');
+  // Carta a 96 ppp, que es como mide el navegador cuando imprime.
+  await hojaP.setViewportSize({ width: 816, height: 1056 });
+  await hojaP.emulateMedia({ media: 'print' });
+  await hojaP.waitForTimeout(300);
+
+  const papel = await hojaP.evaluate(() => {
+    const mm = (px) => +(px / 96 * 25.4).toFixed(2);
+    const hoja = document.querySelector('.rejilla').getBoundingClientRect();
+    const bol = document.querySelector('.boleto').getBoundingClientRect();
+    return { rejilla: mm(hoja.width), boleto: mm(bol.width),
+             columnas: getComputedStyle(document.querySelector('.rejilla')).gridTemplateColumns };
+  });
+  // Carta mide 215.9 mm. Con los 10 mm de margen de antes quedaban 195.8.
+  ok('la hoja usa el ancho entero del papel, sin marco blanco',
+     papel.rejilla > 214, papel.rejilla + ' mm de 215.9');
+  ok('y por eso el boleto sale más grande que con el margen viejo',
+     papel.boleto > 68, papel.boleto + ' mm (antes 65.3)');
+
+  // El pie: lo que importa no es que el texto ESTÉ, es que quepa. `scrollWidth`
+  // mayor que `clientWidth` es exactamente lo que el navegador tapa con «…».
+  const pie = await hojaP.evaluate(() => {
+    const mm = (px) => +(px / 96 * 25.4).toFixed(2);
+    const caja = document.querySelector('.boleto .pie');
+    const f = document.querySelector('.boleto .fechas-pie');
+    return {
+      ancho: mm(caja.getBoundingClientRect().width),
+      fuente: parseFloat(getComputedStyle(caja).fontSize),
+      hay: !!f,
+      texto: f ? f.textContent.trim() : '',
+      cortado: f ? f.scrollWidth > f.clientWidth + 1 : false,
+      // La caducidad va en letra normal, no monoespaciada: `.pie span` es más
+      // específica que `.fechas-pie` y se la comía, y monoespaciada mide casi
+      // una cuarta parte más —por eso no cabía—.
+      familia: f ? getComputedStyle(f).fontFamily : '',
+    };
+  });
+  ok('el pie del cliente es angosto de verdad (poco más de media anchura)',
+     pie.ancho > 35 && pie.ancho < 40, pie.ancho + ' mm');
+  ok('la caducidad se imprime y NO sale cortada',
+     pie.hay && pie.texto && !pie.cortado, pie.texto + ' / cortado: ' + pie.cortado);
+  ok('y se imprime en letra normal, no en monoespaciada',
+     !/mono/i.test(pie.familia), pie.familia);
+  // Encogerla sin límite sería hacer trampa: ilegible también es cortado.
+  ok('sin encogerla por debajo de lo que se lee impreso',
+     pie.fuente >= 1.3 / 60 * (papel.boleto / 25.4 * 96), pie.fuente + 'px');
+
+  const fueraP = await fuera(hojaP, '.pie span');
+  ok('nada del pie se sale del boleto', fueraP.length === 0, fueraP.join(' | '));
+
+  await hojaP.close();
+  ok('sin errores de JavaScript en la hoja del cliente', errP.length === 0, errP.join(' | '));
+  await ctxP.close();
 }
 
 // ------------------------------------------------------------- AYUDA ----
