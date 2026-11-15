@@ -58,6 +58,65 @@ rifas.push({
   precio_boleto: 20, folios_por_boleto: 2, archivada: false,
   transmision_url: null, transmite_desde: null,
 });
+// Una rifa con la plantilla de foto «Bono Gana Hoy», con las medidas REALES
+// que el dueño tiene guardadas en la base (sacadas de `plantillas_guardadas`;
+// solo la foto se sustituye por un rectángulo del mismo tamaño, porque para
+// medir texto importa la geometría, no el dibujo). Sirve para comprobar que
+// al pie le caben el folio del boleto, la caducidad y el código sin que
+// ninguno salga cortado.
+const FOTO_LISA = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1801">'
+  + '<rect width="1400" height="1801" fill="%23e0e0e2" stroke="%23605156"'
+  + ' stroke-width="12"/></svg>');
+
+// Las medidas tal como están guardadas en la base para las rifas que el dueño
+// imprime de verdad. El pie va de 23.89 % a 24.39 %: poco más de la MITAD del
+// ancho del boleto, y ahí tienen que caber el folio, la caducidad y el
+// código. Es la plantilla que cortaba la caducidad en «Caduc…».
+export const PLANTILLA_BONO = {
+  foto: FOTO_LISA, fotoAncho: 1400, fotoAlto: 1801,
+  borde: '#605156', fondo: '#e0e0e2', tinta: '#641431', acento: '#531c31',
+  qr: { top: 51.65, left: 34.54, width: 35.07, height: 21.65 },
+  pie: { top: 95.46, left: 23.89, right: 24.39, height: 2.55 },
+  caja: { alto: 7.26, ancho: 25.46, primer: 39.6, ultimo: 79.5, columna: [7.1, 68.4] },
+  precio: { top: 77.14, left: 38.54, width: 23.21, height: 9.05 },
+};
+
+rifas.push({
+  id: 'bono-foto', nombre: 'BONO GANA HOY', serie: 'AB', estado: 'espera',
+  activa: false, folio_ganador: null, fecha_sorteo: '2026-11-14T03:30:00Z',
+  revelado_en: null, creada_en: '2026-11-11T00:00:00Z', emision: null,
+  precio_boleto: 20, folios_por_boleto: 4, archivada: false,
+  transmision_url: null, transmite_desde: null,
+  diseno: { plantilla: PLANTILLA_BONO, caducidad: '1 día', columnas: 3, aviso: '' },
+});
+
+// Dos rifas gemelas con la plantilla angosta del cliente. La caducidad es un
+// campo libre de 40 caracteres que teclea el operador, y «20 & 21 nov» —una
+// rifa válida dos días— no tiene nada de rebuscado.
+//
+// Las dos dicen lo mismo y ocupan lo mismo en el papel: once caracteres. La
+// única diferencia es el «&». Si el pie se mide con el texto YA escapado,
+// «&amp;» cuenta cinco letras donde la impresora pinta una, el pie se cree
+// más lleno de lo que está y borra una caducidad que sí cabía. La gemela con
+// «y» es el testigo: lo que le pase a una tiene que pasarle a la otra.
+rifas.push({
+  id: 'bono-rara', nombre: 'BONO CADUCIDAD RARA', serie: 'AR', estado: 'espera',
+  activa: false, folio_ganador: null, fecha_sorteo: '2026-11-20T03:30:00Z',
+  revelado_en: null, creada_en: '2026-11-11T00:00:00Z', emision: null,
+  precio_boleto: 20, folios_por_boleto: 4, archivada: false,
+  transmision_url: null, transmite_desde: null,
+  diseno: { plantilla: PLANTILLA_BONO, caducidad: '20 & 21 nov', columnas: 3, aviso: '' },
+});
+rifas.push({
+  id: 'bono-llana', nombre: 'BONO CADUCIDAD LLANA', serie: 'AL', estado: 'espera',
+  activa: false, folio_ganador: null, fecha_sorteo: '2026-11-20T03:30:00Z',
+  revelado_en: null, creada_en: '2026-11-11T00:00:00Z', emision: null,
+  precio_boleto: 20, folios_por_boleto: 4, archivada: false,
+  transmision_url: null, transmite_desde: null,
+  diseno: { plantilla: PLANTILLA_BONO, caducidad: '20 y 21 nov', columnas: 3, aviso: '' },
+});
+
 rifas.push({
   id: 'suspendida', nombre: 'Rifa suspendida', serie: 'S', estado: 'cerrado',
   activa: false, folio_ganador: null, fecha_sorteo: '2025-06-01T18:00:00-06:00',
@@ -91,7 +150,14 @@ const boletos = {
     { id: '9000001060', codigo: 'EFGH', folios: ['11060', '11061', '11062', '11063'] },
   ],
   'vieja-2025-01': [{ id: '9000009001', codigo: 'ZZZZ', folios: ['90001', '90002'] }],
+  'bono-foto': Array.from({ length: 9 }, (_, i) => ({
+    id: String(1009571465 + i), codigo: 'EPT' + i,
+    folios: [i * 4 + 1, i * 4 + 2, i * 4 + 3, i * 4 + 4]
+      .map((n) => String(n).padStart(4, '0')),
+  })),
   'esta-noche': [{ id: '9000008001', codigo: 'NOCH', folios: ['80001', '80002'] }],
+  'bono-rara': [{ id: '1009571480', codigo: 'RARA', folios: ['0101', '0102', '0103', '0104'] }],
+  'bono-llana': [{ id: '1009571481', codigo: 'LLAN', folios: ['0201', '0202', '0203', '0204'] }],
   generosa: [{
     id: '9000007001', codigo: 'NUE9',
     folios: ['70001', '70002', '70003', '70004', '70005', '70006', '70007', '70008', '70009'],

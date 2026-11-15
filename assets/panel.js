@@ -1135,7 +1135,13 @@
       p + '.codigo { letter-spacing: 0.08em; font-weight: 700; }' +
       // `min-width: 0`: sin eso la fecha no se deja recortar y es el código el
       // que se sale del boleto.
-      p + '.fechas-pie { font-family: inherit; letter-spacing: 0; min-width: 0;' +
+      // `.pie .fechas-pie` y no `.fechas-pie` a secas: con un solo nombre de
+      // clase pierde contra `.pie span` de arriba, que es más específica, y
+      // la caducidad se imprimía en MONOESPACIADA —casi una cuarta parte más
+      // ancha— en vez de la letra normal. Nadie lo notó hasta medir el ancho
+      // de verdad contra el que decía el lienzo.
+      p + '.pie .fechas-pie { font-family: system-ui, -apple-system, Segoe UI,' +
+      ' Roboto, sans-serif; letter-spacing: 0; min-width: 0;' +
       ' overflow: hidden; text-overflow: ellipsis; }' +
       // Apretado, al pie le cabe además la caducidad: con la letra del
       // boleto normal salía cortada con puntos suspensivos.
@@ -1151,7 +1157,11 @@
     // siempre va al pie, igual que en un boleto apretado de Suertudito.
     var fechasEnPie = apretado || !plantilla.fechas;
     var fechas = [];
-    if (d.caducidad) { fechas.push('Caducidad: ' + escapar(d.caducidad)); }
+    // En TEXTO LLANO a propósito: más abajo hay que MEDIR esto para saber
+    // si cabe, y el lienzo mediría «&amp;» como cinco letras en vez de
+    // una, inflando el ancho y pudiendo borrar una caducidad que sí cabía.
+    // Se escapa al escribir el HTML, que es donde hace falta.
+    if (d.caducidad) { fechas.push('Caducidad: ' + d.caducidad); }
     return '<article class="boleto' + (apretado ? ' apretado' : '') + '">' +
       numeros.map(function (f, i) {
         return '<div class="caja" style="left: ' + lugares[i].izq + '%; top: ' +
@@ -1160,16 +1170,123 @@
       '<div class="qr">' + qrSvg(url) + '</div>' +
       // Siempre se pinta, aunque no haya fechas que mostrar: la foto trae
       // una muestra justo ahí y hay que taparla sin excepción.
-      (!fechasEnPie ? '<div class="fechas">' + fechas.join('<br />') + '</div>' : '') +
+      (!fechasEnPie ? '<div class="fechas">' + fechas.map(escapar).join('<br />') + '</div>' : '') +
       // Igual el precio: las dos fotos traen un «$20» de muestra ahí.
       '<div class="precio">' + escapar(precio || '') + '</div>' +
-      '<div class="pie">' +
-      '<span class="serial">' + escapar(boleto.id) + '</span>' +
-      (fechasEnPie && fechas.length
-        ? '<span class="fechas-pie">' + fechas.join(' · ') + '</span>' : '') +
-      '<span class="codigo">Código ' + escapar(boleto.codigo) + '</span>' +
-      '</div>' +
+      pieHtml(boleto, fechasEnPie ? fechas.join(' · ') : '', plantilla.pie,
+              apretado ? PIE_FUENTE_APRETADO : PIE_FUENTE) +
       '</article>';
+  }
+
+  /**
+   * El pie del boleto: folio, caducidad y código, al tamaño que quepa.
+   *
+   * `fechas` entra en TEXTO LLANO, sin escapar: aquí se mide, y se escapa al
+   * final. Pasarle HTML ya hecho haría que una caducidad con un «&» o unas
+   * comillas se midiera varias veces más ancha de lo que de verdad ocupa.
+   *
+   * El tamaño va EN LÍNEA y no en la hoja de estilos porque depende de lo
+   * que haya que escribir —un código de cuatro letras y una caducidad de
+   * «1 día» no ocupan lo mismo que otros— y del ancho que la plantilla le
+   * haya medido al pie.
+   */
+  function pieHtml(boleto, fechas, medidasPie, tope) {
+    var serial = String(boleto.id);
+    var codigo = 'Código ' + String(boleto.codigo);
+    var libre = 100 - (Number(medidasPie && medidasPie.left) || 0)
+                    - (Number(medidasPie && medidasPie.right) || 0);
+    var cabe = pieQueQuepa(serial, codigo, fechas, libre, tope);
+    return '<div class="pie" style="font-size: calc(var(--u) * ' +
+      cabe.tam.toFixed(2) + ')">' +
+      '<span class="serial">' + escapar(serial) + '</span>' +
+      (cabe.fechas ? '<span class="fechas-pie">' + escapar(cabe.fechas) + '</span>' : '') +
+      '<span class="codigo">' + escapar(codigo) + '</span>' +
+      '</div>';
+  }
+
+  var lienzoMedidor = null;
+
+  /**
+   * Lo que mide un texto, en emes, con la letra que de verdad tenga esta
+   * máquina.
+   *
+   * Calcular anchos a ojo ya salió mal una vez con el título del boleto: dos
+   * textos con las mismas letras miden distinto según cuáles sean. Aquí se
+   * mide de verdad y se decide con el número.
+   */
+  function anchoEm(texto, fuente) {
+    try {
+      if (!lienzoMedidor) {
+        lienzoMedidor = document.createElement('canvas').getContext('2d');
+      }
+      lienzoMedidor.font = fuente;
+      var w = lienzoMedidor.measureText(texto).width / 100;
+      if (w > 0) { return w; }
+    } catch (e) { /* sin lienzo se cae a la cuenta de letras */ }
+    return texto.length * 0.55;
+  }
+
+  // El boleto mide 60 unidades de ancho (`--u` vale un sesentavo), y el pie
+  // lleva dos separaciones de 1.2 entre sus tres piezas.
+  var PIE_FUENTE = 1.6;          // tamaño de siempre, en unidades
+  // Un boleto apretado lleva el pie más chico de entrada: así estaba en la
+  // hoja de estilos, y el estilo en línea de aquí abajo le ganaría.
+  var PIE_FUENTE_APRETADO = 1.4;
+  // Por debajo de esto se prefiere acortar el texto antes que seguir
+  // encogiendo: por ahí anda el límite de lo que se lee impreso sin lupa.
+  var PIE_FUENTE_MINIMA = 1.35;
+  // Holgura sobre el ancho del pie. NO es prudencia de más: midiendo el PDF
+  // de verdad, las piezas monoespaciadas salen un 3-5 % más anchas que en
+  // pantalla —el navegador no resuelve igual `ui-monospace` al rasterizar—.
+  // Sin este margen el cálculo daba «cabe» y el papel salía cortado.
+  var PIE_HOLGURA = 0.93;
+  var PIE_HUECOS = 2.4;
+  var PIE_MONO = '100px ui-monospace, Menlo, Consolas, monospace';
+  var PIE_TEXTO = '100px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+
+  /**
+   * Qué poner al pie del boleto y de qué tamaño, para que QUEPA.
+   *
+   * El pie es un rectángulo medido sobre la foto de la plantilla, y en la del
+   * cliente va del 23.89 % al 24.39 %: poco más de la mitad del ancho del
+   * boleto. Ahí no caben el folio, la caducidad y el código al tamaño normal,
+   * y el recorte de CSS los dejaba en «Caduc…», que no dice nada.
+   *
+   * Se mide lo que hay que escribir y se baja el tamaño lo justo. Si ni al
+   * mínimo legible cabe, primero se abrevia la palabra y, en último caso, se
+   * quita la caducidad entera: mejor que falte a que salga un muñón.
+   */
+  function pieQueQuepa(serial, codigo, fechas, anchoPorCiento, tope) {
+    var ancho = anchoPorCiento / 100 * 60;
+    var maximo = Number(tope) > 0 ? Number(tope) : PIE_FUENTE;
+    // El espaciado entre letras lo pone el CSS de aquí al lado y `measureText`
+    // NO lo cuenta: medido, el folio salía 6.6 % más ancho de lo que decía el
+    // lienzo y el código un 13.3 %. Son constantes nuestras, así que se suman.
+    var fijo = anchoEm(serial, PIE_MONO) + serial.length * 0.04 +
+               anchoEm(codigo, PIE_MONO) + codigo.length * 0.08;
+    var sitio = (ancho - PIE_HUECOS) * PIE_HOLGURA;
+
+    function cabeCon(texto) {
+      var suma = fijo + (texto ? anchoEm(texto, PIE_TEXTO) : 0);
+      return suma > 0 ? sitio / suma : maximo;
+    }
+
+    // De más a menos, y solo se baja de escalón cuando el de arriba obligaría
+    // a una letra ilegible. Quitar la caducidad es el último recurso: mejor
+    // que falte a que salga un muñón como «Caduc…», que no dice nada.
+    var intentos = [fechas];
+    if (fechas) {
+      intentos.push(fechas.replace(/Caducidad:/g, 'Cad.'));
+      intentos.push(fechas.replace(/Caducidad:\s*/g, ''));
+      intentos.push('');
+    }
+    for (var i = 0; i < intentos.length; i++) {
+      var tam = Math.min(maximo, cabeCon(intentos[i]));
+      if (tam >= PIE_FUENTE_MINIMA || i === intentos.length - 1) {
+        return { fechas: intentos[i], tam: Math.max(PIE_FUENTE_MINIMA, tam) };
+      }
+    }
+    return { fechas: '', tam: maximo };
   }
 
   /**
@@ -1277,7 +1394,16 @@
       // la toque.
       '<meta name="color-scheme" content="light only" />' +
       '<title>Boletos ' + escapar(rifa.serie) + ' — ' + boletos.length + '</title><style>' +
-      '@page { size: letter; margin: 10mm; }' +
+      // Sin margen de página: los boletos se cortan de la hoja, así que un
+      // marco blanco de 10 mm alrededor era papel tirado —20 mm de los 215.9
+      // de ancho, casi el 10 %— y encima dejaba los boletos más chicos. El
+      // diálogo de impresión de Android no ofrece «márgenes: ninguno», así
+      // que esto solo se puede decidir desde aquí.
+      //
+      // Ojo: casi toda impresora tiene unos milímetros de orilla en los que
+      // físicamente no imprime. Los boletos de la orilla pueden perder un
+      // pelo de su marco; a cambio caben más grandes y no sobra papel.
+      '@page { size: letter; margin: 0; }' +
       ':root { color-scheme: light only; }' +
       'body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0;' +
       ' background: #fff; color: #111; }' +

@@ -215,7 +215,10 @@ console.log('\n== Rifas ==');
 await pagina.click('.pestana[data-panel="paneRifas"]');
 await pagina.waitForSelector('#listaRifas .rifa');
 const tarjetas = await pagina.$$('#listaRifas .rifa');
-ok('lista todo el historial', tarjetas.length === 6, tarjetas.length + ' tarjetas');
+// Son las rifas sin archivar del servidor de prueba. El número va a mano a
+// propósito: si alguien añade una al montaje y no lo actualiza, esta prueba
+// lo dice, que es justo lo que se quiere de una lista que debe salir entera.
+ok('lista todo el historial', tarjetas.length === 9, tarjetas.length + ' tarjetas');
 ok('marca cuál se está manejando', await pagina.isVisible('#listaRifas .rifa.manejando'));
 const textoVieja = await pagina.locator('.rifa', { hasText: 'Rifa de estreno' }).textContent();
 ok('la rifa vieja conserva su ganador', textoVieja.includes('Ganador: Z-90001'), textoVieja.trim().replace(/\s+/g,' '));
@@ -358,8 +361,8 @@ ok('lo dice en voz alta',
    await pagina.textContent('#mensaje'));
 
 await pagina.click('.pestana[data-panel="paneRifas"]');
-await pagina.waitForSelector('#listaRifas .rifa:nth-child(7)');
-ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 7);
+await pagina.waitForSelector('#listaRifas .rifa:nth-child(10)');
+ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 10);
 ok('y queda marcada como la que se maneja',
    (await pagina.locator('.rifa.manejando').textContent()).includes('Rifa de prueba'),
    (await pagina.locator('.rifa.manejando').textContent()).replace(/\s+/g, ' ').slice(0, 60));
@@ -1293,6 +1296,149 @@ await ctxD.close();
   await ctxN.close();
 }
 
+// ----------------------------------------- EL PIE QUE NO CABE Y EL PAPEL ----
+// Dos quejas del mismo día, las dos del papel ya impreso:
+//
+//   1. «la fecha de caducidad sale cortada». En la plantilla del cliente el
+//      pie es un rectángulo que va del 23.9 % al 24.4 % del boleto: poco más
+//      de la mitad del ancho. Ahí no caben folio, caducidad y código al
+//      tamaño de siempre, y el recorte de CSS los dejaba en «Caduc…».
+//   2. «la impresora ya no me respetó los márgenes». Al revés: la hoja se
+//      pedía con 10 mm de margen por lado, así que sobraba papel blanco y
+//      los boletos salían más chicos de lo que el papel permite.
+//
+// Las dos se miden, no se miran: un pie que «parece» caber en la pantalla de
+// uno es justo lo que ya salió mal antes.
+{
+  console.log('\n== El pie apretado y la hoja completa ==');
+  const ctxP = await navegador.newContext({ serviceWorkers: 'block' });
+  const pp = await ctxP.newPage();
+  const errP = [];
+  pp.on('pageerror', (e) => errP.push(String(e)));
+  await pp.goto(BASE + '/panel.html');
+  await pp.fill('#clave', 'secreta');
+  await pp.click('#btnEntrar');
+  await pp.waitForSelector('#pestanas:not([hidden])', { timeout: 15000 });
+  await pp.click('.pestana[data-panel="paneRifas"]');
+  await pp.waitForSelector('#listaRifas .rifa');
+
+  const [hojaP] = await Promise.all([
+    ctxP.waitForEvent('page'),
+    pp.locator('.rifa', { hasText: 'BONO GANA HOY' }).getByText('Hoja de boletos').click(),
+  ]);
+  await hojaP.waitForLoadState('domcontentloaded');
+  await hojaP.waitForSelector('.boleto .pie');
+  // Carta a 96 ppp, que es como mide el navegador cuando imprime.
+  await hojaP.setViewportSize({ width: 816, height: 1056 });
+  await hojaP.emulateMedia({ media: 'print' });
+  await hojaP.waitForTimeout(300);
+
+  const papel = await hojaP.evaluate(() => {
+    const mm = (px) => +(px / 96 * 25.4).toFixed(2);
+    const hoja = document.querySelector('.rejilla').getBoundingClientRect();
+    const bol = document.querySelector('.boleto').getBoundingClientRect();
+    return { rejilla: mm(hoja.width), boleto: mm(bol.width),
+             columnas: getComputedStyle(document.querySelector('.rejilla')).gridTemplateColumns };
+  });
+  // Carta mide 215.9 mm. Con los 10 mm de margen de antes quedaban 195.8.
+  ok('la hoja usa el ancho entero del papel, sin marco blanco',
+     papel.rejilla > 214, papel.rejilla + ' mm de 215.9');
+  ok('y por eso el boleto sale más grande que con el margen viejo',
+     papel.boleto > 68, papel.boleto + ' mm (antes 65.3)');
+
+  // El pie: lo que importa no es que el texto ESTÉ, es que quepa. `scrollWidth`
+  // mayor que `clientWidth` es exactamente lo que el navegador tapa con «…».
+  const pie = await hojaP.evaluate(() => {
+    const mm = (px) => +(px / 96 * 25.4).toFixed(2);
+    const caja = document.querySelector('.boleto .pie');
+    const f = document.querySelector('.boleto .fechas-pie');
+    return {
+      ancho: mm(caja.getBoundingClientRect().width),
+      fuente: parseFloat(getComputedStyle(caja).fontSize),
+      hay: !!f,
+      texto: f ? f.textContent.trim() : '',
+      cortado: f ? f.scrollWidth > f.clientWidth + 1 : false,
+      // La caducidad va en letra normal, no monoespaciada: `.pie span` es más
+      // específica que `.fechas-pie` y se la comía, y monoespaciada mide casi
+      // una cuarta parte más —por eso no cabía—.
+      familia: f ? getComputedStyle(f).fontFamily : '',
+    };
+  });
+  ok('el pie del cliente es angosto de verdad (poco más de media anchura)',
+     pie.ancho > 35 && pie.ancho < 40, pie.ancho + ' mm');
+  ok('la caducidad se imprime y NO sale cortada',
+     pie.hay && pie.texto && !pie.cortado, pie.texto + ' / cortado: ' + pie.cortado);
+  ok('y se imprime en letra normal, no en monoespaciada',
+     !/mono/i.test(pie.familia), pie.familia);
+  // Encogerla sin límite sería hacer trampa: ilegible también es cortado.
+  ok('sin encogerla por debajo de lo que se lee impreso',
+     pie.fuente >= 1.3 / 60 * (papel.boleto / 25.4 * 96), pie.fuente + 'px');
+
+  const fueraP = await fuera(hojaP, '.pie span');
+  ok('nada del pie se sale del boleto', fueraP.length === 0, fueraP.join(' | '));
+  await hojaP.close();
+
+  // La caducidad la teclea el operador y puede traer un «&»: «20 & 21 nov»
+  // es una rifa válida dos días. Hay que ESCAPARLA al escribir el HTML, pero
+  // NO al medir: «&amp;» son cinco letras donde la impresora pinta una, y con
+  // esta plantilla angosta esa diferencia basta para que el pie se crea
+  // demasiado lleno y BORRE una caducidad que sí cabía.
+  //
+  // Por eso se comparan dos rifas gemelas que solo se diferencian en el «&»
+  // frente a una «y». En el papel ocupan lo mismo, así que tienen que salir
+  // igual; si una desaparece y la otra no, es que se midió el escape.
+  const pieDe = async (nombre) => {
+    await pp.click('.pestana[data-panel="paneRifas"]');
+    await pp.waitForSelector('#listaRifas .rifa');
+    const [h] = await Promise.all([
+      ctxP.waitForEvent('page'),
+      pp.locator('.rifa', { hasText: nombre }).getByText('Hoja de boletos').click(),
+    ]);
+    await h.waitForLoadState('domcontentloaded');
+    await h.waitForSelector('.boleto .pie');
+    const r = await h.evaluate(() => {
+      const f = document.querySelector('.boleto .fechas-pie');
+      const caja = document.querySelector('.boleto .pie');
+      return { texto: f ? f.textContent : '', html: f ? f.innerHTML : '',
+               fuente: parseFloat(getComputedStyle(caja).fontSize).toFixed(2) };
+    });
+    const desbordado = await fuera(h, '.pie span');
+    await h.close();
+    return { ...r, desbordado };
+  };
+
+  const conAmpersand = await pieDe('BONO CADUCIDAD RARA');
+  const conYe = await pieDe('BONO CADUCIDAD LLANA');
+
+  ok('una caducidad con «&» se imprime, no desaparece por medirse escapada',
+     conAmpersand.texto.indexOf('20 & 21 nov') !== -1,
+     conAmpersand.texto || '(no se imprimió la caducidad)');
+  // El testigo: la gemela sin «&» dice lo mismo y ocupa casi lo mismo, así
+  // que tiene que salir con el mismo recorte y a un tamaño parecido. Esto es
+  // lo que de verdad ata el error, porque no depende de dónde estén puestos
+  // los topes: si un día se mueven, las dos se mueven juntas.
+  //
+  // «Parecido» y no idéntico a propósito: el «&» es un pelo más ancho que la
+  // «y» de verdad, y eso son décimas. Lo que no puede pasar es que una se
+  // mida como cinco letras —que es la diferencia entre que salga y que no—.
+  const fuenteA = parseFloat(conAmpersand.fuente);
+  const fuenteY = parseFloat(conYe.fuente);
+  const desvio = Math.abs(fuenteA - fuenteY) / fuenteY;
+  ok('y sale igual que su gemela sin «&»: mismo texto y prácticamente el mismo tamaño',
+     conAmpersand.texto.replace(' & ', ' y ') === conYe.texto && desvio < 0.03,
+     '«' + conAmpersand.texto + '» a ' + conAmpersand.fuente + 'px  vs  «' +
+     conYe.texto + '» a ' + conYe.fuente + 'px  (' +
+     (desvio * 100).toFixed(1) + ' % de diferencia)');
+  // Pero en el HTML sí va escapada: si no, un «&» suelto puede comerse lo que
+  // venga detrás al interpretarse como entidad.
+  ok('y aun así se escribe escapada en el HTML, no cruda',
+     conAmpersand.html.indexOf('&amp;') !== -1, conAmpersand.html);
+  ok('y tampoco esa se sale del boleto',
+     conAmpersand.desbordado.length === 0, conAmpersand.desbordado.join(' | '));
+  ok('sin errores de JavaScript en la hoja del cliente', errP.length === 0, errP.join(' | '));
+  await ctxP.close();
+}
+
 // ------------------------------------------------------------- AYUDA ----
 // La pestaña no hace ninguna llamada al servidor: solo texto y los iconos
 // animados de cada paso. Lo que hay que comprobar es que exista, se abra, y
@@ -1367,9 +1513,23 @@ await ctxD.close();
   // el ?v= de panel.html—, sin tener que abrir las herramientas de
   // desarrollador. Tiene que coincidir con el ?v= de panel.html y el
   // CACHE de sw.js: los tres suben juntos.
-  ok('y junto a ella, un número de versión para comparar si alguien ve una copia vieja',
-     (await pb.textContent('#pestanas .version-panel')).trim() === 'v44',
-     await pb.textContent('#pestanas .version-panel'));
+  // No se compara contra un número escrito a mano aquí: eso solo mueve el
+  // olvido de sitio. Se leen los tres de donde viven y se exige que digan lo
+  // mismo, que es la regla de verdad. Ya pasó dos veces que uno subiera y
+  // otro no, y entonces el navegador de alguien sigue con la copia vieja sin
+  // que nada lo avise.
+  const raiz = fileURLToPath(new URL('..', import.meta.url));
+  const versionEnlaces = [...fs.readFileSync(raiz + 'panel.html', 'utf8')
+    .matchAll(/assets\/[\w.-]+\?v=(\d+)/g)].map((m) => m[1]);
+  const versionCache = (fs.readFileSync(raiz + 'sw.js', 'utf8')
+    .match(/CACHE = 'rifa-v(\d+)'/) || [])[1];
+  const versionRotulo = (await pb.textContent('#pestanas .version-panel')).trim();
+  const todas = versionEnlaces.concat([versionCache, versionRotulo.replace(/^v/, '')]);
+  ok('el rótulo de versión, el ?v= de cada archivo y el CACHE de sw.js dicen lo mismo',
+     versionEnlaces.length >= 3 && !!versionCache &&
+     todas.every((v) => v === todas[0]),
+     'enlaces: ' + versionEnlaces.join(',') + ' · sw.js: ' + versionCache +
+     ' · rótulo: ' + versionRotulo);
 
   await pb.setViewportSize({ width: 600, height: 800 });
   // El cambio es puro CSS —ninguna media query dispara JavaScript—, pero una
