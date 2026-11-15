@@ -7,7 +7,7 @@
  * permiso a la red**. Lo único que necesita conexión es consultar el estado
  * de la rifa, que son unos cuantos bytes.
  */
-const CACHE = 'rifa-v45';
+const CACHE = 'rifa-v46';
 
 // Solo lo mínimo para pintar el boleto. La librería de Supabase NO va aquí a
 // propósito: son 215 KB, y pedirlos en una red mala haría fallar la
@@ -136,6 +136,30 @@ function conReintento(peticion, ms) {
   });
 }
 
+/**
+ * Pide a la red sin plazo propio, pero con UN reintento si el servidor
+ * contesta mal (404, 502, 503…).
+ *
+ * Las dos mitades importan y son por motivos distintos:
+ *
+ *   - Sin plazo: cortarle la descarga a quien no tiene copia que ofrecer a
+ *     cambio es dejarlo sin boleto. El navegador espera mejor que nosotros.
+ *   - Con reintento: un estado HTTP malo de un instante —un despliegue a
+ *     medio propagar en el borde, un nodo frío— lo resuelve `fetch` igual
+ *     que a un 200, así que NO lo atrapa ningún `.catch()`. Sin reintentar,
+ *     esa página de error cruda es lo que ve quien acaba de escanear el QR.
+ *     Ya pasó una vez y ya se había arreglado; no vuelve a pasar.
+ */
+function sinPrisa(peticion) {
+  // Clonada ANTES del primer intento: después de que `fetch` la toca, ya no
+  // se puede clonar para el segundo.
+  const copia = peticion.clone();
+  return fetch(peticion).then((r) => {
+    if (r && r.ok) { return r; }
+    return new Promise((res) => setTimeout(res, 400)).then(() => fetch(copia));
+  });
+}
+
 self.addEventListener('fetch', (evento) => {
   const peticion = evento.request;
 
@@ -188,8 +212,10 @@ self.addEventListener('fetch', (evento) => {
           // estaría sin él. Sin copia que ofrecer no hay nada que ganar
           // cortando, así que no se corta: se espera lo que la red tarde y
           // solo se enseña la pantalla de cortesía si de verdad falla.
-          return fetch(peticion)
-            .then((r) => (r && r.ok) ? guardar(new Request(PAGINA), r) : r)
+          return sinPrisa(peticion)
+            .then((r) => (r && r.ok)
+              ? guardar(new Request(PAGINA), r)
+              : sinRed(SIN_RED_BOLETO))
             .catch(() => sinRed(SIN_RED_BOLETO));
         })
       );
@@ -209,8 +235,10 @@ self.addEventListener('fetch', (evento) => {
     evento.respondWith(
       caches.match(suPropiaCopia).then((copia) => {
         if (!copia) {
-          return fetch(peticion)
-            .then((r) => (r && r.ok) ? guardar(suPropiaCopia, r) : r)
+          return sinPrisa(peticion)
+            .then((r) => (r && r.ok)
+              ? guardar(suPropiaCopia, r)
+              : sinRed(SIN_RED_PANEL))
             .catch(() => sinRed(SIN_RED_PANEL));
         }
         return conReintento(peticion, 8000)
