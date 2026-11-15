@@ -141,6 +141,38 @@
     }
   }
 
+  /** El día del calendario de una fecha, en la zona del evento: «2026-11-13». */
+  function diaEnZona(fecha) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: CFG.zonaHoraria || undefined,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(fecha);
+  }
+
+  /**
+   * Cuántos días de CALENDARIO hay de hoy al sorteo, en la zona del evento.
+   *
+   * Antes esto se calculaba restando milisegundos y dividiendo entre 24 h:
+   *
+   *     Math.ceil((sorteo - ahora) / 86400000)
+   *
+   * Eso no cuenta días, cuenta ratos de 24 horas. El 13 de noviembre a las
+   * 14:48, para un sorteo ese mismo 13 a las 21:30, faltaban 6 h 42 min:
+   * 0.28, que `Math.ceil` sube a 1, y el panel anunciaba «Mañana» el día de
+   * la rifa. Fallaba SIEMPRE que el sorteo era más tarde el mismo día, que
+   * es justo cuando el dato importa —y con dos rifas seguidas que se llaman
+   * igual, decirle «mañana» a la de hoy es como se revela la que no era—.
+   *
+   * Se comparan los días del calendario, no el tiempo que falta.
+   */
+  function diasDeCalendario(sorteo, ahora) {
+    var a = diaEnZona(ahora).split('-');
+    var b = diaEnZona(sorteo).split('-');
+    var medianocheHoy = Date.UTC(+a[0], a[1] - 1, +a[2]);
+    var medianocheSorteo = Date.UTC(+b[0], b[1] - 1, +b[2]);
+    return Math.round((medianocheSorteo - medianocheHoy) / 86400000);
+  }
+
   /**
    * Las cuatro cifras de arriba de la pestaña Sorteo. Todas salen de datos
    * reales de ESTA rifa —nada inventado ni de muestra—: lo que no se puede
@@ -163,8 +195,8 @@
     } else if (rifa.folio_ganador) {
       faltan.textContent = 'Revelada';
     } else {
-      var dias = Math.ceil((fechaSorteo.getTime() - Date.now()) / 86400000);
-      faltan.textContent = dias > 1 ? dias + ' días'
+      var dias = diasDeCalendario(fechaSorteo, new Date());
+      faltan.textContent = dias > 1 ? 'En ' + dias + ' días'
         : dias === 1 ? 'Mañana'
         : dias === 0 ? 'Hoy'
         : 'Ya pasó';
