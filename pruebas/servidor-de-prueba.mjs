@@ -91,6 +91,32 @@ rifas.push({
   diseno: { plantilla: PLANTILLA_BONO, caducidad: '1 día', columnas: 3, aviso: '' },
 });
 
+// Dos rifas gemelas con la plantilla angosta del cliente. La caducidad es un
+// campo libre de 40 caracteres que teclea el operador, y «20 & 21 nov» —una
+// rifa válida dos días— no tiene nada de rebuscado.
+//
+// Las dos dicen lo mismo y ocupan lo mismo en el papel: once caracteres. La
+// única diferencia es el «&». Si el pie se mide con el texto YA escapado,
+// «&amp;» cuenta cinco letras donde la impresora pinta una, el pie se cree
+// más lleno de lo que está y borra una caducidad que sí cabía. La gemela con
+// «y» es el testigo: lo que le pase a una tiene que pasarle a la otra.
+rifas.push({
+  id: 'bono-rara', nombre: 'BONO CADUCIDAD RARA', serie: 'AR', estado: 'espera',
+  activa: false, folio_ganador: null, fecha_sorteo: '2026-11-20T03:30:00Z',
+  revelado_en: null, creada_en: '2026-11-11T00:00:00Z', emision: null,
+  precio_boleto: 20, folios_por_boleto: 4, archivada: false,
+  transmision_url: null, transmite_desde: null,
+  diseno: { plantilla: PLANTILLA_BONO, caducidad: '20 & 21 nov', columnas: 3, aviso: '' },
+});
+rifas.push({
+  id: 'bono-llana', nombre: 'BONO CADUCIDAD LLANA', serie: 'AL', estado: 'espera',
+  activa: false, folio_ganador: null, fecha_sorteo: '2026-11-20T03:30:00Z',
+  revelado_en: null, creada_en: '2026-11-11T00:00:00Z', emision: null,
+  precio_boleto: 20, folios_por_boleto: 4, archivada: false,
+  transmision_url: null, transmite_desde: null,
+  diseno: { plantilla: PLANTILLA_BONO, caducidad: '20 y 21 nov', columnas: 3, aviso: '' },
+});
+
 rifas.push({
   id: 'suspendida', nombre: 'Rifa suspendida', serie: 'S', estado: 'cerrado',
   activa: false, folio_ganador: null, fecha_sorteo: '2025-06-01T18:00:00-06:00',
@@ -130,6 +156,8 @@ const boletos = {
       .map((n) => String(n).padStart(4, '0')),
   })),
   'esta-noche': [{ id: '9000008001', codigo: 'NOCH', folios: ['80001', '80002'] }],
+  'bono-rara': [{ id: '1009571480', codigo: 'RARA', folios: ['0101', '0102', '0103', '0104'] }],
+  'bono-llana': [{ id: '1009571481', codigo: 'LLAN', folios: ['0201', '0202', '0203', '0204'] }],
   generosa: [{
     id: '9000007001', codigo: 'NUE9',
     folios: ['70001', '70002', '70003', '70004', '70005', '70006', '70007', '70008', '70009'],

@@ -1157,7 +1157,11 @@
     // siempre va al pie, igual que en un boleto apretado de Suertudito.
     var fechasEnPie = apretado || !plantilla.fechas;
     var fechas = [];
-    if (d.caducidad) { fechas.push('Caducidad: ' + escapar(d.caducidad)); }
+    // En TEXTO LLANO a propósito: más abajo hay que MEDIR esto para saber
+    // si cabe, y el lienzo mediría «&amp;» como cinco letras en vez de
+    // una, inflando el ancho y pudiendo borrar una caducidad que sí cabía.
+    // Se escapa al escribir el HTML, que es donde hace falta.
+    if (d.caducidad) { fechas.push('Caducidad: ' + d.caducidad); }
     return '<article class="boleto' + (apretado ? ' apretado' : '') + '">' +
       numeros.map(function (f, i) {
         return '<div class="caja" style="left: ' + lugares[i].izq + '%; top: ' +
@@ -1166,7 +1170,7 @@
       '<div class="qr">' + qrSvg(url) + '</div>' +
       // Siempre se pinta, aunque no haya fechas que mostrar: la foto trae
       // una muestra justo ahí y hay que taparla sin excepción.
-      (!fechasEnPie ? '<div class="fechas">' + fechas.join('<br />') + '</div>' : '') +
+      (!fechasEnPie ? '<div class="fechas">' + fechas.map(escapar).join('<br />') + '</div>' : '') +
       // Igual el precio: las dos fotos traen un «$20» de muestra ahí.
       '<div class="precio">' + escapar(precio || '') + '</div>' +
       pieHtml(boleto, fechasEnPie ? fechas.join(' · ') : '', plantilla.pie,
@@ -1176,6 +1180,10 @@
 
   /**
    * El pie del boleto: folio, caducidad y código, al tamaño que quepa.
+   *
+   * `fechas` entra en TEXTO LLANO, sin escapar: aquí se mide, y se escapa al
+   * final. Pasarle HTML ya hecho haría que una caducidad con un «&» o unas
+   * comillas se midiera varias veces más ancha de lo que de verdad ocupa.
    *
    * El tamaño va EN LÍNEA y no en la hoja de estilos porque depende de lo
    * que haya que escribir —un código de cuatro letras y una caducidad de
@@ -1191,7 +1199,7 @@
     return '<div class="pie" style="font-size: calc(var(--u) * ' +
       cabe.tam.toFixed(2) + ')">' +
       '<span class="serial">' + escapar(serial) + '</span>' +
-      (cabe.fechas ? '<span class="fechas-pie">' + cabe.fechas + '</span>' : '') +
+      (cabe.fechas ? '<span class="fechas-pie">' + escapar(cabe.fechas) + '</span>' : '') +
       '<span class="codigo">' + escapar(codigo) + '</span>' +
       '</div>';
   }

@@ -218,7 +218,7 @@ const tarjetas = await pagina.$$('#listaRifas .rifa');
 // Son las rifas sin archivar del servidor de prueba. El número va a mano a
 // propósito: si alguien añade una al montaje y no lo actualiza, esta prueba
 // lo dice, que es justo lo que se quiere de una lista que debe salir entera.
-ok('lista todo el historial', tarjetas.length === 7, tarjetas.length + ' tarjetas');
+ok('lista todo el historial', tarjetas.length === 9, tarjetas.length + ' tarjetas');
 ok('marca cuál se está manejando', await pagina.isVisible('#listaRifas .rifa.manejando'));
 const textoVieja = await pagina.locator('.rifa', { hasText: 'Rifa de estreno' }).textContent();
 ok('la rifa vieja conserva su ganador', textoVieja.includes('Ganador: Z-90001'), textoVieja.trim().replace(/\s+/g,' '));
@@ -361,8 +361,8 @@ ok('lo dice en voz alta',
    await pagina.textContent('#mensaje'));
 
 await pagina.click('.pestana[data-panel="paneRifas"]');
-await pagina.waitForSelector('#listaRifas .rifa:nth-child(8)');
-ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 8);
+await pagina.waitForSelector('#listaRifas .rifa:nth-child(10)');
+ok('la rifa nueva entra al historial', (await pagina.$$('#listaRifas .rifa')).length === 10);
 ok('y queda marcada como la que se maneja',
    (await pagina.locator('.rifa.manejando').textContent()).includes('Rifa de prueba'),
    (await pagina.locator('.rifa.manejando').textContent()).replace(/\s+/g, ' ').slice(0, 60));
@@ -1376,8 +1376,65 @@ await ctxD.close();
 
   const fueraP = await fuera(hojaP, '.pie span');
   ok('nada del pie se sale del boleto', fueraP.length === 0, fueraP.join(' | '));
-
   await hojaP.close();
+
+  // La caducidad la teclea el operador y puede traer un «&»: «20 & 21 nov»
+  // es una rifa válida dos días. Hay que ESCAPARLA al escribir el HTML, pero
+  // NO al medir: «&amp;» son cinco letras donde la impresora pinta una, y con
+  // esta plantilla angosta esa diferencia basta para que el pie se crea
+  // demasiado lleno y BORRE una caducidad que sí cabía.
+  //
+  // Por eso se comparan dos rifas gemelas que solo se diferencian en el «&»
+  // frente a una «y». En el papel ocupan lo mismo, así que tienen que salir
+  // igual; si una desaparece y la otra no, es que se midió el escape.
+  const pieDe = async (nombre) => {
+    await pp.click('.pestana[data-panel="paneRifas"]');
+    await pp.waitForSelector('#listaRifas .rifa');
+    const [h] = await Promise.all([
+      ctxP.waitForEvent('page'),
+      pp.locator('.rifa', { hasText: nombre }).getByText('Hoja de boletos').click(),
+    ]);
+    await h.waitForLoadState('domcontentloaded');
+    await h.waitForSelector('.boleto .pie');
+    const r = await h.evaluate(() => {
+      const f = document.querySelector('.boleto .fechas-pie');
+      const caja = document.querySelector('.boleto .pie');
+      return { texto: f ? f.textContent : '', html: f ? f.innerHTML : '',
+               fuente: parseFloat(getComputedStyle(caja).fontSize).toFixed(2) };
+    });
+    const desbordado = await fuera(h, '.pie span');
+    await h.close();
+    return { ...r, desbordado };
+  };
+
+  const conAmpersand = await pieDe('BONO CADUCIDAD RARA');
+  const conYe = await pieDe('BONO CADUCIDAD LLANA');
+
+  ok('una caducidad con «&» se imprime, no desaparece por medirse escapada',
+     conAmpersand.texto.indexOf('20 & 21 nov') !== -1,
+     conAmpersand.texto || '(no se imprimió la caducidad)');
+  // El testigo: la gemela sin «&» dice lo mismo y ocupa casi lo mismo, así
+  // que tiene que salir con el mismo recorte y a un tamaño parecido. Esto es
+  // lo que de verdad ata el error, porque no depende de dónde estén puestos
+  // los topes: si un día se mueven, las dos se mueven juntas.
+  //
+  // «Parecido» y no idéntico a propósito: el «&» es un pelo más ancho que la
+  // «y» de verdad, y eso son décimas. Lo que no puede pasar es que una se
+  // mida como cinco letras —que es la diferencia entre que salga y que no—.
+  const fuenteA = parseFloat(conAmpersand.fuente);
+  const fuenteY = parseFloat(conYe.fuente);
+  const desvio = Math.abs(fuenteA - fuenteY) / fuenteY;
+  ok('y sale igual que su gemela sin «&»: mismo texto y prácticamente el mismo tamaño',
+     conAmpersand.texto.replace(' & ', ' y ') === conYe.texto && desvio < 0.03,
+     '«' + conAmpersand.texto + '» a ' + conAmpersand.fuente + 'px  vs  «' +
+     conYe.texto + '» a ' + conYe.fuente + 'px  (' +
+     (desvio * 100).toFixed(1) + ' % de diferencia)');
+  // Pero en el HTML sí va escapada: si no, un «&» suelto puede comerse lo que
+  // venga detrás al interpretarse como entidad.
+  ok('y aun así se escribe escapada en el HTML, no cruda',
+     conAmpersand.html.indexOf('&amp;') !== -1, conAmpersand.html);
+  ok('y tampoco esa se sale del boleto',
+     conAmpersand.desbordado.length === 0, conAmpersand.desbordado.join(' | '));
   ok('sin errores de JavaScript en la hoja del cliente', errP.length === 0, errP.join(' | '));
   await ctxP.close();
 }
